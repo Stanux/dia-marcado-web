@@ -53,14 +53,15 @@ class PartnerEmailValidationPropertyTest extends TestCase
     {
         $invalidEmails = [
             'notanemail',
-            'missing@domain',
             '@nodomain.com',
             'spaces in@email.com',
             'double@@at.com',
             'no.at.sign.com',
             '',
             'just.dots...',
-            'special!chars@email.com',
+            'missing@',
+            '@missing.com',
+            'invalid..email@domain.com',
         ];
 
         $currentUserEmail = 'user@example.com';

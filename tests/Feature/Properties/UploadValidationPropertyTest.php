@@ -45,6 +45,8 @@ class UploadValidationPropertyTest extends TestCase
         SystemConfig::set('site.allowed_extensions', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm']);
         SystemConfig::set('site.blocked_extensions', ['exe', 'bat', 'sh', 'php', 'js', 'html']);
         SystemConfig::set('site.max_file_size', 10485760); // 10MB
+        SystemConfig::set('media.max_image_size', 10485760); // 10MB for images
+        SystemConfig::set('media.max_video_size', 104857600); // 100MB for videos
     }
 
     /**
@@ -268,7 +270,13 @@ class UploadValidationPropertyTest extends TestCase
     public function property_oversized_files_always_rejected(): void
     {
         // Generate 100 random test cases with oversized files
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm'];
+        $testCases = [
+            // Images - over 10MB
+            ['extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp'], 'sizes' => [11 * 1024, 12 * 1024, 15 * 1024, 20 * 1024]],
+            // Videos - over 100MB  
+            ['extensions' => ['mp4', 'webm'], 'sizes' => [101 * 1024, 110 * 1024, 120 * 1024, 150 * 1024]],
+        ];
+        
         $mimeTypes = [
             'jpg' => 'image/jpeg',
             'jpeg' => 'image/jpeg',
@@ -279,14 +287,12 @@ class UploadValidationPropertyTest extends TestCase
             'webm' => 'video/webm',
         ];
         $filenames = ['photo', 'image', 'video', 'media', 'upload'];
-        
-        // Sizes over 10MB (in KB)
-        $oversizedKb = [11 * 1024, 12 * 1024, 15 * 1024, 20 * 1024, 50 * 1024];
 
         for ($i = 0; $i < 100; $i++) {
-            $extension = $allowedExtensions[array_rand($allowedExtensions)];
+            $testCase = $testCases[array_rand($testCases)];
+            $extension = $testCase['extensions'][array_rand($testCase['extensions'])];
             $filename = $filenames[array_rand($filenames)];
-            $size = $oversizedKb[array_rand($oversizedKb)];
+            $size = $testCase['sizes'][array_rand($testCase['sizes'])];
             $mime = $mimeTypes[$extension];
             
             $file = UploadedFile::fake()->create("{$filename}.{$extension}", $size, $mime);
@@ -295,7 +301,7 @@ class UploadValidationPropertyTest extends TestCase
             
             $this->assertFalse(
                 $result->isValid(),
-                "Iteration {$i}: Oversized file ({$size}KB) should always be rejected"
+                "Iteration {$i}: Oversized file ({$size}KB, {$extension}) should always be rejected"
             );
         }
     }
@@ -361,7 +367,7 @@ class UploadValidationPropertyTest extends TestCase
         $this->assertTrue($result->isValid(), 'PDF should be accepted after config change');
 
         // Reduce max file size
-        SystemConfig::set('site.max_file_size', 1048576); // 1MB
+        SystemConfig::set('media.max_image_size', 1048576); // 1MB
         
         $largeFile = UploadedFile::fake()->create('large.jpg', 2048, 'image/jpeg'); // 2MB
         $result = $this->service->validateFile($largeFile);
