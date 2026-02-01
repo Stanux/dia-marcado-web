@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Onboarding - Destaque visual para campo de data do casamento */
+.wedding-date-highlight {
+    @apply ring-2 ring-pink-500 ring-offset-2 rounded-lg;
+}
+
+.wedding-date-highlight .fi-fo-field-wrp-label {
+    @apply text-pink-600 dark:text-pink-400 font-semibold;
+}
+
+.wedding-date-highlight .fi-input {
+    @apply border-pink-300 dark:border-pink-600 focus:border-pink-500 focus:ring-pink-500;
+}
+
+.wedding-date-highlight .fi-fo-placeholder {
+    @apply bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-700;
+}
