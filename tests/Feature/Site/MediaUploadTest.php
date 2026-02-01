@@ -344,8 +344,10 @@ class MediaUploadTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonStructure([
             'data' => [
-                'used',
-                'limit',
+                'used_bytes',
+                'limit_bytes',
+                'used_mb',
+                'limit_mb',
                 'percentage',
             ],
         ]);
