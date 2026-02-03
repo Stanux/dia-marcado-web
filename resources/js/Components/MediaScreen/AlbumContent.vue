@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col w-full h-full overflow-hidden bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm">
+  <div class="flex flex-col w-full h-full overflow-hidden rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10">
     <!-- Selection bar (sticky at top) -->
     <MediaSelectionBar
       v-if="isSelectionMode"
