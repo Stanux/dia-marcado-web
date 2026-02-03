@@ -49,6 +49,11 @@ export function useMediaSelection(): UseMediaSelectionReturn {
     
     // Trigger reactivity
     selectedMediaIds.value = new Set(selectedMediaIds.value);
+    
+    // Auto-exit selection mode when no items are selected
+    if (selectedMediaIds.value.size === 0 && isSelectionMode.value) {
+      isSelectionMode.value = false;
+    }
   };
 
   /**
