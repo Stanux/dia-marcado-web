@@ -223,8 +223,6 @@ const handleCreateAlbumSubmit = async (data: { name: string; type: string }): Pr
     
     // Show success notification
     showNotification(`Álbum "${newAlbum.name}" criado com sucesso!`, 'success');
-    
-    console.log(`Album "${newAlbum.name}" created successfully`);
   } catch (error: any) {
     // Show error notification
     showNotification(`Erro ao criar álbum: ${error.message}`, 'error');
@@ -267,8 +265,6 @@ const handleUpdateAlbumSubmit = async (data: { id: string; name: string; type: s
     
     // Show success notification
     showNotification(`Álbum "${updatedAlbum.name}" atualizado com sucesso!`, 'success');
-    
-    console.log(`Album "${updatedAlbum.name}" updated successfully`);
   } catch (error: any) {
     // Show error notification
     showNotification(`Erro ao atualizar álbum: ${error.message}`, 'error');
@@ -312,8 +308,6 @@ const handleDeleteAlbumConfirm = async (albumId: string): Promise<void> => {
     
     // Show success notification
     showNotification(`Álbum "${albumName}" excluído com sucesso!`, 'success');
-    
-    console.log(`Album "${albumName}" deleted successfully`);
   } catch (error: any) {
     // Show error notification
     showNotification(`Erro ao excluir álbum: ${error.message}`, 'error');
@@ -347,8 +341,6 @@ const handleMediaUploaded = (uploadedMedia: Media[]): void => {
   
   // Update media count
   selectedAlbum.value.media_count += uploadedMedia.length;
-  
-  console.log(`${uploadedMedia.length} media item(s) added to album ${selectedAlbum.value.id}`);
 };
 
 /**
@@ -380,8 +372,6 @@ const handleMediaDeleted = async (mediaId: string): Promise<void> => {
     
     // Show success notification
     showNotification('Mídia excluída com sucesso!', 'success');
-    
-    console.log(`Media ${mediaId} deleted from album ${selectedAlbum.value.id}`);
   } catch (error: any) {
     // Show error notification
     const errorMessage = error.message || 'Erro ao excluir mídia';
@@ -422,11 +412,9 @@ const handleMediaMoved = (mediaIds: string[], targetAlbumId: string): void => {
       album_id: targetAlbumId
     }));
     
-    // Add moved media to target album (use concat for better reactivity)
+    // Add moved media to target album (use spread for better reactivity)
     targetAlbum.media = [...targetAlbum.media, ...updatedMedia];
     targetAlbum.media_count += mediaIds.length;
   }
-  
-  console.log(`${mediaIds.length} media item(s) moved from album ${selectedAlbum.value.id} to ${targetAlbumId}`);
 };
 </script>

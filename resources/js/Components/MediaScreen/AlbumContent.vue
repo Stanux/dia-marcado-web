@@ -144,14 +144,13 @@ const deleteConfirmMessage = computed(() => {
  * Handle upload started event from UploadArea
  */
 const handleUploadStarted = (files: File[]): void => {
-  console.log(`Upload started for ${files.length} file(s) to album ${props.album.id}`);
+  // Upload started - no action needed
 };
 
 /**
  * Handle upload completed event from UploadArea
  */
 const handleUploadCompleted = (media: Media[]): void => {
-  console.log(`Upload completed: ${media.length} media item(s) added to album ${props.album.id}`);
   emit('media-uploaded', media);
 };
 
@@ -166,7 +165,6 @@ const handleUploadFailed = (error: UploadError): void => {
  * Handle delete media event from MediaGallery
  */
 const handleDeleteMedia = (mediaId: string): void => {
-  console.log(`Delete media requested: ${mediaId} from album ${props.album.id}`);
   emit('media-deleted', mediaId);
 };
 
@@ -264,7 +262,6 @@ const handleConfirmDelete = async (): Promise<void> => {
     const mediaIds = Array.from(selectedMediaIds.value);
     
     // TODO: Implement API call to delete multiple media
-    console.log('Deleting media:', mediaIds);
     
     showNotification(
       `${mediaIds.length} foto(s) excluída(s) com sucesso`,
