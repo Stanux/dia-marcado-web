@@ -95,7 +95,7 @@ export interface AlbumContentProps {
 }
 
 export interface UploadAreaProps {
-  albumId: number;
+  albumId: string; // UUID
 }
 
 export interface MediaGalleryProps {
