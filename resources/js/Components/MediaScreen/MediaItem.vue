@@ -203,6 +203,16 @@ function handleCancelDelete(): void {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
+/* Mostrar checkbox no hover */
+.media-item:hover .media-checkbox-container {
+  opacity: 1;
+}
+
+/* Sempre mostrar checkbox quando selecionado */
+.media-item.selected .media-checkbox-container {
+  opacity: 1 !important;
+}
+
 .media-item.selected:hover {
   transform: scale(0.95) translateY(-2px);
 }

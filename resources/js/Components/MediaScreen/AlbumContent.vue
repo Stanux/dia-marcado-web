@@ -172,14 +172,11 @@ const handleDeleteMedia = (mediaId: string): void => {
  * Handle toggle selection event from MediaGallery
  */
 const handleToggleSelection = (mediaId: string): void => {
-  if (mediaId === '') {
-    // Empty string signals entering selection mode
+  // Toggle specific media selection
+  if (!isSelectionMode.value && mediaId !== '') {
     enterSelectionMode();
-  } else {
-    // Toggle specific media selection
-    if (!isSelectionMode.value) {
-      enterSelectionMode();
-    }
+  }
+  if (mediaId !== '') {
     toggleSelection(mediaId);
   }
 };

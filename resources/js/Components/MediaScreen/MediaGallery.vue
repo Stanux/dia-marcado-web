@@ -1,28 +1,8 @@
 <template>
   <div class="media-gallery">
-    <!-- Selection mode toggle button -->
-    <div v-if="media.length > 0 && !isSelectionMode" class="gallery-header">
-      <button
-        type="button"
-        class="selection-mode-btn"
-        @click="handleEnterSelectionMode"
-      >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke-width="1.5" 
-          stroke="currentColor" 
-          class="btn-icon"
-        >
-          <path 
-            stroke-linecap="round" 
-            stroke-linejoin="round" 
-            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-          />
-        </svg>
-        Selecionar fotos
-      </button>
+    <!-- Grid size control -->
+    <div v-if="media.length > 0" class="gallery-header">
+      <GridSizeControl v-model="gridColumns" />
     </div>
 
     <!-- Empty state when no media -->
@@ -50,7 +30,7 @@
     </div>
 
     <!-- Gallery grid when media exists -->
-    <div v-else class="gallery-grid">
+    <div v-else class="gallery-grid" :style="gridStyle">
       <MediaItem
         v-for="item in media"
         :key="item.id"
@@ -66,25 +46,27 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from 'vue';
 import type { MediaGalleryProps, MediaGalleryEvents } from '@/types/media-screen';
 import MediaItem from './MediaItem.vue';
+import GridSizeControl from './GridSizeControl.vue';
 
 /**
  * MediaGallery Component
  * 
  * Displays a responsive grid of media items (images and videos) from the selected album.
- * Uses CSS Grid for automatic responsive layout that adjusts columns based on available width.
+ * Uses CSS Grid with adjustable column count (4-8 columns).
  * Shows an empty state with instructions when no media is present.
  * Integrates with useMediaGallery composable for media operations.
- * Supports selection mode for bulk operations.
+ * Supports direct selection via checkbox on hover.
  * 
- * @Requirements: 6.1, 6.2, 6.4, 6.5, 8.2, Fase 1
+ * @Requirements: 6.1, 6.2, 6.4, 6.5, 8.2, Fase 1 (melhorada)
  * - Requisito 6.1: Display media from selected album in responsive grid
  * - Requisito 6.2: Display media thumbnails
  * - Requisito 6.4: Organize media in grid in lower section of right column when album contains media
  * - Requisito 6.5: Automatically adjust number of columns based on available width
  * - Requisito 8.2: Display empty state with clear instructions when album has no media
- * - Fase 1: Selection mode toggle
+ * - Fase 1: Selection mode with checkbox always visible on hover
  */
 
 interface ExtendedMediaGalleryProps extends MediaGalleryProps {
@@ -98,6 +80,14 @@ const props = withDefaults(defineProps<ExtendedMediaGalleryProps>(), {
 });
 
 const emit = defineEmits<MediaGalleryEvents>();
+
+// Grid columns control (4-8)
+const gridColumns = ref(4);
+
+// Computed style for grid
+const gridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${gridColumns.value}, 1fr)`
+}));
 
 /**
  * Handle delete event from MediaItem
@@ -128,15 +118,6 @@ function handleToggleSelection(mediaId: string): void {
 function handleMove(mediaId: string): void {
   emit('move-media', mediaId);
 }
-
-/**
- * Handle enter selection mode button click
- * Emits toggle-selection event to activate selection mode
- */
-function handleEnterSelectionMode(): void {
-  // Emit with empty string to signal entering selection mode
-  emit('toggle-selection', '');
-}
 </script>
 
 <style scoped>
@@ -153,44 +134,9 @@ function handleEnterSelectionMode(): void {
   padding: 1rem 1rem 0.5rem;
 }
 
-.selection-mode-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-}
-
-.selection-mode-btn:hover {
-  background-color: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.selection-mode-btn:active {
-  transform: translateY(0);
-}
-
-.btn-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-/* Gallery grid - responsive CSS Grid layout */
+/* Gallery grid - controlled by gridColumns */
 .gallery-grid {
   display: grid;
-  /* Automatically adjust columns based on available width
-   * Minimum column width: 150px, Maximum: 1fr (equal distribution)
-   * This satisfies Requisito 6.5: automatic column adjustment
-   */
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 1rem;
   padding: 1rem;
   width: 100%;
@@ -199,7 +145,6 @@ function handleEnterSelectionMode(): void {
 /* Responsive adjustments for different screen sizes */
 @media (min-width: 640px) {
   .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 1.25rem;
     padding: 1.25rem;
   }
@@ -207,21 +152,8 @@ function handleEnterSelectionMode(): void {
 
 @media (min-width: 768px) {
   .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 1.5rem;
     padding: 1.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   }
 }
 
@@ -280,16 +212,6 @@ function handleEnterSelectionMode(): void {
 
   .empty-message {
     font-size: 0.8125rem;
-  }
-
-  .selection-mode-btn {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8125rem;
-  }
-
-  .btn-icon {
-    width: 1rem;
-    height: 1rem;
   }
 }
 </style>

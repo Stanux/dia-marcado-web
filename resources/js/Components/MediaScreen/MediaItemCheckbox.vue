@@ -1,6 +1,5 @@
 <template>
   <div 
-    v-if="isSelectionMode || isSelected"
     class="media-checkbox-container"
     @click.stop="handleToggle"
   >
@@ -63,24 +62,32 @@ function handleToggle(): void {
   left: 0.5rem;
   z-index: 10;
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Sempre visível quando selecionado */
+.checkbox.checked ~ .media-checkbox-container,
+.media-checkbox-container:has(.checkbox.checked) {
+  opacity: 1 !important;
 }
 
 .checkbox {
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 0.375rem;
+  border-radius: 50%;
   border: 2px solid white;
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease-in-out;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .checkbox:hover {
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.6);
   transform: scale(1.1);
 }
 
