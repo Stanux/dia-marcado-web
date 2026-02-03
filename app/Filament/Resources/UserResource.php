@@ -21,11 +21,15 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $navigationGroup = 'Gestão';
+    protected static ?string $navigationLabel = 'Usuários';
+
+    protected static ?string $navigationGroup = 'CASAMENTO';
 
     protected static ?string $modelLabel = 'Usuário';
 
     protected static ?string $pluralModelLabel = 'Usuários';
+
+    protected static ?int $navigationSort = 7;
 
     public static function form(Form $form): Form
     {

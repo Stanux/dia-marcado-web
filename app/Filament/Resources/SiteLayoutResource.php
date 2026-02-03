@@ -26,7 +26,9 @@ class SiteLayoutResource extends WeddingScopedResource
 
     protected static ?string $navigationIcon = 'heroicon-o-globe-alt';
 
-    protected static ?string $navigationGroup = 'Site';
+    protected static ?string $navigationGroup = 'CASAMENTO';
+
+    protected static ?string $navigationLabel = 'Editor do Site';
 
     protected static ?string $module = 'sites';
 
@@ -34,7 +36,7 @@ class SiteLayoutResource extends WeddingScopedResource
 
     protected static ?string $pluralModelLabel = 'Sites';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {
@@ -181,6 +183,11 @@ class SiteLayoutResource extends WeddingScopedResource
             'index' => Pages\ListSiteLayouts::route('/'),
             'edit' => Pages\EditSiteLayout::route('/{record}/edit'),
         ];
+    }
+
+    public static function getSlug(): string
+    {
+        return 'site-layouts';
     }
 
     public static function getNavigationBadge(): ?string

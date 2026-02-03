@@ -41,6 +41,8 @@ class MediaUpload extends Page implements HasForms
 
     protected static string $view = 'filament.pages.media-upload';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     // Native Livewire file upload property
     public $files = [];
     
@@ -453,6 +455,6 @@ class MediaUpload extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess();
+        return false;
     }
 }

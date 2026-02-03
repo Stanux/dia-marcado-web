@@ -34,6 +34,8 @@ class MediaSettings extends Page implements HasForms
 
     protected static string $view = 'filament.pages.media-settings';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public ?array $data = [];
 
     public function mount(): void
@@ -146,6 +148,6 @@ class MediaSettings extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess();
+        return false;
     }
 }

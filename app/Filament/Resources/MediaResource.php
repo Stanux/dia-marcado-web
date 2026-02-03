@@ -36,6 +36,8 @@ class MediaResource extends Resource
 
     protected static ?int $navigationSort = 40;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Form $form): Form
     {
         return $form
@@ -247,6 +249,6 @@ class MediaResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess();
+        return false;
     }
 }

@@ -26,13 +26,15 @@ class AlbumResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-folder';
 
-    protected static ?string $navigationGroup = 'Mídia';
+    protected static ?string $navigationGroup = 'CASAMENTO';
+
+    protected static ?string $navigationLabel = 'Álbuns';
 
     protected static ?string $modelLabel = 'Álbum';
 
     protected static ?string $pluralModelLabel = 'Álbuns';
 
-    protected static ?int $navigationSort = 30;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
@@ -161,10 +163,5 @@ class AlbumResource extends Resource
 
         $role = $user->roleIn($wedding);
         return in_array($role, ['couple', 'organizer']);
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return static::canAccess();
     }
 }

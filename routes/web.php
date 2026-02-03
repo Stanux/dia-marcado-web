@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\AlbumController;
 use App\Http\Controllers\Auth\FilamentLoginController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\MediaScreenController;
 use App\Http\Controllers\PublicSiteController;
 use App\Models\SiteLayout;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +42,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Site Editor routes (Inertia-based)
 Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function () {
+    // Media Screen routes
+    Route::get('/midias', [MediaScreenController::class, 'index'])->name('midias.index');
+    Route::post('/albums', [AlbumController::class, 'store'])->name('albums.store');
+    Route::put('/albums/{id}', [AlbumController::class, 'update'])->name('albums.update');
+    Route::delete('/albums/{id}', [AlbumController::class, 'destroy'])->name('albums.destroy');
+    Route::post('/media/upload', [MediaController::class, 'upload'])->name('media.upload');
+    Route::delete('/media/{id}', [MediaController::class, 'destroy'])->name('media.destroy');
+    
     // Create new site - creates site and redirects to editor
     Route::get('/sites/create', function () {
         $user = auth()->user();

@@ -38,13 +38,17 @@ class WeddingSettings extends Page implements HasForms
 
     protected static string $view = 'filament.pages.wedding-settings';
 
-    protected static ?string $navigationLabel = 'Configurações';
+    protected static ?string $navigationLabel = 'Dados do Evento';
 
-    protected static ?string $title = 'Configurações do Casamento';
+    protected static ?string $title = 'Dados do Evento';
 
     protected static ?string $slug = 'wedding-settings';
 
-    protected static ?int $navigationSort = 100;
+    protected static ?string $navigationGroup = 'CASAMENTO';
+
+    protected static ?int $navigationSort = 20;
+
+    protected static bool $shouldRegisterNavigation = false;
 
     public ?array $data = [];
 
@@ -76,7 +80,6 @@ class WeddingSettings extends Page implements HasForms
             'venue_address' => $wedding->settings['venue_address'] ?? null,
             'venue_neighborhood' => $wedding->settings['venue_neighborhood'] ?? null,
             'venue_phone' => $wedding->settings['venue_phone'] ?? null,
-            'plan' => $wedding->settings['plan'] ?? 'basic',
         ], $partnerData));
     }
 
@@ -183,7 +186,6 @@ class WeddingSettings extends Page implements HasForms
             ->schema([
                 $this->getWeddingDateSection(),
                 $this->getVenueSection(),
-                $this->getPlanSection(),
                 $this->getPartnerSection(),
             ])
             ->statePath('data');

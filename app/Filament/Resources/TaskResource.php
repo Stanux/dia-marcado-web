@@ -24,13 +24,17 @@ class TaskResource extends WeddingScopedResource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationGroup = 'Gestão';
+    protected static ?string $navigationLabel = 'Plano de Tarefas';
+
+    protected static ?string $navigationGroup = 'CASAMENTO';
 
     protected static ?string $module = 'tasks';
 
     protected static ?string $modelLabel = 'Tarefa';
 
     protected static ?string $pluralModelLabel = 'Tarefas';
+
+    protected static ?int $navigationSort = 6;
 
     public static function form(Form $form): Form
     {
@@ -161,5 +165,10 @@ class TaskResource extends WeddingScopedResource
             'create' => Pages\CreateTask::route('/create'),
             'edit' => Pages\EditTask::route('/{record}/edit'),
         ];
+    }
+
+    public static function getSlug(): string
+    {
+        return 'plan-tasks';
     }
 }
