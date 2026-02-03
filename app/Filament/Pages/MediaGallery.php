@@ -29,10 +29,37 @@ class MediaGallery extends Page
     protected static string $view = 'filament.pages.media-gallery';
 
     protected static ?string $slug = 'media-gallery';
+    
+    // Ícone quando a página está ativa
+    protected static ?string $activeNavigationIcon = 'heroicon-s-photo';
+    
+    /**
+     * Força o item do menu a ser reconhecido como ativo
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return true;
+    }
 
     public static function getNavigationLabel(): string
     {
         return 'Galeria de Mídias';
+    }
+    
+    /**
+     * Retorna a URL da página para o Filament identificar corretamente
+     */
+    public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?\Illuminate\Database\Eloquent\Model $tenant = null): string
+    {
+        return parent::getUrl($parameters, $isAbsolute, $panel, $tenant);
+    }
+    
+    /**
+     * Garante que o Filament reconheça esta página como ativa
+     */
+    public static function getNavigationUrl(): string
+    {
+        return static::getUrl();
     }
 
     public function getTitle(): string|Htmlable
