@@ -1,5 +1,5 @@
 <template>
-  <aside class="flex flex-col w-64 h-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+  <aside class="flex flex-col w-64 h-full bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm">
     <div class="flex-1 overflow-y-auto p-2 space-y-1">
       <AlbumItem
         v-for="album in albums"
@@ -12,7 +12,7 @@
       />
     </div>
     <button 
-      class="flex items-center justify-center gap-2 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-100 dark:active:bg-blue-900/30 transition-colors cursor-pointer"
+      class="flex items-center justify-center gap-2 p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-900 active:bg-blue-100 dark:active:bg-gray-800 transition-colors cursor-pointer"
       @click="$emit('create-album')"
       type="button"
     >
