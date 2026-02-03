@@ -13,7 +13,7 @@
         />
         
         <!-- Right Column: Album Content or Empty State -->
-        <div v-if="!selectedAlbum" class="flex flex-col w-full h-full overflow-y-auto p-6 bg-white dark:bg-gray-900">
+        <div v-if="!selectedAlbum" class="flex flex-col w-full h-full overflow-y-auto p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
           <!-- Disabled Upload Area (same visual as real UploadArea) -->
           <div class="w-full flex-shrink-0 mb-8">
             <div class="w-full mb-8 opacity-50 pointer-events-none">

@@ -1,5 +1,5 @@
 <template>
-  <aside class="flex flex-col w-64 h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
+  <aside class="flex flex-col w-64 h-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
     <div class="flex-1 overflow-y-auto p-2 space-y-1">
       <AlbumItem
         v-for="album in albums"
