@@ -35,7 +35,15 @@ export function useAlbums(initialAlbums: Album[]): UseAlbumsReturn {
    */
   const selectAlbum = (albumId: string): void => {
     const album = albums.value.find(a => a.id === albumId);
-    selectedAlbum.value = album || null;
+    if (album) {
+      // Ensure media array exists
+      if (!album.media) {
+        album.media = [];
+      }
+      selectedAlbum.value = album;
+    } else {
+      selectedAlbum.value = null;
+    }
   };
 
   /**

@@ -1,5 +1,30 @@
 <template>
   <div class="media-gallery">
+    <!-- Selection mode toggle button -->
+    <div v-if="media.length > 0 && !isSelectionMode" class="gallery-header">
+      <button
+        type="button"
+        class="selection-mode-btn"
+        @click="handleEnterSelectionMode"
+      >
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke-width="1.5" 
+          stroke="currentColor" 
+          class="btn-icon"
+        >
+          <path 
+            stroke-linecap="round" 
+            stroke-linejoin="round" 
+            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+          />
+        </svg>
+        Selecionar fotos
+      </button>
+    </div>
+
     <!-- Empty state when no media -->
     <div v-if="media.length === 0" class="empty-state">
       <div class="empty-icon">
@@ -30,7 +55,11 @@
         v-for="item in media"
         :key="item.id"
         :media="item"
+        :is-selected="isSelected(item.id)"
+        :is-selection-mode="isSelectionMode"
         @delete="handleDelete"
+        @toggle-selection="handleToggleSelection"
+        @move="handleMove"
       />
     </div>
   </div>
@@ -47,16 +76,26 @@ import MediaItem from './MediaItem.vue';
  * Uses CSS Grid for automatic responsive layout that adjusts columns based on available width.
  * Shows an empty state with instructions when no media is present.
  * Integrates with useMediaGallery composable for media operations.
+ * Supports selection mode for bulk operations.
  * 
- * @Requirements: 6.1, 6.2, 6.4, 6.5, 8.2
+ * @Requirements: 6.1, 6.2, 6.4, 6.5, 8.2, Fase 1
  * - Requisito 6.1: Display media from selected album in responsive grid
  * - Requisito 6.2: Display media thumbnails
  * - Requisito 6.4: Organize media in grid in lower section of right column when album contains media
  * - Requisito 6.5: Automatically adjust number of columns based on available width
  * - Requisito 8.2: Display empty state with clear instructions when album has no media
+ * - Fase 1: Selection mode toggle
  */
 
-const props = defineProps<MediaGalleryProps>();
+interface ExtendedMediaGalleryProps extends MediaGalleryProps {
+  isSelectionMode?: boolean;
+  isSelected?: (mediaId: string) => boolean;
+}
+
+const props = withDefaults(defineProps<ExtendedMediaGalleryProps>(), {
+  isSelectionMode: false,
+  isSelected: () => false
+});
 
 const emit = defineEmits<MediaGalleryEvents>();
 
@@ -66,8 +105,37 @@ const emit = defineEmits<MediaGalleryEvents>();
  * 
  * @param mediaId - ID of the media to delete
  */
-function handleDelete(mediaId: number): void {
+function handleDelete(mediaId: string): void {
   emit('delete-media', mediaId);
+}
+
+/**
+ * Handle toggle selection event from MediaItem
+ * Emits toggle-selection event to parent component
+ * 
+ * @param mediaId - ID of the media to toggle selection
+ */
+function handleToggleSelection(mediaId: string): void {
+  emit('toggle-selection', mediaId);
+}
+
+/**
+ * Handle move event from MediaItem
+ * Emits move-media event to parent component
+ * 
+ * @param mediaId - ID of the media to move
+ */
+function handleMove(mediaId: string): void {
+  emit('move-media', mediaId);
+}
+
+/**
+ * Handle enter selection mode button click
+ * Emits toggle-selection event to activate selection mode
+ */
+function handleEnterSelectionMode(): void {
+  // Emit with empty string to signal entering selection mode
+  emit('toggle-selection', '');
 }
 </script>
 
@@ -75,6 +143,44 @@ function handleDelete(mediaId: number): void {
 .media-gallery {
   width: 100%;
   min-height: 200px;
+}
+
+/* Gallery header */
+.gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 1rem 1rem 0.5rem;
+}
+
+.selection-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.selection-mode-btn:hover {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.selection-mode-btn:active {
+  transform: translateY(0);
+}
+
+.btn-icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 /* Gallery grid - responsive CSS Grid layout */
@@ -174,6 +280,16 @@ function handleDelete(mediaId: number): void {
 
   .empty-message {
     font-size: 0.8125rem;
+  }
+
+  .selection-mode-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .btn-icon {
+    width: 1rem;
+    height: 1rem;
   }
 }
 </style>

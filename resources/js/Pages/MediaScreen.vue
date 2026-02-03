@@ -56,6 +56,7 @@
           <AlbumContent
             v-else
             :album="selectedAlbum"
+            :albums="albums"
             @media-uploaded="handleMediaUploaded"
             @media-deleted="handleMediaDeleted"
           />

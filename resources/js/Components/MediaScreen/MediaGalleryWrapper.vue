@@ -81,8 +81,10 @@
         <AlbumContent
           v-else
           :album="selectedAlbum"
+          :albums="albums"
           @media-uploaded="handleMediaUploaded"
           @media-deleted="handleMediaDeleted"
+          @media-moved="handleMediaMoved"
         />
       </div>
       
@@ -386,5 +388,45 @@ const handleMediaDeleted = async (mediaId: string): Promise<void> => {
     showNotification(errorMessage, 'error');
     console.error('Failed to delete media:', error);
   }
+};
+
+/**
+ * Handle media moved event
+ * Removes the media from the current album and adds to the target album
+ * 
+ * @Requirements: Fase 1 - Atualizar UI após mover fotos
+ */
+const handleMediaMoved = (mediaIds: string[], targetAlbumId: string): void => {
+  if (!selectedAlbum.value) {
+    return;
+  }
+  
+  // Get the media items that are being moved
+  const movedMedia = selectedAlbum.value.media.filter(m => mediaIds.includes(m.id));
+  
+  // Remove moved media from selected album's media array
+  selectedAlbum.value.media = selectedAlbum.value.media.filter(m => !mediaIds.includes(m.id));
+  selectedAlbum.value.media_count -= mediaIds.length;
+  
+  // Update target album
+  const targetAlbum = albums.value.find(a => a.id === targetAlbumId);
+  if (targetAlbum) {
+    // Ensure media array exists
+    if (!targetAlbum.media) {
+      targetAlbum.media = [];
+    }
+    
+    // Update album_id for each moved media
+    const updatedMedia = movedMedia.map(media => ({
+      ...media,
+      album_id: targetAlbumId
+    }));
+    
+    // Add moved media to target album (use concat for better reactivity)
+    targetAlbum.media = [...targetAlbum.media, ...updatedMedia];
+    targetAlbum.media_count += mediaIds.length;
+  }
+  
+  console.log(`${mediaIds.length} media item(s) moved from album ${selectedAlbum.value.id} to ${targetAlbumId}`);
 };
 </script>

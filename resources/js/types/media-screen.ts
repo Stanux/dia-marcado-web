@@ -132,6 +132,7 @@ export interface AlbumListEvents {
 export interface AlbumContentEvents {
   'media-uploaded': (media: Media[]) => void;
   'media-deleted': (mediaId: string) => void;
+  'media-moved': (mediaIds: string[], targetAlbumId: string) => void;
 }
 
 export interface UploadAreaEvents {
@@ -142,10 +143,14 @@ export interface UploadAreaEvents {
 
 export interface MediaGalleryEvents {
   'delete-media': (mediaId: string) => void;
+  'toggle-selection': (mediaId: string) => void;
+  'move-media': (mediaId: string) => void;
 }
 
 export interface MediaItemEvents {
   'delete': (mediaId: string) => void;
+  'toggle-selection': (mediaId: string) => void;
+  'move': (mediaId: string) => void;
 }
 
 export interface ConfirmDialogEvents {
@@ -241,4 +246,54 @@ export interface LogEntry {
   action: string;
   details: Record<string, any>;
   userId?: number;
+}
+
+/**
+ * Media Selection Types
+ */
+
+export interface UseMediaSelectionReturn {
+  selectedMediaIds: import('vue').Ref<Set<string>>;
+  isSelectionMode: import('vue').Ref<boolean>;
+  selectedCount: import('vue').ComputedRef<number>;
+  isSelected: (mediaId: string) => boolean;
+  toggleSelection: (mediaId: string) => void;
+  selectAll: (mediaIds: string[]) => void;
+  clearSelection: () => void;
+  enterSelectionMode: () => void;
+  exitSelectionMode: () => void;
+}
+
+export interface MediaSelectionBarProps {
+  selectedCount: number;
+  albums: Album[];
+  currentAlbumId: string;
+}
+
+export interface MediaSelectionBarEvents {
+  'move-selected': () => void;
+  'delete-selected': () => void;
+  'cancel-selection': () => void;
+}
+
+export interface MoveMediaModalProps {
+  isOpen: boolean;
+  albums: Album[];
+  currentAlbumId: string;
+  selectedCount: number;
+  previewMedia?: Media[];
+}
+
+export interface MoveMediaModalEvents {
+  'confirm': (targetAlbumId: string) => void;
+  'cancel': () => void;
+}
+
+export interface MediaItemCheckboxProps {
+  isSelected: boolean;
+  isSelectionMode: boolean;
+}
+
+export interface MediaItemCheckboxEvents {
+  'toggle': () => void;
 }

@@ -48,6 +48,7 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
     Route::put('/albums/{id}', [AlbumController::class, 'update'])->name('albums.update');
     Route::delete('/albums/{id}', [AlbumController::class, 'destroy'])->name('albums.destroy');
     Route::post('/media/upload', [MediaController::class, 'upload'])->name('media.upload');
+    Route::post('/media/batch-move', [MediaController::class, 'batchMove'])->name('media.batch-move');
     Route::delete('/media/{id}', [MediaController::class, 'destroy'])->name('media.destroy');
     
     // Create new site - creates site and redirects to editor

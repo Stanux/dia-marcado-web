@@ -8,6 +8,7 @@ use App\Contracts\Media\AlbumManagementServiceInterface;
 use App\Contracts\Media\BatchUploadServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\BatchDeleteRequest;
+use App\Http\Requests\Media\BatchMoveRequest;
 use App\Http\Requests\Media\CreateBatchRequest;
 use App\Http\Requests\Media\MediaIndexRequest;
 use App\Http\Requests\Media\MoveMediaRequest;
@@ -309,6 +310,56 @@ class MediaController extends Controller
         return response()->json([
             'data' => $this->formatMediaResponse($updatedMedia),
             'message' => 'Mídia movida com sucesso.',
+        ]);
+    }
+
+    /**
+     * Batch move media to another album.
+     * 
+     * POST /api/media/batch-move
+     * 
+     * @Requirements: Fase 1 - Mover múltiplas fotos entre álbuns
+     */
+    public function batchMove(BatchMoveRequest $request): JsonResponse
+    {
+        $wedding = $request->user()->currentWedding;
+        $mediaIds = $request->validated('media_ids');
+        $targetAlbumId = $request->validated('target_album_id');
+
+        // Get target album
+        $targetAlbum = Album::find($targetAlbumId);
+
+        // Verify album belongs to wedding
+        if ($targetAlbum->wedding_id !== $wedding->id) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'O álbum de destino não pertence a este casamento.',
+            ], 403);
+        }
+
+        // Get media items
+        $mediaItems = SiteMedia::whereIn('id', $mediaIds)
+            ->where('wedding_id', $wedding->id)
+            ->get();
+
+        // Verify all media belong to wedding
+        if ($mediaItems->count() !== count($mediaIds)) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'Uma ou mais mídias não pertencem a este casamento.',
+            ], 403);
+        }
+
+        $movedCount = 0;
+        foreach ($mediaItems as $media) {
+            $this->albumManagementService->moveMedia($media, $targetAlbum);
+            $movedCount++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$movedCount} foto(s) movida(s) com sucesso.",
+            'moved_count' => $movedCount,
         ]);
     }
 

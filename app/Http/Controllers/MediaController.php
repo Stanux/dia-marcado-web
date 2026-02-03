@@ -22,7 +22,8 @@ class MediaController extends Controller
 {
     public function __construct(
         private readonly BatchUploadService $batchUploadService,
-        private readonly QuotaTrackingService $quotaService
+        private readonly QuotaTrackingService $quotaService,
+        private readonly \App\Contracts\Media\AlbumManagementServiceInterface $albumManagementService
     ) {}
 
     /**
@@ -219,6 +220,96 @@ class MediaController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao excluir mídia. Tente novamente.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Batch move media to another album.
+     * 
+     * POST /admin/media/batch-move
+     * 
+     * @Requirements: Fase 1 - Mover múltiplas fotos entre álbuns
+     */
+    public function batchMove(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            // Validate request
+            $validated = $request->validate([
+                'media_ids' => 'required|array|min:1',
+                'media_ids.*' => 'required|string|exists:site_media,id',
+                'target_album_id' => 'required|string|exists:albums,id',
+            ]);
+
+            $user = $request->user();
+            $weddingId = $user->current_wedding_id;
+            
+            if (!$weddingId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nenhum casamento selecionado.'
+                ], 400);
+            }
+
+            $mediaIds = $validated['media_ids'];
+            $targetAlbumId = $validated['target_album_id'];
+
+            // Get target album
+            $targetAlbum = Album::where('id', $targetAlbumId)
+                ->where('wedding_id', $weddingId)
+                ->firstOrFail();
+
+            // Get media items
+            $mediaItems = SiteMedia::whereIn('id', $mediaIds)
+                ->where('wedding_id', $weddingId)
+                ->get();
+
+            // Verify all media belong to wedding
+            if ($mediaItems->count() !== count($mediaIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Uma ou mais mídias não pertencem a este casamento.'
+                ], 403);
+            }
+
+            $movedCount = 0;
+            foreach ($mediaItems as $media) {
+                $this->albumManagementService->moveMedia($media, $targetAlbum);
+                $movedCount++;
+            }
+
+            Log::info('Batch move media', [
+                'media_count' => $movedCount,
+                'target_album_id' => $targetAlbumId,
+                'wedding_id' => $weddingId,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$movedCount} foto(s) movida(s) com sucesso.",
+                'moved_count' => $movedCount,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro de validação.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Álbum ou mídia não encontrado.'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error batch moving media', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao mover fotos. Tente novamente.'
             ], 500);
         }
     }

@@ -100,8 +100,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/batch/{batch}', [MediaController::class, 'batchStatus']);
             Route::post('/batch/{batch}/upload', [MediaController::class, 'uploadFile']);
             
-            // Batch delete
+            // Batch delete and move
             Route::post('/batch-delete', [MediaController::class, 'batchDestroy']);
+            Route::post('/batch-move', [MediaController::class, 'batchMove']);
             
             // Individual media operations
             Route::get('/', [MediaController::class, 'index']);
