@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     {{-- Vue.js Media Gallery Component Container --}}
-    <div id="media-gallery-app"></div>
+    <div id="media-gallery-app" class="contents"></div>
 
     {{-- Pass albums data to JavaScript --}}
     <script>
