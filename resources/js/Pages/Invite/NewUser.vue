@@ -15,7 +15,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.post(route('convite.accept.new', props.token));
+    form.post(`/convite/${props.token}/aceitar-novo`);
 };
 </script>
 

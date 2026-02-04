@@ -455,4 +455,164 @@ class MediaController extends Controller
 
         return $response;
     }
+
+    /**
+     * Crop an image and create a new variant.
+     * 
+     * POST /api/media/{media}/crop
+     */
+    public function crop(Request $request, SiteMedia $media): JsonResponse
+    {
+        $wedding = $request->user()->currentWedding;
+
+        // Verify media belongs to wedding
+        if ($media->wedding_id !== $wedding->id) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'A mídia não pertence a este casamento.',
+            ], 403);
+        }
+
+        // Validate request
+        $validated = $request->validate([
+            'x' => 'required|integer|min:0',
+            'y' => 'required|integer|min:0',
+            'width' => 'required|integer|min:1',
+            'height' => 'required|integer|min:1',
+        ]);
+
+        // Verify it's an image
+        if (!str_starts_with($media->mime_type, 'image/')) {
+            return response()->json([
+                'error' => 'Invalid Media Type',
+                'message' => 'Apenas imagens podem ser cortadas.',
+            ], 400);
+        }
+
+        try {
+            // Get the image from storage
+            $imagePath = Storage::disk($media->disk)->path($media->path);
+            
+            if (!file_exists($imagePath)) {
+                return response()->json([
+                    'error' => 'File Not Found',
+                    'message' => 'Arquivo de imagem não encontrado.',
+                ], 404);
+            }
+
+            // Create image resource based on mime type
+            $image = match ($media->mime_type) {
+                'image/jpeg', 'image/jpg' => imagecreatefromjpeg($imagePath),
+                'image/png' => imagecreatefrompng($imagePath),
+                'image/gif' => imagecreatefromgif($imagePath),
+                default => null,
+            };
+
+            if (!$image) {
+                return response()->json([
+                    'error' => 'Unsupported Format',
+                    'message' => 'Formato de imagem não suportado.',
+                ], 400);
+            }
+
+            // Create cropped image
+            $croppedImage = imagecreatetruecolor($validated['width'], $validated['height']);
+            
+            // Preserve transparency for PNG
+            if ($media->mime_type === 'image/png') {
+                imagealphablending($croppedImage, false);
+                imagesavealpha($croppedImage, true);
+            }
+
+            // Copy and crop
+            imagecopy(
+                $croppedImage,
+                $image,
+                0,
+                0,
+                $validated['x'],
+                $validated['y'],
+                $validated['width'],
+                $validated['height']
+            );
+
+            // Generate new filename
+            $pathInfo = pathinfo($media->path);
+            $newFilename = $pathInfo['filename'] . '_cropped_' . time() . '.' . $pathInfo['extension'];
+            $newPath = $pathInfo['dirname'] . '/' . $newFilename;
+
+            // Save cropped image
+            $tempPath = storage_path('app/temp/' . $newFilename);
+            @mkdir(dirname($tempPath), 0755, true);
+
+            $saved = match ($media->mime_type) {
+                'image/jpeg', 'image/jpg' => imagejpeg($croppedImage, $tempPath, 90),
+                'image/png' => imagepng($croppedImage, $tempPath, 9),
+                'image/gif' => imagegif($croppedImage, $tempPath),
+                default => false,
+            };
+
+            // Free memory
+            imagedestroy($image);
+            imagedestroy($croppedImage);
+
+            if (!$saved) {
+                return response()->json([
+                    'error' => 'Save Failed',
+                    'message' => 'Erro ao salvar imagem cortada.',
+                ], 500);
+            }
+
+            // Upload to storage
+            $fileContents = file_get_contents($tempPath);
+            Storage::disk($media->disk)->put($newPath, $fileContents);
+            @unlink($tempPath);
+
+            // Create new media record
+            $newMedia = SiteMedia::create([
+                'wedding_id' => $wedding->id,
+                'album_id' => $media->album_id,
+                'site_layout_id' => $media->site_layout_id,
+                'filename' => $newFilename,
+                'original_name' => $media->original_name . ' (cortada)',
+                'path' => $newPath,
+                'disk' => $media->disk,
+                'mime_type' => $media->mime_type,
+                'size' => filesize(Storage::disk($media->disk)->path($newPath)),
+                'width' => $validated['width'],
+                'height' => $validated['height'],
+                'alt' => $media->alt,
+                'variants' => [],
+                'status' => 'completed',
+                'metadata' => array_merge($media->metadata ?? [], [
+                    'cropped_from' => $media->id,
+                    'crop_coordinates' => $validated,
+                ]),
+            ]);
+
+            return response()->json([
+                'data' => [
+                    'id' => $newMedia->id,
+                    'filename' => $newMedia->original_name,
+                    'type' => 'image',
+                    'mime_type' => $newMedia->mime_type,
+                    'size' => $newMedia->size,
+                    'width' => $newMedia->width,
+                    'height' => $newMedia->height,
+                    'url' => $newMedia->getUrl(),
+                    'thumbnail_url' => $newMedia->getVariantUrl('thumbnail') ?? $newMedia->getUrl(),
+                    'alt' => $newMedia->alt,
+                    'album_id' => $newMedia->album_id,
+                    'created_at' => $newMedia->created_at->toIso8601String(),
+                ],
+                'message' => 'Imagem cortada com sucesso.',
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Crop Failed',
+                'message' => 'Erro ao cortar imagem: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

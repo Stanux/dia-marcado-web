@@ -9,6 +9,7 @@
  * @Requirements: 13.1, 13.4, 13.5, 13.6, 13.7
  */
 import { ref, watch, computed } from 'vue';
+import NavigationSettings from './NavigationSettings.vue';
 
 const props = defineProps({
     content: {
@@ -143,6 +144,14 @@ const updateStyle = (field, value) => {
     emitChange();
 };
 
+/**
+ * Update navigation settings
+ */
+const updateNavigation = (navigation) => {
+    localContent.value.navigation = navigation;
+    emitChange();
+};
+
 // Computed properties
 const albums = computed(() => localContent.value.albums || {
     before: { title: 'Nossa História', photos: [] },
@@ -154,6 +163,12 @@ const currentAlbumPhotos = computed(() => albums.value[activeAlbum.value]?.photo
 
 <template>
     <div class="space-y-6">
+        <!-- Navigation Settings -->
+        <NavigationSettings
+            :navigation="localContent.navigation"
+            @change="updateNavigation"
+        />
+
         <!-- Layout Settings -->
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Layout</h3>

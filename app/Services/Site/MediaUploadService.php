@@ -123,6 +123,17 @@ class MediaUploadService implements MediaUploadServiceInterface
         // Get actual file size after potential resize
         $actualSize = filesize($fullPath) ?: $file->getSize();
 
+        // Get image dimensions if it's an image
+        $width = null;
+        $height = null;
+        if ($this->isImage($mimeType)) {
+            $imageInfo = @getimagesize($fullPath);
+            if ($imageInfo !== false) {
+                $width = $imageInfo[0];
+                $height = $imageInfo[1];
+            }
+        }
+
         // Create the media record
         $media = SiteMedia::create([
             'site_layout_id' => $site->id,
@@ -132,6 +143,8 @@ class MediaUploadService implements MediaUploadServiceInterface
             'disk' => 'public',
             'size' => $actualSize,
             'mime_type' => $mimeType,
+            'width' => $width,
+            'height' => $height,
             'variants' => $variants,
         ]);
 

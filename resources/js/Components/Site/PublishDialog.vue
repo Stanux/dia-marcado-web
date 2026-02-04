@@ -74,7 +74,7 @@ const runQAChecklist = async () => {
     showOverrideWarning.value = false;
 
     try {
-        const response = await axios.get(`/api/sites/${props.siteId}/qa`);
+        const response = await axios.get(`/admin/sites/${props.siteId}/qa`);
         qaResult.value = response.data.data;
     } catch (err) {
         error.value = err.response?.data?.message || 'Erro ao executar checklist de qualidade';
@@ -91,7 +91,7 @@ const publish = async () => {
     error.value = null;
 
     try {
-        const response = await axios.post(`/api/sites/${props.siteId}/publish`, {
+        const response = await axios.post(`/admin/sites/${props.siteId}/publish`, {
             override: showOverrideWarning.value,
         });
         

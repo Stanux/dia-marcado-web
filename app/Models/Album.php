@@ -12,10 +12,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Album Model
  * 
  * Represents a collection of media files grouped by theme or event.
+ * Extends WeddingScopedModel for automatic wedding isolation.
  */
-class Album extends Model
+class Album extends WeddingScopedModel
 {
-    use HasFactory, HasUuids;
+    use HasFactory;
 
     /**
      * The attributes that are mass assignable.

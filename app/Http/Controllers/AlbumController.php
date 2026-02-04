@@ -25,6 +25,159 @@ class AlbumController extends Controller
     ) {}
 
     /**
+     * Get all available album types.
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function types(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $types = AlbumType::orderBy('name')->get()->map(function ($type) {
+                return [
+                    'id' => $type->id,
+                    'slug' => $type->slug,
+                    'name' => $type->name,
+                    'description' => $type->description,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $types,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error getting album types', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar tipos de álbum.'
+            ], 500);
+        }
+    }
+
+    /**
+     * List all albums for the current wedding.
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function index(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            // Get all albums (WeddingScope filters automatically)
+            $albums = Album::with('albumType')
+                ->withCount('media')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($album) {
+                    // Get cover image (first media item)
+                    $coverMedia = $album->media()
+                        ->where('status', 'completed')
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+                    
+                    return [
+                        'id' => $album->id,
+                        'name' => $album->name,
+                        'type' => $album->albumType?->slug ?? 'uso_site',
+                        'description' => $album->description,
+                        'media_count' => $album->media_count,
+                        'cover_url' => $coverMedia ? ($coverMedia->getVariantUrl('thumbnail') ?? $coverMedia->getUrl()) : null,
+                        'created_at' => $album->created_at->toISOString(),
+                        'updated_at' => $album->updated_at->toISOString(),
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $albums,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error listing albums', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar álbuns. Tente novamente.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get a single album with its media.
+     * 
+     * @param Request $request
+     * @param string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function show(Request $request, string $id): \Illuminate\Http\JsonResponse
+    {
+        try {
+            // Find album (WeddingScope filters automatically)
+            $album = Album::where('id', $id)
+                ->with('albumType')
+                ->withCount('media')
+                ->firstOrFail();
+
+            // Get media
+            $media = $album->media()
+                ->where('status', 'completed')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($media) {
+                    return [
+                        'id' => $media->id,
+                        'filename' => $media->original_name,
+                        'type' => str_starts_with($media->mime_type, 'image/') ? 'image' : 'video',
+                        'mime_type' => $media->mime_type,
+                        'size' => $media->size,
+                        'width' => $media->width,
+                        'height' => $media->height,
+                        'url' => $media->getUrl(),
+                        'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
+                        'alt' => $media->alt,
+                        'created_at' => $media->created_at->toISOString(),
+                        'updated_at' => $media->updated_at->toISOString(),
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $album->id,
+                    'name' => $album->name,
+                    'type' => $album->albumType?->slug ?? 'uso_site',
+                    'description' => $album->description,
+                    'media_count' => $album->media_count,
+                    'media' => $media,
+                    'created_at' => $album->created_at->toISOString(),
+                    'updated_at' => $album->updated_at->toISOString(),
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error getting album', [
+                'album_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar álbum. Tente novamente.'
+            ], 500);
+        }
+    }
+
+    /**
      * Create a new album.
      * 
      * Creates an album for the current wedding with the specified name and type.
@@ -132,20 +285,8 @@ class AlbumController extends Controller
                 'type' => 'required|string|in:pre_casamento,pos_casamento,uso_site',
             ]);
 
-            $user = $request->user();
-            $weddingId = $user->current_wedding_id;
-            
-            if (!$weddingId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Nenhum casamento selecionado.'
-                ], 400);
-            }
-
-            // Find album
-            $album = Album::where('id', $id)
-                ->where('wedding_id', $weddingId)
-                ->firstOrFail();
+            // Find album (WeddingScope filters automatically)
+            $album = Album::where('id', $id)->firstOrFail();
 
             // Get album type
             $albumType = AlbumType::where('slug', $validated['type'])->firstOrFail();
@@ -159,7 +300,7 @@ class AlbumController extends Controller
 
             Log::info('Album updated', [
                 'album_id' => $album->id,
-                'wedding_id' => $weddingId,
+                'wedding_id' => $album->wedding_id,
                 'name' => $album->name,
             ]);
 
@@ -225,20 +366,8 @@ class AlbumController extends Controller
     public function destroy(Request $request, string $id): \Illuminate\Http\JsonResponse
     {
         try {
-            $user = $request->user();
-            $weddingId = $user->current_wedding_id;
-            
-            if (!$weddingId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Nenhum casamento selecionado.'
-                ], 400);
-            }
-
-            // Find album
-            $album = Album::where('id', $id)
-                ->where('wedding_id', $weddingId)
-                ->firstOrFail();
+            // Find album (WeddingScope filters automatically)
+            $album = Album::where('id', $id)->firstOrFail();
 
             // Check if album has media
             $mediaCount = $album->media()->count();
@@ -250,6 +379,7 @@ class AlbumController extends Controller
             }
 
             $albumName = $album->name;
+            $weddingId = $album->wedding_id;
 
             // Delete album
             $album->delete();
@@ -275,6 +405,62 @@ class AlbumController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao excluir álbum. Tente novamente.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get media from an album.
+     * 
+     * Returns all media items in the specified album.
+     *
+     * @param Request $request
+     * @param string $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function media(Request $request, string $id): \Illuminate\Http\JsonResponse
+    {
+        try {
+            // Find album (WeddingScope filters automatically)
+            $album = Album::where('id', $id)->firstOrFail();
+
+            // Get media
+            $media = $album->media()
+                ->where('status', 'completed')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($media) {
+                    return [
+                        'id' => $media->id,
+                        'filename' => $media->original_name,
+                        'type' => str_starts_with($media->mime_type, 'image/') ? 'image' : 'video',
+                        'mime_type' => $media->mime_type,
+                        'size' => $media->size,
+                        'width' => $media->width,
+                        'height' => $media->height,
+                        'url' => $media->getUrl(),
+                        'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
+                        'alt' => $media->alt,
+                        'created_at' => $media->created_at->toISOString(),
+                        'updated_at' => $media->updated_at->toISOString(),
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $media,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error getting album media', [
+                'album_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar mídias do álbum. Tente novamente.'
             ], 500);
         }
     }

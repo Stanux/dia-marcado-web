@@ -9,6 +9,7 @@
  */
 import { ref, watch, computed } from 'vue';
 import { SECTION_IDS, SECTION_LABELS } from '@/Composables/useSiteEditor';
+import TypographyControl from '@/Components/Site/TypographyControl.vue';
 
 const props = defineProps({
     content: {
@@ -112,6 +113,44 @@ const updateOverlay = (field, value) => {
     emitChange();
 };
 
+/**
+ * Atualizar tipografia do título
+ */
+const updateTitleTypography = (field, value) => {
+    if (!localContent.value.titleTypography) {
+        localContent.value.titleTypography = {
+            fontFamily: 'Playfair Display',
+            fontColor: '#ffffff',
+            fontSize: 56,
+            fontWeight: 700,
+            fontItalic: false,
+            fontUnderline: false,
+        };
+    }
+    
+    localContent.value.titleTypography[field] = value;
+    emitChange();
+};
+
+/**
+ * Atualizar tipografia do subtítulo
+ */
+const updateSubtitleTypography = (field, value) => {
+    if (!localContent.value.subtitleTypography) {
+        localContent.value.subtitleTypography = {
+            fontFamily: 'Montserrat',
+            fontColor: '#ffffff',
+            fontSize: 20,
+            fontWeight: 400,
+            fontItalic: false,
+            fontUnderline: false,
+        };
+    }
+    
+    localContent.value.subtitleTypography[field] = value;
+    emitChange();
+};
+
 // Computed properties
 const media = computed(() => localContent.value.media || { type: 'image', url: '', fallback: '', autoplay: true, loop: true });
 const ctaPrimary = computed(() => localContent.value.ctaPrimary || { label: '', target: '' });
@@ -119,6 +158,22 @@ const ctaSecondary = computed(() => localContent.value.ctaSecondary || { label: 
 const style = computed(() => localContent.value.style || {});
 const overlay = computed(() => style.value.overlay || { color: '#000000', opacity: 0.3 });
 const isVideo = computed(() => media.value.type === 'video');
+const titleTypography = computed(() => localContent.value.titleTypography || {
+    fontFamily: 'Playfair Display',
+    fontColor: '#ffffff',
+    fontSize: 56,
+    fontWeight: 700,
+    fontItalic: false,
+    fontUnderline: false,
+});
+const subtitleTypography = computed(() => localContent.value.subtitleTypography || {
+    fontFamily: 'Montserrat',
+    fontColor: '#ffffff',
+    fontSize: 20,
+    fontWeight: 400,
+    fontItalic: false,
+    fontUnderline: false,
+});
 </script>
 
 <template>
@@ -208,6 +263,23 @@ const isVideo = computed(() => media.value.type === 'video');
                 <p class="mt-1 text-xs text-gray-500">Suporta rich text básico e placeholders</p>
             </div>
 
+            <!-- Tipografia do Título -->
+            <TypographyControl
+                :font-family="titleTypography.fontFamily"
+                :font-color="titleTypography.fontColor"
+                :font-size="titleTypography.fontSize"
+                :font-weight="titleTypography.fontWeight"
+                :font-italic="titleTypography.fontItalic"
+                :font-underline="titleTypography.fontUnderline"
+                @update:font-family="updateTitleTypography('fontFamily', $event)"
+                @update:font-color="updateTitleTypography('fontColor', $event)"
+                @update:font-size="updateTitleTypography('fontSize', $event)"
+                @update:font-weight="updateTitleTypography('fontWeight', $event)"
+                @update:font-italic="updateTitleTypography('fontItalic', $event)"
+                @update:font-underline="updateTitleTypography('fontUnderline', $event)"
+                label="Tipografia do Título"
+            />
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
                 <textarea
@@ -218,6 +290,23 @@ const isVideo = computed(() => media.value.type === 'video');
                     placeholder="Ex: Junte-se a nós neste dia especial"
                 ></textarea>
             </div>
+
+            <!-- Tipografia do Subtítulo -->
+            <TypographyControl
+                :font-family="subtitleTypography.fontFamily"
+                :font-color="subtitleTypography.fontColor"
+                :font-size="subtitleTypography.fontSize"
+                :font-weight="subtitleTypography.fontWeight"
+                :font-italic="subtitleTypography.fontItalic"
+                :font-underline="subtitleTypography.fontUnderline"
+                @update:font-family="updateSubtitleTypography('fontFamily', $event)"
+                @update:font-color="updateSubtitleTypography('fontColor', $event)"
+                @update:font-size="updateSubtitleTypography('fontSize', $event)"
+                @update:font-weight="updateSubtitleTypography('fontWeight', $event)"
+                @update:font-italic="updateSubtitleTypography('fontItalic', $event)"
+                @update:font-underline="updateSubtitleTypography('fontUnderline', $event)"
+                label="Tipografia do Subtítulo"
+            />
         </div>
 
         <!-- CTAs -->

@@ -21,6 +21,11 @@
     <link rel="canonical" href="{{ $content['meta']['canonical'] }}">
     @endif
     
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Tangerine:wght@400;700&family=Allura&family=Sacramento&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Montserrat:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&family=Raleway:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Open+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&display=swap" rel="stylesheet">
+    
     @php
         // Theme variables
         $primaryColor = $content['theme']['primaryColor'] ?? '#d4a574';
@@ -69,22 +74,39 @@
             min-height: {{ $headerHeight }};
             display: flex;
             align-items: center;
+            justify-content: center;
             padding: 0 20px;
             @if($headerSticky) position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); @endif
         }
         .header-container {
-            width: 100%;
+            width: 80%;
             max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
             align-items: center;
-            @if($headerAlign === 'center') justify-content: center; flex-direction: column; gap: 10px;
-            @elseif($headerAlign === 'left') justify-content: flex-start; gap: 20px;
-            @else justify-content: space-between; @endif
+            gap: 20px;
         }
-        .header-brand { display: flex; align-items: center; gap: 10px; }
-        .header h1 { color: var(--primary-color); font-size: 1.5rem; margin: 0; }
-        .header .subtitle { color: #666; font-size: 0.9rem; }
+        .header-brand { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            justify-self: start;
+        }
+        .header-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            justify-self: center;
+        }
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-self: end;
+        }
+        .header h1 { margin: 0; }
+        .header .subtitle { margin: 5px 0 0 0; }
         .header-nav { display: flex; gap: 20px; align-items: center; }
         .header-nav a { color: #333; text-decoration: none; font-size: 0.9rem; transition: color 0.3s; }
         .header-nav a:hover { color: var(--primary-color); }
@@ -94,6 +116,7 @@
             text-decoration: none;
             font-size: 0.9rem;
             transition: all 0.3s;
+            white-space: nowrap;
         }
         .header-action.primary { background: var(--primary-color); color: white; }
         .header-action.secondary { background: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); }
@@ -136,8 +159,8 @@
         .hero-split { display: flex; align-items: stretch; min-height: 80vh; }
         .hero-split .hero-media { flex: 1; position: relative; }
         .hero-split .hero-content { flex: 1; display: flex; flex-direction: column; justify-content: center; background: #fff; color: #333; }
-        .hero h2 { font-size: 3rem; margin-bottom: 1rem; }
-        .hero .subtitle { font-size: 1.5rem; margin-bottom: 2rem; opacity: 0.9; }
+        .hero h2 { margin-bottom: 1rem; }
+        .hero .subtitle { margin-bottom: 2rem; opacity: 0.9; }
         .cta-button {
             display: inline-block; padding: 15px 30px;
             background: var(--primary-color); color: white;
@@ -238,7 +261,17 @@
         
         /* Responsive */
         @media (max-width: 768px) {
-            .header-container { flex-direction: column; gap: 10px; }
+            .header-container { 
+                grid-template-columns: 1fr; 
+                width: 95%;
+                gap: 15px;
+            }
+            .header-brand { justify-self: center; }
+            .header-center { justify-self: center; }
+            .header-actions { 
+                justify-self: center; 
+                flex-direction: column;
+            }
             .header-nav { flex-wrap: wrap; justify-content: center; }
             .hero h2 { font-size: 2rem; }
             .hero .subtitle { font-size: 1.2rem; }
@@ -256,37 +289,133 @@
     <!-- Header -->
     <header class="header">
         <div class="header-container">
+            <!-- Logo à esquerda -->
             <div class="header-brand">
-                @if(!empty($content['sections']['header']['logo']['url']))
-                <img src="{{ $content['sections']['header']['logo']['url'] }}" alt="{{ $content['sections']['header']['logo']['alt'] ?? 'Logo' }}" style="max-height: 50px;">
+                @php
+                    $logoType = $content['sections']['header']['logo']['type'] ?? 'image';
+                @endphp
+                
+                @if($logoType === 'image' && !empty($content['sections']['header']['logo']['url']))
+                    <img src="{{ $content['sections']['header']['logo']['url'] }}" alt="{{ $content['sections']['header']['logo']['alt'] ?? 'Logo' }}" style="max-height: 50px;">
+                @elseif($logoType === 'text')
+                    @php
+                        $logoText = $content['sections']['header']['logo']['text'] ?? [];
+                        $initial1 = strtoupper(substr($logoText['initials'][0] ?? '', 0, 1));
+                        $initial2 = strtoupper(substr($logoText['initials'][1] ?? '', 0, 1));
+                        $connector = $logoText['connector'] ?? '&';
+                        $logoTypography = $logoText['typography'] ?? [
+                            'fontFamily' => 'Playfair Display',
+                            'fontColor' => '#333333',
+                            'fontSize' => 32,
+                            'fontWeight' => 700,
+                            'fontItalic' => false,
+                            'fontUnderline' => false,
+                        ];
+                    @endphp
+                    @if($initial1 || $initial2)
+                    <span class="logo-text" style="
+                        font-family: {{ $logoTypography['fontFamily'] ?? 'Playfair Display' }};
+                        color: {{ $logoTypography['fontColor'] ?? '#333333' }};
+                        font-size: {{ $logoTypography['fontSize'] ?? 32 }}px;
+                        font-weight: {{ $logoTypography['fontWeight'] ?? 700 }};
+                        font-style: {{ ($logoTypography['fontItalic'] ?? false) ? 'italic' : 'normal' }};
+                        text-decoration: {{ ($logoTypography['fontUnderline'] ?? false) ? 'underline' : 'none' }};
+                        letter-spacing: 0.1em;
+                    ">
+                        {{ $initial1 }} {{ $connector }} {{ $initial2 }}
+                    </span>
+                    @endif
                 @endif
-                <div>
-                    <h1>{{ $content['sections']['header']['title'] ?? '' }}</h1>
-                    @if(!empty($content['sections']['header']['subtitle']))
-                    <p class="subtitle">{{ $content['sections']['header']['subtitle'] }}</p>
-                    @endif
-                    @if($content['sections']['header']['showDate'] ?? false)
-                    <p class="subtitle">{{ $wedding->wedding_date?->format('d/m/Y') }}</p>
-                    @endif
-                </div>
             </div>
             
-            @if(!empty($content['sections']['header']['navigation']))
-            <nav class="header-nav">
-                @foreach($content['sections']['header']['navigation'] as $navItem)
-                <a href="{{ $navItem['target'] ?? '#' }}" @if($navItem['type'] === 'url') target="_blank" rel="noopener" @endif>
-                    {{ $navItem['label'] }}
-                </a>
-                @endforeach
-            </nav>
-            @endif
+            <!-- Texto centralizado -->
+            <div class="header-center">
+                @if(!empty($content['sections']['header']['title']))
+                @php
+                    $titleTypography = $content['sections']['header']['titleTypography'] ?? [
+                        'fontFamily' => 'Playfair Display',
+                        'fontColor' => '#333333',
+                        'fontSize' => 48,
+                        'fontWeight' => 700,
+                        'fontItalic' => false,
+                        'fontUnderline' => false,
+                    ];
+                @endphp
+                <h1 style="
+                    font-family: {{ $titleTypography['fontFamily'] ?? 'Playfair Display' }};
+                    color: {{ $titleTypography['fontColor'] ?? '#333333' }};
+                    font-size: {{ $titleTypography['fontSize'] ?? 48 }}px;
+                    font-weight: {{ $titleTypography['fontWeight'] ?? 700 }};
+                    font-style: {{ ($titleTypography['fontItalic'] ?? false) ? 'italic' : 'normal' }};
+                    text-decoration: {{ ($titleTypography['fontUnderline'] ?? false) ? 'underline' : 'none' }};
+                    margin: 0;
+                ">{{ $content['sections']['header']['title'] }}</h1>
+                @endif
+                @if(!empty($content['sections']['header']['subtitle']))
+                @php
+                    $subtitleTypography = $content['sections']['header']['subtitleTypography'] ?? [
+                        'fontFamily' => 'Montserrat',
+                        'fontColor' => '#666666',
+                        'fontSize' => 24,
+                        'fontWeight' => 400,
+                        'fontItalic' => true,
+                        'fontUnderline' => false,
+                    ];
+                @endphp
+                <p class="subtitle" style="
+                    font-family: {{ $subtitleTypography['fontFamily'] ?? 'Montserrat' }};
+                    color: {{ $subtitleTypography['fontColor'] ?? '#666666' }};
+                    font-size: {{ $subtitleTypography['fontSize'] ?? 24 }}px;
+                    font-weight: {{ $subtitleTypography['fontWeight'] ?? 400 }};
+                    font-style: {{ ($subtitleTypography['fontItalic'] ?? false) ? 'italic' : 'normal' }};
+                    text-decoration: {{ ($subtitleTypography['fontUnderline'] ?? false) ? 'underline' : 'none' }};
+                    margin: 5px 0 0 0;
+                ">{{ $content['sections']['header']['subtitle'] }}</p>
+                @endif
+            </div>
             
-            @if(!empty($content['sections']['header']['actionButton']['label']))
-            @php $btnStyle = $content['sections']['header']['actionButton']['style'] ?? 'primary'; @endphp
-            <a href="{{ $content['sections']['header']['actionButton']['target'] ?? '#' }}" class="header-action {{ $btnStyle }}">
-                {{ $content['sections']['header']['actionButton']['label'] }}
-            </a>
-            @endif
+            <!-- Navegação e botão de ação à direita -->
+            <div class="header-actions">
+                @if(!empty($content['sections']['header']['navigation']))
+                <nav class="header-nav">
+                    @foreach($content['sections']['header']['navigation'] as $navItem)
+                        @if(($navItem['showInMenu'] ?? false) && !empty($navItem['sectionKey']))
+                            @php
+                                $sectionIds = [
+                                    'hero' => 'hero',
+                                    'saveTheDate' => 'save-the-date',
+                                    'giftRegistry' => 'lista-presentes',
+                                    'rsvp' => 'confirmar-presenca',
+                                    'photoGallery' => 'galeria',
+                                ];
+                                $sectionLabels = [
+                                    'hero' => 'Hero',
+                                    'saveTheDate' => 'Save the Date',
+                                    'giftRegistry' => 'Lista de Presentes',
+                                    'rsvp' => 'Confirme Presença',
+                                    'photoGallery' => 'Galeria de Fotos',
+                                ];
+                                $sectionId = $sectionIds[$navItem['sectionKey']] ?? '';
+                                $defaultLabel = $sectionLabels[$navItem['sectionKey']] ?? '';
+                                $navLabel = !empty($navItem['label']) ? $navItem['label'] : $defaultLabel;
+                            @endphp
+                            @if($sectionId)
+                            <a href="#{{ $sectionId }}">
+                                {{ $navLabel }}
+                            </a>
+                            @endif
+                        @endif
+                    @endforeach
+                </nav>
+                @endif
+                
+                @if(!empty($content['sections']['header']['actionButton']['label']))
+                @php $btnStyle = $content['sections']['header']['actionButton']['style'] ?? 'primary'; @endphp
+                <a href="{{ $content['sections']['header']['actionButton']['target'] ?? '#' }}" class="header-action {{ $btnStyle }}">
+                    {{ $content['sections']['header']['actionButton']['label'] }}
+                </a>
+                @endif
+            </div>
         </div>
     </header>
     @endif
@@ -332,9 +461,41 @@
             @endif
         </div>
         <div class="hero-content">
-            <h2 style="color: var(--primary-color);">{{ $content['sections']['hero']['title'] ?? '' }}</h2>
+            @php
+                $heroTitleTypography = $content['sections']['hero']['titleTypography'] ?? [
+                    'fontFamily' => 'Playfair Display',
+                    'fontColor' => '#333333',
+                    'fontSize' => 56,
+                    'fontWeight' => 700,
+                    'fontItalic' => false,
+                    'fontUnderline' => false,
+                ];
+                $heroSubtitleTypography = $content['sections']['hero']['subtitleTypography'] ?? [
+                    'fontFamily' => 'Montserrat',
+                    'fontColor' => '#666666',
+                    'fontSize' => 20,
+                    'fontWeight' => 400,
+                    'fontItalic' => false,
+                    'fontUnderline' => false,
+                ];
+            @endphp
+            <h2 style="
+                font-family: {{ $heroTitleTypography['fontFamily'] ?? 'Playfair Display' }};
+                color: {{ $heroTitleTypography['fontColor'] ?? '#333333' }};
+                font-size: {{ $heroTitleTypography['fontSize'] ?? 56 }}px;
+                font-weight: {{ $heroTitleTypography['fontWeight'] ?? 700 }};
+                font-style: {{ ($heroTitleTypography['fontItalic'] ?? false) ? 'italic' : 'normal' }};
+                text-decoration: {{ ($heroTitleTypography['fontUnderline'] ?? false) ? 'underline' : 'none' }};
+            ">{{ $content['sections']['hero']['title'] ?? '' }}</h2>
             @if(!empty($content['sections']['hero']['subtitle']))
-            <p class="subtitle" style="color: #666;">{{ $content['sections']['hero']['subtitle'] }}</p>
+            <p class="subtitle" style="
+                font-family: {{ $heroSubtitleTypography['fontFamily'] ?? 'Montserrat' }};
+                color: {{ $heroSubtitleTypography['fontColor'] ?? '#666666' }};
+                font-size: {{ $heroSubtitleTypography['fontSize'] ?? 20 }}px;
+                font-weight: {{ $heroSubtitleTypography['fontWeight'] ?? 400 }};
+                font-style: {{ ($heroSubtitleTypography['fontItalic'] ?? false) ? 'italic' : 'normal' }};
+                text-decoration: {{ ($heroSubtitleTypography['fontUnderline'] ?? false) ? 'underline' : 'none' }};
+            ">{{ $content['sections']['hero']['subtitle'] }}</p>
             @endif
             <div>
                 @if(!empty($content['sections']['hero']['ctaPrimary']['label']))
@@ -378,9 +539,44 @@
         <div class="hero-overlay"></div>
         
         <div class="hero-content">
-            <h2>{{ $content['sections']['hero']['title'] ?? '' }}</h2>
+            @php
+                $heroTitleTypography = $content['sections']['hero']['titleTypography'] ?? [
+                    'fontFamily' => 'Playfair Display',
+                    'fontColor' => '#ffffff',
+                    'fontSize' => 56,
+                    'fontWeight' => 700,
+                    'fontItalic' => false,
+                    'fontUnderline' => false,
+                ];
+                $heroSubtitleTypography = $content['sections']['hero']['subtitleTypography'] ?? [
+                    'fontFamily' => 'Montserrat',
+                    'fontColor' => '#ffffff',
+                    'fontSize' => 20,
+                    'fontWeight' => 400,
+                    'fontItalic' => false,
+                    'fontUnderline' => false,
+                ];
+            @endphp
+            <h2 style="
+                font-family: {{ $heroTitleTypography['fontFamily'] ?? 'Playfair Display' }};
+                color: {{ $heroTitleTypography['fontColor'] ?? '#ffffff' }};
+                font-size: {{ $heroTitleTypography['fontSize'] ?? 56 }}px;
+                font-weight: {{ $heroTitleTypography['fontWeight'] ?? 700 }};
+                font-style: {{ ($heroTitleTypography['fontItalic'] ?? false) ? 'italic' : 'normal' }};
+                text-decoration: {{ ($heroTitleTypography['fontUnderline'] ?? false) ? 'underline' : 'none' }};
+                margin-bottom: 1rem;
+            ">{{ $content['sections']['hero']['title'] ?? '' }}</h2>
             @if(!empty($content['sections']['hero']['subtitle']))
-            <p class="subtitle">{{ $content['sections']['hero']['subtitle'] }}</p>
+            <p class="subtitle" style="
+                font-family: {{ $heroSubtitleTypography['fontFamily'] ?? 'Montserrat' }};
+                color: {{ $heroSubtitleTypography['fontColor'] ?? '#ffffff' }};
+                font-size: {{ $heroSubtitleTypography['fontSize'] ?? 20 }}px;
+                font-weight: {{ $heroSubtitleTypography['fontWeight'] ?? 400 }};
+                font-style: {{ ($heroSubtitleTypography['fontItalic'] ?? false) ? 'italic' : 'normal' }};
+                text-decoration: {{ ($heroSubtitleTypography['fontUnderline'] ?? false) ? 'underline' : 'none' }};
+                margin-bottom: 2rem;
+                opacity: 0.9;
+            ">{{ $content['sections']['hero']['subtitle'] }}</p>
             @endif
             @if(!empty($content['sections']['hero']['ctaPrimary']['label']))
             <a href="{{ $content['sections']['hero']['ctaPrimary']['target'] ?? '#' }}" class="cta-button">{{ $content['sections']['hero']['ctaPrimary']['label'] }}</a>

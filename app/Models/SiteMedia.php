@@ -11,10 +11,10 @@ use Illuminate\Support\Facades\Storage;
  * SiteMedia Model
  * 
  * Represents a media file (image/video) uploaded for a site.
+ * Extends WeddingScopedModel for automatic wedding isolation.
  */
-class SiteMedia extends Model
+class SiteMedia extends WeddingScopedModel
 {
-    use HasUuids;
 
     /**
      * Media status constants

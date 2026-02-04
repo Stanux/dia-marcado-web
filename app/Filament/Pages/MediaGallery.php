@@ -80,15 +80,7 @@ class MediaGallery extends Page
      */
     public function getAlbumsProperty(): array
     {
-        $user = auth()->user();
-        $weddingId = $user->current_wedding_id;
-        
-        if (!$weddingId) {
-            return [];
-        }
-        
-        return Album::where('wedding_id', $weddingId)
-            ->withCount('media')
+        return Album::withCount('media')
             ->with(['media' => function ($query) {
                 $query->where('status', 'completed')
                     ->orderBy('created_at', 'desc');

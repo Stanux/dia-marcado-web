@@ -34,6 +34,22 @@ const ctaPrimary = computed(() => props.content.ctaPrimary || { label: '', targe
 const ctaSecondary = computed(() => props.content.ctaSecondary || { label: '', target: '' });
 const style = computed(() => props.content.style || {});
 const overlay = computed(() => style.value.overlay || { color: '#000000', opacity: 0.3 });
+const titleTypography = computed(() => props.content.titleTypography || {
+    fontFamily: 'Playfair Display',
+    fontColor: '#ffffff',
+    fontSize: 56,
+    fontWeight: 700,
+    fontItalic: false,
+    fontUnderline: false,
+});
+const subtitleTypography = computed(() => props.content.subtitleTypography || {
+    fontFamily: 'Montserrat',
+    fontColor: '#ffffff',
+    fontSize: 20,
+    fontWeight: 400,
+    fontItalic: false,
+    fontUnderline: false,
+});
 
 // Layout classes
 const layoutClasses = computed(() => {
@@ -164,8 +180,15 @@ const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/200
             <!-- Title -->
             <h1 
                 v-if="content.title"
-                class="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4"
-                :style="{ fontFamily: theme.fontFamily }"
+                :style="{
+                    fontFamily: titleTypography.fontFamily,
+                    color: titleTypography.fontColor,
+                    fontSize: `${titleTypography.fontSize}px`,
+                    fontWeight: titleTypography.fontWeight,
+                    fontStyle: titleTypography.fontItalic ? 'italic' : 'normal',
+                    textDecoration: titleTypography.fontUnderline ? 'underline' : 'none',
+                }"
+                class="mb-4"
             >
                 {{ content.title }}
             </h1>
@@ -173,7 +196,15 @@ const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/200
             <!-- Subtitle -->
             <p 
                 v-if="content.subtitle"
-                class="text-lg md:text-xl text-white/90 mb-8 max-w-2xl"
+                :style="{
+                    fontFamily: subtitleTypography.fontFamily,
+                    color: subtitleTypography.fontColor,
+                    fontSize: `${subtitleTypography.fontSize}px`,
+                    fontWeight: subtitleTypography.fontWeight,
+                    fontStyle: subtitleTypography.fontItalic ? 'italic' : 'normal',
+                    textDecoration: subtitleTypography.fontUnderline ? 'underline' : 'none',
+                }"
+                class="mb-8 max-w-2xl"
             >
                 {{ content.subtitle }}
             </p>

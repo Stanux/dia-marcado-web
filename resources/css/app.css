@@ -18,3 +18,14 @@
 .wedding-date-highlight .fi-fo-placeholder {
     @apply bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-700;
 }
+
+/* Forçar cores do tema Filament na sidebar e topbar */
+.fi-sidebar-header,
+.fi-topbar nav {
+    background-color: rgb(255, 255, 255) !important;
+}
+
+.dark .fi-sidebar-header,
+.dark .fi-topbar nav {
+    background-color: rgb(17, 24, 39) !important;
+}

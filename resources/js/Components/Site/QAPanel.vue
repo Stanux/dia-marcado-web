@@ -178,7 +178,7 @@ const getSectionLabel = (section) => {
                     </div>
                     <p 
                         v-if="check.message"
-                        class="mt-1 text-sm"
+                        class="mt-1 text-sm whitespace-pre-line"
                         :class="{
                             'text-red-600': check.status === 'fail',
                             'text-amber-600': check.status === 'warning',

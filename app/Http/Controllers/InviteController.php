@@ -93,6 +93,9 @@ class InviteController extends Controller
         // Log the user in
         Auth::login($user);
 
+        // Set the wedding context in session
+        session(['filament_wedding_id' => $invite->wedding_id]);
+
         return redirect()->route('filament.admin.pages.dashboard')
             ->with('success', 'Conta criada com sucesso! Bem-vindo(a) ao planejamento do casamento.');
     }
@@ -125,6 +128,9 @@ class InviteController extends Controller
 
         // Accept the invite
         $this->inviteService->acceptInvite($invite, $user);
+
+        // Set the wedding context in session
+        session(['filament_wedding_id' => $invite->wedding_id]);
 
         return redirect()->route('filament.admin.pages.dashboard')
             ->with('success', 'Convite aceito! Você agora faz parte do planejamento do casamento.');

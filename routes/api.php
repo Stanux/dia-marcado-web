@@ -11,7 +11,7 @@ use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:web'])->group(function () {
     // User info (no wedding context required)
     Route::get('/user', function (Request $request) {
         return $request->user();
@@ -110,6 +110,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::delete('/{media}', [MediaController::class, 'destroy']);
             Route::delete('/{media}/cancel', [MediaController::class, 'cancelUpload']);
             Route::post('/{media}/move', [MediaController::class, 'move']);
+            Route::post('/{media}/crop', [MediaController::class, 'crop']);
         });
 
         // Albums module (wedding-scoped)
@@ -120,6 +121,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/{album}', [AlbumController::class, 'show']);
             Route::put('/{album}', [AlbumController::class, 'update']);
             Route::delete('/{album}', [AlbumController::class, 'destroy']);
+            Route::get('/{album}/media', [AlbumController::class, 'media']);
         });
 
         // Quota module (wedding-scoped)

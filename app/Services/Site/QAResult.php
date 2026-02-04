@@ -14,8 +14,8 @@ class QAResult
     /**
      * Check status constants.
      */
-    public const STATUS_PASSED = 'passed';
-    public const STATUS_FAILED = 'failed';
+    public const STATUS_PASSED = 'pass';
+    public const STATUS_FAILED = 'fail';
     public const STATUS_WARNING = 'warning';
 
     /**

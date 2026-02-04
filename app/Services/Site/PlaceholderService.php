@@ -76,6 +76,8 @@ class PlaceholderService implements PlaceholderServiceInterface
         return [
             '{noivo}' => 'Nome do primeiro membro do casal',
             '{noiva}' => 'Nome do segundo membro do casal',
+            '{primeiro_nome_noivo}' => 'Primeiro nome do primeiro membro do casal',
+            '{primeiro_nome_noiva}' => 'Primeiro nome do segundo membro do casal',
             '{noivos}' => 'Todos os nomes do casal separados por " e "',
             '{data}' => 'Data do casamento formatada (ex: "15 de Março de 2025")',
             '{data_curta}' => 'Data do casamento curta (ex: "15/03/2025")',
@@ -99,6 +101,8 @@ class PlaceholderService implements PlaceholderServiceInterface
         return [
             '{noivo}' => $this->getNoivo($coupleNames),
             '{noiva}' => $this->getNoiva($coupleNames),
+            '{primeiro_nome_noivo}' => $this->getFirstName($this->getNoivo($coupleNames)),
+            '{primeiro_nome_noiva}' => $this->getFirstName($this->getNoiva($coupleNames)),
             '{noivos}' => $this->getNoivos($coupleNames),
             '{data}' => $this->formatDateLong($wedding->wedding_date),
             '{data_curta}' => $this->formatDateShort($wedding->wedding_date),
@@ -107,6 +111,23 @@ class PlaceholderService implements PlaceholderServiceInterface
             '{estado}' => $wedding->state ?? '',
             '{cidade_estado}' => $this->formatCidadeEstado($wedding->city, $wedding->state),
         ];
+    }
+
+    /**
+     * Get the first name from a full name.
+     * Extracts the first word from the name.
+     *
+     * @param string $fullName The full name
+     * @return string The first name
+     */
+    private function getFirstName(string $fullName): string
+    {
+        if (empty($fullName)) {
+            return '';
+        }
+
+        $parts = explode(' ', trim($fullName));
+        return $parts[0] ?? '';
     }
 
     /**

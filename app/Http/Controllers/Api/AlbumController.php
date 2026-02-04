@@ -38,24 +38,26 @@ class AlbumController extends Controller
     {
         $wedding = $request->user()->currentWedding;
 
-        $albumsByType = $this->albumManagementService->getAlbumsByType($wedding);
-
-        // Format response with type information
-        $response = [];
-        foreach ($albumsByType as $typeSlug => $albums) {
-            $type = AlbumType::where('slug', $typeSlug)->first();
-            $response[$typeSlug] = [
-                'type' => [
-                    'slug' => $typeSlug,
-                    'name' => $type?->name ?? $typeSlug,
-                    'description' => $type?->description,
-                ],
-                'albums' => $albums->map(fn (Album $album) => $this->formatAlbumResponse($album)),
-            ];
-        }
+        $albums = Album::where('wedding_id', $wedding->id)
+            ->with('albumType', 'coverMedia')
+            ->withCount('media')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($album) {
+                return [
+                    'id' => $album->id,
+                    'name' => $album->name,
+                    'description' => $album->description,
+                    'type_slug' => $album->albumType?->slug,
+                    'type_name' => $album->albumType?->name,
+                    'cover_url' => $album->coverMedia?->getVariantUrl('thumbnail') ?? $album->coverMedia?->getUrl(),
+                    'media_count' => $album->media_count,
+                    'created_at' => $album->created_at?->toIso8601String(),
+                ];
+            });
 
         return response()->json([
-            'data' => $response,
+            'data' => $albums,
         ]);
     }
 
@@ -219,6 +221,50 @@ class AlbumController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    /**
+     * Get media from an album.
+     * 
+     * GET /api/albums/{album}/media
+     */
+    public function media(Request $request, Album $album): JsonResponse
+    {
+        $wedding = $request->user()->currentWedding;
+
+        // Verify album belongs to wedding
+        if ($album->wedding_id !== $wedding->id) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'O álbum não pertence a este casamento.',
+            ], 403);
+        }
+
+        // Get media
+        $media = $album->media()
+            ->where('status', 'completed')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($media) {
+                return [
+                    'id' => $media->id,
+                    'filename' => $media->original_name,
+                    'type' => str_starts_with($media->mime_type, 'image/') ? 'image' : 'video',
+                    'mime_type' => $media->mime_type,
+                    'size' => $media->size,
+                    'width' => $media->width,
+                    'height' => $media->height,
+                    'url' => $media->getUrl(),
+                    'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
+                    'alt' => $media->alt,
+                    'created_at' => $media->created_at->toIso8601String(),
+                    'updated_at' => $media->updated_at->toIso8601String(),
+                ];
+            });
+
+        return response()->json([
+            'data' => $media,
+        ]);
     }
 
     /**

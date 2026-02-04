@@ -38,6 +38,10 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
             ],
             'weddingId' => $weddingId,
+            'ziggy' => fn () => [
+                ...(new \Tighten\Ziggy\Ziggy)->toArray(),
+                'location' => $request->url(),
+            ],
         ];
     }
 }

@@ -12,6 +12,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import SectionSidebar from '@/Components/Site/SectionSidebar.vue';
 import SectionEditor from '@/Components/Site/SectionEditor.vue';
 import SitePreview from '@/Components/Site/SitePreview.vue';
+import PublishDialog from '@/Components/Site/PublishDialog.vue';
+import Toast from '@/Components/Site/Toast.vue';
 import useSiteEditor from '@/Composables/useSiteEditor';
 import useVersionHistory from '@/Composables/useVersionHistory';
 
@@ -63,6 +65,14 @@ const activeSection = ref('header');
 const showPreview = ref(false);
 const previewMode = ref('desktop'); // 'mobile', 'tablet', 'desktop'
 const showVersionHistory = ref(false);
+const showPublishDialog = ref(false);
+
+// Toast state
+const toast = ref({
+    show: false,
+    type: 'success',
+    message: '',
+});
 
 // Section list for sidebar
 const sections = computed(() => {
@@ -73,7 +83,7 @@ const sections = computed(() => {
         { key: 'hero', label: 'Destaque', icon: 'image' },
         { key: 'saveTheDate', label: 'Save the Date', icon: 'calendar' },
         { key: 'giftRegistry', label: 'Lista de Presentes', icon: 'gift' },
-        { key: 'rsvp', label: 'RSVP', icon: 'users' },
+        { key: 'rsvp', label: 'Confirme Presença', icon: 'users' },
         { key: 'photoGallery', label: 'Galeria de Fotos', icon: 'images' },
         { key: 'footer', label: 'Rodapé', icon: 'footer' },
     ].map(section => ({
@@ -116,11 +126,36 @@ const handleSectionUpdate = (data) => {
     updateSection(activeSection.value, data);
 };
 
-// Handle publish with confirmation
-const handlePublish = async () => {
-    if (confirm('Tem certeza que deseja publicar o site? As alterações ficarão visíveis publicamente.')) {
-        await publish();
-    }
+// Handle publish - open dialog
+const handlePublish = () => {
+    showPublishDialog.value = true;
+};
+
+// Handle publish success
+const handlePublishSuccess = (data) => {
+    showToast('success', 'Site publicado com sucesso!');
+    // Reload page to update site status
+    window.location.reload();
+};
+
+// Handle publish error
+const handlePublishError = (error) => {
+    const message = typeof error === 'string' ? error : error?.message || 'Erro ao publicar site';
+    showToast('error', message);
+};
+
+// Show toast notification
+const showToast = (type, message) => {
+    toast.value = {
+        show: true,
+        type,
+        message,
+    };
+};
+
+// Close toast
+const closeToast = () => {
+    toast.value.show = false;
 };
 
 // Handle rollback with confirmation
@@ -410,6 +445,24 @@ onUnmounted(() => {
                 </div>
             </aside>
         </div>
+
+        <!-- Publish Dialog -->
+        <PublishDialog
+            :is-open="showPublishDialog"
+            :site-id="site.id"
+            :site-name="site.name || 'Site'"
+            @close="showPublishDialog = false"
+            @published="handlePublishSuccess"
+            @error="handlePublishError"
+        />
+
+        <!-- Toast Notification -->
+        <Toast
+            :show="toast.show"
+            :type="toast.type"
+            :message="toast.message"
+            @close="closeToast"
+        />
     </div>
 </template>
 

@@ -147,11 +147,14 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             $result->addError('Header: O título não pode estar vazio quando a seção está habilitada');
         }
 
-        // Validate logo alt text if logo URL is set
-        $logoUrl = $content['logo']['url'] ?? '';
-        $logoAlt = $content['logo']['alt'] ?? '';
-        if (!empty($logoUrl) && empty(trim($logoAlt))) {
-            $result->addWarning('Header: O logotipo deve ter texto alternativo (alt) para acessibilidade');
+        // Validate logo alt text only if using image logo
+        $logoType = $content['logo']['type'] ?? 'image';
+        if ($logoType === 'image') {
+            $logoUrl = $content['logo']['url'] ?? '';
+            $logoAlt = $content['logo']['alt'] ?? '';
+            if (!empty($logoUrl) && empty(trim($logoAlt))) {
+                $result->addWarning('Header: O logotipo deve ter texto alternativo (alt) para acessibilidade');
+            }
         }
 
         return $result;
@@ -202,6 +205,11 @@ class SiteValidatorService implements SiteValidatorServiceInterface
     private function validatePhotoGallerySection(array $content): ValidationResult
     {
         $result = ValidationResult::success();
+
+        // Only validate if section is enabled
+        if (!($content['enabled'] ?? false)) {
+            return $result;
+        }
 
         $albums = $content['albums'] ?? [];
         $photosWithoutAlt = [];
@@ -259,16 +267,20 @@ class SiteValidatorService implements SiteValidatorServiceInterface
 
         // Check header logo
         if (($sections['header']['enabled'] ?? false)) {
-            $logoUrl = $sections['header']['logo']['url'] ?? '';
-            $logoAlt = $sections['header']['logo']['alt'] ?? '';
-            if (!empty($logoUrl) && empty(trim($logoAlt))) {
-                $warnings[] = [
-                    'type' => 'missing_alt',
-                    'section' => 'header',
-                    'element' => 'logo',
-                    'message' => 'O logotipo do cabeçalho não tem texto alternativo',
-                    'suggestion' => 'Adicione uma descrição do logotipo para leitores de tela',
-                ];
+            $logoType = $sections['header']['logo']['type'] ?? 'image';
+            // Only check alt text if using image logo
+            if ($logoType === 'image') {
+                $logoUrl = $sections['header']['logo']['url'] ?? '';
+                $logoAlt = $sections['header']['logo']['alt'] ?? '';
+                if (!empty($logoUrl) && empty(trim($logoAlt))) {
+                    $warnings[] = [
+                        'type' => 'missing_alt',
+                        'section' => 'header',
+                        'element' => 'logo',
+                        'message' => 'O logotipo do cabeçalho não tem texto alternativo',
+                        'suggestion' => 'Adicione uma descrição do logotipo para leitores de tela',
+                    ];
+                }
             }
         }
 
@@ -291,7 +303,7 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             }
         }
 
-        // Check photo gallery
+        // Check photo gallery (only if enabled)
         if (($sections['photoGallery']['enabled'] ?? false)) {
             $albums = $sections['photoGallery']['albums'] ?? [];
             foreach ($albums as $albumName => $album) {
@@ -463,7 +475,8 @@ class SiteValidatorService implements SiteValidatorServiceInterface
     private function checkResourceSizeQA(SiteLayout $site, QAResult $result): void
     {
         $threshold = SystemConfig::get('site.performance_threshold', 5242880); // 5MB default
-        $totalSize = $this->calculateTotalResourceSize($site);
+        $sizeData = $this->calculateTotalResourceSize($site);
+        $totalSize = $sizeData['total'];
 
         if ($totalSize <= $threshold) {
             $sizeMB = round($totalSize / 1048576, 2);
@@ -475,9 +488,21 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         } else {
             $sizeMB = round($totalSize / 1048576, 2);
             $thresholdMB = round($threshold / 1048576, 2);
+            
+            // Build detailed message with top heavy files
+            $message = "Tamanho total ({$sizeMB}MB) excede o recomendado ({$thresholdMB}MB)";
+            
+            if (!empty($sizeData['top_files'])) {
+                $message .= "\n\nArquivos maiores:";
+                foreach ($sizeData['top_files'] as $file) {
+                    $fileSizeMB = round($file['size'] / 1048576, 2);
+                    $message .= "\n• {$file['name']} ({$fileSizeMB}MB)";
+                }
+            }
+            
             $result->addWarningCheck(
                 'resource_size',
-                "Tamanho total ({$sizeMB}MB) excede o recomendado ({$thresholdMB}MB)",
+                $message,
                 null
             );
         }
@@ -490,10 +515,11 @@ class SiteValidatorService implements SiteValidatorServiceInterface
     {
         $result = ValidationResult::success();
 
-        // Check meta.title is not empty
+        // Check meta.title is not empty (can be auto-filled from wedding data)
         $metaTitle = $content['meta']['title'] ?? '';
         if (empty(trim($metaTitle))) {
-            $result->addError('O título do site (meta.title) é obrigatório');
+            // This is a soft warning - the system can auto-fill this
+            $result->addWarning('O título do site será preenchido automaticamente com os nomes dos noivos');
         }
 
         // Check that at least header or hero is enabled
@@ -594,10 +620,117 @@ class SiteValidatorService implements SiteValidatorServiceInterface
 
     /**
      * Calculate total resource size for a site.
+     * Only counts media that will actually be published (used in draft_content).
+     * 
+     * @return array ['total' => int, 'top_files' => array]
      */
-    private function calculateTotalResourceSize(SiteLayout $site): int
+    private function calculateTotalResourceSize(SiteLayout $site): array
     {
-        return $site->media()->sum('size');
+        $content = $site->draft_content ?? [];
+        $sections = $content['sections'] ?? [];
+        
+        // Collect all media URLs used in enabled sections
+        $usedMediaUrls = [];
+        
+        // Check header logo
+        if (($sections['header']['enabled'] ?? false)) {
+            $logoUrl = $sections['header']['logo']['url'] ?? '';
+            if (!empty($logoUrl)) {
+                $usedMediaUrls[] = $logoUrl;
+            }
+        }
+        
+        // Check hero media
+        if (($sections['hero']['enabled'] ?? false)) {
+            $mediaUrl = $sections['hero']['media']['url'] ?? '';
+            if (!empty($mediaUrl)) {
+                $usedMediaUrls[] = $mediaUrl;
+            }
+            $fallbackUrl = $sections['hero']['media']['fallback'] ?? '';
+            if (!empty($fallbackUrl)) {
+                $usedMediaUrls[] = $fallbackUrl;
+            }
+        }
+        
+        // Check photo gallery (only if enabled)
+        if (($sections['photoGallery']['enabled'] ?? false)) {
+            $albums = $sections['photoGallery']['albums'] ?? [];
+            foreach ($albums as $album) {
+                $photos = $album['photos'] ?? [];
+                foreach ($photos as $photo) {
+                    $photoUrl = is_array($photo) ? ($photo['url'] ?? '') : $photo;
+                    if (!empty($photoUrl)) {
+                        $usedMediaUrls[] = $photoUrl;
+                    }
+                }
+            }
+        }
+        
+        // Remove duplicates
+        $usedMediaUrls = array_unique($usedMediaUrls);
+        
+        if (empty($usedMediaUrls)) {
+            return [
+                'total' => 0,
+                'top_files' => [],
+            ];
+        }
+        
+        // Get media records that match the used URLs
+        $media = $site->media()
+            ->select('id', 'original_name', 'path', 'disk', 'size')
+            ->get();
+        
+        $totalSize = 0;
+        $filesWithSize = [];
+        
+        foreach ($media as $item) {
+            // Check if this media is actually used in the content
+            $mediaUrl = \Storage::disk($item->disk)->url($item->path);
+            $isUsed = false;
+            
+            foreach ($usedMediaUrls as $usedUrl) {
+                if (str_contains($usedUrl, $item->path) || $usedUrl === $mediaUrl) {
+                    $isUsed = true;
+                    break;
+                }
+            }
+            
+            if (!$isUsed) {
+                continue;
+            }
+            
+            // Use size from database if available, otherwise get from file
+            $fileSize = $item->size;
+            
+            if (!$fileSize || $fileSize <= 0) {
+                try {
+                    $fileSize = \Storage::disk($item->disk)->size($item->path);
+                } catch (\Exception $e) {
+                    $fileSize = 0;
+                }
+            }
+            
+            $totalSize += $fileSize;
+            
+            $filesWithSize[] = [
+                'id' => $item->id,
+                'name' => $item->original_name,
+                'size' => $fileSize,
+            ];
+        }
+        
+        // Sort by size descending and get top 5
+        usort($filesWithSize, function($a, $b) {
+            return $b['size'] <=> $a['size'];
+        });
+        
+        $topFiles = array_slice($filesWithSize, 0, 5);
+        
+        return [
+            'total' => $totalSize,
+            'top_files' => $topFiles,
+        ];
     }
 
     /**

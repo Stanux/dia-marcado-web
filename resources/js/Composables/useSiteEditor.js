@@ -28,7 +28,7 @@ export const SECTION_LABELS = {
     hero: 'Hero',
     saveTheDate: 'Save the Date',
     giftRegistry: 'Lista de Presentes',
-    rsvp: 'Confirmar Presença',
+    rsvp: 'Confirme Presença',
     photoGallery: 'Galeria de Fotos',
 };
 
@@ -125,7 +125,7 @@ export default function useSiteEditor(initialSite) {
         error.value = null;
 
         try {
-            const response = await axios.put(`/api/sites/${site.value.id}/draft`, {
+            const response = await axios.put(`/admin/sites/${site.value.id}/draft`, {
                 content: draftContent.value,
             });
 
@@ -174,7 +174,7 @@ export default function useSiteEditor(initialSite) {
         error.value = null;
 
         try {
-            const response = await axios.post(`/api/sites/${site.value.id}/publish`);
+            const response = await axios.post(`/admin/sites/${site.value.id}/publish`);
 
             // Update local state with server response
             site.value = response.data.data;
@@ -227,7 +227,7 @@ export default function useSiteEditor(initialSite) {
         error.value = null;
 
         try {
-            const response = await axios.post(`/api/sites/${site.value.id}/rollback`);
+            const response = await axios.post(`/admin/sites/${site.value.id}/rollback`);
 
             // Update local state with server response
             site.value = response.data.data;

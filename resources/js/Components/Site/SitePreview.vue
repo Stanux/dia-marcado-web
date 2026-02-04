@@ -108,8 +108,31 @@ const galleryStyle = computed(() => photoGallery.value.style || {});
             :style="{ backgroundColor: headerStyle.backgroundColor || '#ffffff', minHeight: headerStyle.height || '60px' }"
         >
             <div class="flex items-center gap-2">
-                <img v-if="header.logo?.url" :src="header.logo.url" :alt="header.logo.alt || 'Logo'" class="h-8 w-auto object-contain" />
-                <div v-else class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" :style="{ backgroundColor: primaryColor }">♥</div>
+                <!-- Logo tipo imagem -->
+                <img 
+                    v-if="header.logo?.type === 'image' && header.logo?.url" 
+                    :src="header.logo.url" 
+                    :alt="header.logo.alt || 'Logo'" 
+                    class="h-8 w-auto object-contain" 
+                />
+                <!-- Logo tipo texto (iniciais) -->
+                <span 
+                    v-else-if="header.logo?.type === 'text' && header.logo?.text" 
+                    class="text-lg font-semibold tracking-wider"
+                    :style="{ color: primaryColor }"
+                >
+                    {{ (header.logo.text.initials?.[0] || '').toUpperCase().charAt(0) }} 
+                    {{ header.logo.text.connector || '&' }} 
+                    {{ (header.logo.text.initials?.[1] || '').toUpperCase().charAt(0) }}
+                </span>
+                <!-- Fallback: coração -->
+                <div 
+                    v-else 
+                    class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" 
+                    :style="{ backgroundColor: primaryColor }"
+                >
+                    ♥
+                </div>
                 <div v-if="header.title || header.subtitle">
                     <span class="font-semibold text-sm" :style="{ color: secondaryColor }">{{ header.title || 'Seu Casamento' }}</span>
                     <span v-if="header.subtitle" class="text-xs text-gray-500 block">{{ header.subtitle }}</span>

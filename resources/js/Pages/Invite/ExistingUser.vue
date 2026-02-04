@@ -18,11 +18,11 @@ const acceptForm = useForm({});
 const declineForm = useForm({});
 
 const accept = () => {
-    acceptForm.post(route('convite.accept.existing', props.token));
+    acceptForm.post(`/convite/${props.token}/aceitar`);
 };
 
 const decline = () => {
-    declineForm.post(route('convite.decline', props.token));
+    declineForm.post(`/convite/${props.token}/recusar`);
 };
 </script>
 
@@ -64,7 +64,7 @@ const decline = () => {
                     Para aceitar este convite, você precisa fazer login com o e-mail <span class="font-semibold">{{ email }}</span>.
                 </p>
                 <a
-                    :href="route('filament.admin.auth.login')"
+                    href="/admin/login"
                     class="mt-3 inline-block bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-semibold hover:bg-blue-700 transition"
                 >
                     Fazer Login

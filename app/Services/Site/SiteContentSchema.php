@@ -66,12 +66,16 @@ class SiteContentSchema
         return [
             'enabled' => true,
             'logo' => [
+                'type' => 'image', // 'image' ou 'text'
                 'url' => '',
                 'alt' => '',
+                'text' => [
+                    'initials' => ['', ''],
+                    'connector' => '&',
+                ],
             ],
             'title' => '',
             'subtitle' => '',
-            'showDate' => true,
             'navigation' => [],
             'actionButton' => [
                 'label' => '',
@@ -136,6 +140,10 @@ class SiteContentSchema
     {
         return [
             'enabled' => true,
+            'navigation' => [
+                'label' => 'Save the Date',
+                'showInMenu' => true,
+            ],
             'showMap' => true,
             'mapProvider' => 'google',
             'mapCoordinates' => [
@@ -160,6 +168,10 @@ class SiteContentSchema
     {
         return [
             'enabled' => false,
+            'navigation' => [
+                'label' => 'Lista de Presentes',
+                'showInMenu' => true,
+            ],
             'title' => 'Lista de Presentes',
             'description' => 'Em breve...',
             'style' => [
@@ -175,6 +187,10 @@ class SiteContentSchema
     {
         return [
             'enabled' => false,
+            'navigation' => [
+                'label' => 'Confirme Presença',
+                'showInMenu' => true,
+            ],
             'title' => 'Confirme sua Presença',
             'description' => '',
             'mockFields' => [
@@ -196,6 +212,10 @@ class SiteContentSchema
     {
         return [
             'enabled' => false,
+            'navigation' => [
+                'label' => 'Galeria de Fotos',
+                'showInMenu' => true,
+            ],
             'albums' => [
                 'before' => [
                     'title' => 'Nossa História',

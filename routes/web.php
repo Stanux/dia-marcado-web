@@ -44,12 +44,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function () {
     // Media Screen routes
     Route::get('/midias', [MediaScreenController::class, 'index'])->name('midias.index');
+    Route::get('/albums', [AlbumController::class, 'index'])->name('albums.index');
     Route::post('/albums', [AlbumController::class, 'store'])->name('albums.store');
     Route::put('/albums/{id}', [AlbumController::class, 'update'])->name('albums.update');
     Route::delete('/albums/{id}', [AlbumController::class, 'destroy'])->name('albums.destroy');
+    Route::get('/albums/{id}/media', [AlbumController::class, 'media'])->name('albums.media');
     Route::post('/media/upload', [MediaController::class, 'upload'])->name('media.upload');
     Route::post('/media/batch-move', [MediaController::class, 'batchMove'])->name('media.batch-move');
+    Route::post('/media/{id}/crop', [MediaController::class, 'crop'])->name('media.crop');
     Route::delete('/media/{id}', [MediaController::class, 'destroy'])->name('media.destroy');
+    
+    // Site API routes
+    Route::put('/sites/{site}/draft', [\App\Http\Controllers\Api\SiteLayoutController::class, 'updateDraft'])->name('sites.update-draft');
+    Route::get('/sites/{site}/qa', [\App\Http\Controllers\Api\SiteLayoutController::class, 'qa'])->name('sites.qa');
+    Route::post('/sites/{site}/publish', [\App\Http\Controllers\Api\SiteLayoutController::class, 'publish'])->name('sites.publish');
+    Route::post('/sites/{site}/rollback', [\App\Http\Controllers\Api\SiteLayoutController::class, 'rollback'])->name('sites.rollback');
     
     // Create new site - creates site and redirects to editor
     Route::get('/sites/create', function () {

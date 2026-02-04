@@ -1,78 +1,79 @@
 <x-filament-panels::page>
     <div class="space-y-6">
         {{-- Album Selection --}}
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-            <div class="fi-section-content p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-base font-semibold leading-6 text-gray-950 dark:text-white">
-                        Selecione o Álbum
-                    </h3>
-                    <button 
-                        type="button"
-                        wire:click="toggleCreateAlbum"
-                        class="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
-                    >
-                        @if($showCreateAlbum)
-                            Cancelar
-                        @else
-                            + Criar novo álbum
-                        @endif
-                    </button>
-                </div>
+        <x-filament::section>
+            <x-slot name="heading">
+                Selecione o Álbum
+            </x-slot>
 
-                @if($showCreateAlbum)
-                    {{-- Create Album Form --}}
-                    <div class="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg mb-4">
-                        <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Criar Novo Álbum</h4>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Tipo do Álbum *
-                                </label>
-                                <select 
-                                    wire:model="newAlbumType"
-                                    class="fi-select-input block w-full rounded-lg border-gray-300 shadow-sm transition duration-75 focus:border-primary-500 focus:ring-1 focus:ring-inset focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:border-primary-500"
-                                    required
-                                >
-                                    <option value="">Selecione o tipo</option>
-                                    @foreach($this->getAlbumTypeOptions() as $slug => $name)
-                                        <option value="{{ $slug }}">{{ $name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Nome do Álbum *
-                                </label>
-                                <input 
-                                    type="text"
-                                    wire:model="newAlbumName"
-                                    class="fi-input block w-full rounded-lg border-gray-300 shadow-sm transition duration-75 focus:border-primary-500 focus:ring-1 focus:ring-inset focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:border-primary-500"
-                                    placeholder="Ex: Ensaio Pré-Wedding"
-                                    required
-                                />
-                            </div>
+            <x-slot name="headerEnd">
+                <x-filament::link 
+                    wire:click="toggleCreateAlbum"
+                    tag="button"
+                    size="sm"
+                >
+                    @if($showCreateAlbum)
+                        Cancelar
+                    @else
+                        + Criar novo álbum
+                    @endif
+                </x-filament::link>
+            </x-slot>
+
+            @if($showCreateAlbum)
+                {{-- Create Album Form --}}
+                <div class="space-y-4 p-4 rounded-lg mb-4 bg-gray-50 dark:bg-gray-800/50">
+                    <h4 class="text-sm font-medium">Criar Novo Álbum</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium mb-1 block">
+                                Tipo do Álbum *
+                            </label>
+                            <select 
+                                wire:model="newAlbumType"
+                                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                required
+                            >
+                                <option value="">Selecione o tipo</option>
+                                @foreach($this->getAlbumTypeOptions() as $slug => $name)
+                                    <option value="{{ $slug }}">{{ $name }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         
-                        <div class="flex justify-end">
-                            <x-filament::button 
-                                wire:click="createAlbum"
-                                size="sm"
-                                wire:loading.attr="disabled"
-                                wire:target="createAlbum"
-                            >
-                                <span wire:loading.remove wire:target="createAlbum">Criar Álbum</span>
-                                <span wire:loading wire:target="createAlbum">Criando...</span>
-                            </x-filament::button>
+                        <div>
+                            <label class="text-sm font-medium mb-1 block">
+                                Nome do Álbum *
+                            </label>
+                            <input 
+                                type="text"
+                                wire:model="newAlbumName"
+                                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                placeholder="Ex: Ensaio Pré-Wedding"
+                                required
+                            />
                         </div>
                     </div>
-                @endif
+                    
+                    <div class="flex justify-end">
+                        <x-filament::button 
+                            wire:click="createAlbum"
+                            size="sm"
+                            wire:loading.attr="disabled"
+                            wire:target="createAlbum"
+                        >
+                            <span wire:loading.remove wire:target="createAlbum">Criar Álbum</span>
+                            <span wire:loading wire:target="createAlbum">Criando...</span>
+                        </x-filament::button>
+                    </div>
+                </div>
+            @endif
 
+            <div>
                 <select 
-                    wire:model="albumId" 
-                    class="fi-select-input block w-full rounded-lg border-gray-300 shadow-sm transition duration-75 focus:border-primary-500 focus:ring-1 focus:ring-inset focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:border-primary-500"
+                    wire:model="albumId"
+                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     required
                 >
                     <option value="">Selecione um álbum *</option>
@@ -81,62 +82,64 @@
                     @endforeach
                 </select>
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    <span class="text-red-500">*</span> Obrigatório: As mídias devem ser associadas a um álbum
+                    <span class="text-danger-600 dark:text-danger-400">*</span> Obrigatório: As mídias devem ser associadas a um álbum
                 </p>
             </div>
-        </div>
+        </x-filament::section>
 
         {{-- File Upload Area --}}
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-            <div class="fi-section-content p-6">
-                <h3 class="text-base font-semibold leading-6 text-gray-950 dark:text-white mb-4">
-                    Upload de Arquivos
-                </h3>
+        <x-filament::section>
+            <x-slot name="heading">
+                Upload de Arquivos
+            </x-slot>
 
-                {{-- Drag and Drop Zone --}}
-                <div 
-                    class="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center transition-colors duration-200 hover:border-gray-400 dark:hover:border-gray-500"
+            {{-- Drag and Drop Zone --}}
+            <div 
+                class="relative border-2 border-dashed rounded-lg p-4 text-center transition-colors duration-200 border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500"
+            >
+                <input 
+                    type="file" 
+                    wire:model.live="files"
+                    multiple
+                    accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
+                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    id="file-upload"
                 >
-                    <input 
-                        type="file" 
-                        wire:model.live="files"
-                        multiple
-                        accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
-                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        id="file-upload"
+                
+                <div class="space-y-1">
+                    <x-heroicon-o-cloud-arrow-up class="mx-auto h-8 w-8 text-gray-400 dark:text-gray-500" />
+                    <div class="text-sm">
+                        <label for="file-upload" class="font-semibold cursor-pointer text-primary-600 dark:text-primary-400">
+                            Clique para selecionar múltiplos arquivos
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        JPG, PNG, GIF, WebP, MP4, WebM • Máximo 10MB por arquivo
+                    </p>
+                </div>
+            </div>
+
+            {{-- Loading indicator --}}
+            <div wire:loading wire:target="files" class="mt-4">
+                <div class="flex items-center justify-center gap-2 text-sm">
+                    <x-filament::loading-indicator class="h-5 w-5" />
+                    <span>Carregando arquivos...</span>
+                </div>
+            </div>
+
+            {{-- Debug button (temporary) --}}
+            @if(app()->environment('local'))
+                <div class="mt-2">
+                    <x-filament::link 
+                        wire:click="debugFiles"
+                        tag="button"
+                        size="xs"
+                        color="gray"
                     >
-                    
-                    <div class="space-y-1">
-                        <x-heroicon-o-cloud-arrow-up class="mx-auto h-8 w-8 text-gray-400" />
-                        <div class="text-sm text-gray-600 dark:text-gray-400">
-                            <label for="file-upload" class="font-semibold text-primary-600 dark:text-primary-400 cursor-pointer">Clique para selecionar múltiplos arquivos</label>
-                        </div>
-                        <p class="text-xs text-gray-500 dark:text-gray-500">
-                            JPG, PNG, GIF, WebP, MP4, WebM • Máximo 10MB por arquivo
-                        </p>
-                    </div>
+                        Debug Files ({{ count($this->files ?? []) }})
+                    </x-filament::link>
                 </div>
-
-                {{-- Loading indicator --}}
-                <div wire:loading wire:target="files" class="mt-4">
-                    <div class="flex items-center justify-center gap-2 text-sm text-gray-500">
-                        <x-filament::loading-indicator class="h-5 w-5" />
-                        <span>Carregando arquivos...</span>
-                    </div>
-                </div>
-
-                {{-- Debug button (temporary) --}}
-                @if(app()->environment('local'))
-                    <div class="mt-2">
-                        <button 
-                            type="button" 
-                            wire:click="debugFiles"
-                            class="text-xs text-gray-500 hover:text-gray-700"
-                        >
-                            Debug Files ({{ count($this->files ?? []) }})
-                        </button>
-                    </div>
-                @endif
+            @endif
 
                 {{-- File Preview --}}
                 @php
@@ -156,22 +159,23 @@
                 @if($fileCount > 0)
                     <div class="mt-6" wire:loading.remove wire:target="files">
                         <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <h4 class="text-sm font-medium">
                                 {{ $fileCount }} arquivo(s) selecionado(s)
                             </h4>
-                            <button 
-                                type="button" 
+                            <x-filament::link 
                                 wire:click="clearFiles"
-                                class="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                tag="button"
+                                size="sm"
+                                color="danger"
                             >
                                 Limpar todos
-                            </button>
+                            </x-filament::link>
                         </div>
                         
                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             @foreach($validFiles as $index => $file)
                                 <div class="relative group">
-                                    <div class="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                    <div class="aspect-square rounded-lg overflow-hidden border bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                                         @php
                                             try {
                                                 $mimeType = $file->getMimeType() ?? '';
@@ -189,27 +193,27 @@
                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
                                                 >
                                                 <div class="w-full h-full flex items-center justify-center" style="display: none;">
-                                                    <x-heroicon-o-photo class="h-8 w-8 text-gray-400" />
+                                                    <x-heroicon-o-photo class="h-8 w-8 text-gray-400 dark:text-gray-500" />
                                                 </div>
                                             @catch (\Exception $e)
                                                 <div class="w-full h-full flex items-center justify-center">
-                                                    <x-heroicon-o-photo class="h-8 w-8 text-gray-400" />
+                                                    <x-heroicon-o-photo class="h-8 w-8 text-gray-400 dark:text-gray-500" />
                                                 </div>
                                             @endtry
                                         @else
                                             <div class="w-full h-full flex items-center justify-center">
-                                                <x-heroicon-o-film class="h-8 w-8 text-gray-400" />
+                                                <x-heroicon-o-film class="h-8 w-8 text-gray-400 dark:text-gray-500" />
                                             </div>
                                         @endif
                                     </div>
                                     <button 
                                         type="button"
                                         wire:click="removeFile({{ $index }})"
-                                        class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                        class="absolute -top-2 -right-2 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg bg-danger-500 text-white"
                                     >
                                         <x-heroicon-s-x-mark class="h-4 w-4" />
                                     </button>
-                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    <p class="mt-1 text-xs truncate text-gray-500 dark:text-gray-400">
                                         {{ $file->getClientOriginalName() }}
                                     </p>
                                 </div>
@@ -220,12 +224,14 @@
 
                 {{-- Validation Errors --}}
                 @error('files.*')
-                    <div class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                        <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                    </div>
+                    <x-filament::section 
+                        class="mt-4"
+                        :color="'danger'"
+                    >
+                        <p class="text-sm">{{ $message }}</p>
+                    </x-filament::section>
                 @enderror
-            </div>
-        </div>
+        </x-filament::section>
 
         {{-- Upload Button --}}
         <div class="flex items-center gap-4">
@@ -252,12 +258,12 @@
             @if($successCount > 0 || $errorCount > 0)
                 <div class="text-sm">
                     @if($successCount > 0)
-                        <span class="text-green-600 dark:text-green-400">
+                        <span class="text-success-600 dark:text-success-400">
                             ✓ {{ $successCount }} enviado(s)
                         </span>
                     @endif
                     @if($errorCount > 0)
-                        <span class="text-red-600 dark:text-red-400 ml-2">
+                        <span class="ml-2 text-danger-600 dark:text-danger-400">
                             ✗ {{ $errorCount }} erro(s)
                         </span>
                     @endif
@@ -267,14 +273,16 @@
 
         {{-- Error List --}}
         @if(count($uploadErrors) > 0)
-            <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                <h4 class="text-sm font-medium text-red-800 dark:text-red-200 mb-2">Erros:</h4>
-                <ul class="text-sm text-red-700 dark:text-red-300 list-disc list-inside">
+            <x-filament::section color="danger">
+                <x-slot name="heading">
+                    Erros
+                </x-slot>
+                <ul class="text-sm list-disc list-inside space-y-1">
                     @foreach($uploadErrors as $uploadError)
                         <li>{{ $uploadError }}</li>
                     @endforeach
                 </ul>
-            </div>
+            </x-filament::section>
         @endif
 
         {{-- Back Link --}}

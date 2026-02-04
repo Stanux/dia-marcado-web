@@ -46,9 +46,9 @@ class WeddingSettings extends Page implements HasForms
 
     protected static ?string $navigationGroup = 'CASAMENTO';
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 2;
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static bool $shouldRegisterNavigation = true;
 
     public ?array $data = [];
 

@@ -27,6 +27,7 @@ export { default as RichTextEditor } from './RichTextEditor.vue';
 export { default as MediaUploader } from './MediaUploader.vue';
 export { default as MediaUploaderWithAlbum } from './MediaUploaderWithAlbum.vue';
 export { default as ColorPicker } from './ColorPicker.vue';
+export { default as TypographyControl } from './TypographyControl.vue';
 export { default as PlaceholderHelper } from './PlaceholderHelper.vue';
 export { default as NavigationEditor } from './NavigationEditor.vue';
 
