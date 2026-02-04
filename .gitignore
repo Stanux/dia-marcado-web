@@ -28,3 +28,14 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+# Arquivos de documentação temporária
+*.md
+
+
+
+# Configurações locais Kiro
+.kiro/settings/
+dia-marcado-web/storage/framework/views/*
+dia-marcado-web/storage/logs/*
+.phpunit.cache/test-results
+bootstrap/cache/*.php
