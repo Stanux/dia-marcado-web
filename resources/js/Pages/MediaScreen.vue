@@ -10,7 +10,16 @@
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="media-screen">
-        <div class="layout-columns">
+        <!-- Empty State: No Albums -->
+        <div v-if="albums.length === 0" class="empty-state-container">
+          <EmptyState 
+            type="no-albums"
+            @create-album="handleCreateAlbum"
+          />
+        </div>
+
+        <!-- Normal Layout: Albums exist -->
+        <div v-else class="layout-columns">
           <!-- Left Column: Album List -->
           <AlbumList 
             :albums="albums"
@@ -20,8 +29,7 @@
           />
           
           <!-- Right Column: Album Content or Empty State -->
-          <!-- Debug: {{ selectedAlbum ? 'Album selected: ' + selectedAlbum.name : 'No album selected' }} -->
-          <div v-if="!selectedAlbum" class="flex flex-col w-full h-full overflow-y-auto p-6 bg-white dark:bg-gray-900">
+          <div v-if="!selectedAlbum" class="flex flex-col w-full h-full overflow-y-auto p-6 bg-white dark:bg-gray-900 rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:ring-white/10">
             <!-- Disabled Upload Area -->
             <div class="w-full flex-shrink-0 mb-8 opacity-50 pointer-events-none">
               <div class="upload-area-disabled border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
@@ -47,7 +55,7 @@
                   Nenhum álbum selecionado
                 </h3>
                 <p class="empty-message text-gray-500">
-                  Crie ou selecione um álbum.
+                  Selecione um álbum na lista ao lado.
                 </p>
               </div>
             </div>
@@ -282,6 +290,17 @@ onMounted(() => {
 .media-screen {
   width: 100%;
   min-height: 600px;
+}
+
+.empty-state-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 600px;
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .layout-columns {

@@ -28,7 +28,7 @@ const emptyStateConfig = computed(() => {
         icon: '📁',
         title: 'Nenhum álbum criado',
         message: 'Comece criando seu primeiro álbum para organizar suas fotos e vídeos do casamento.',
-        actionLabel: 'Criar primeiro álbum',
+        actionLabel: 'Novo álbum',
         action: () => emit('create-album')
       };
     case 'no-media':
@@ -73,6 +73,7 @@ const handleAction = () => {
       class="empty-action"
       @click="handleAction"
     >
+      <span class="action-icon">+</span>
       {{ emptyStateConfig.actionLabel }}
     </button>
   </div>
@@ -111,7 +112,10 @@ const handleAction = () => {
 }
 
 .empty-action {
-  padding: 0.75rem 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
   background-color: #3b82f6;
   color: white;
   border: none;
@@ -120,6 +124,12 @@ const handleAction = () => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.action-icon {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .empty-action:hover {
@@ -136,5 +146,16 @@ const handleAction = () => {
 .empty-action:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .empty-title {
+    color: #e5e7eb;
+  }
+  
+  .empty-message {
+    color: #9ca3af;
+  }
 }
 </style>

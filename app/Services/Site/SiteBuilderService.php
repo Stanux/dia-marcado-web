@@ -47,10 +47,27 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         // Generate unique slug based on couple names
         $slug = $this->slugGenerator->generate($wedding);
 
-        // Create site with default content
+        // Get default content and populate with wedding data
+        $defaultContent = SiteContentSchema::getDefaultContent();
+        
+        // Set meta.title with couple names and date using placeholders
+        if ($wedding->wedding_date) {
+            $defaultContent['meta']['title'] = 'Casamento de {primeiro_nome_noivo} & {primeiro_nome_noiva} em {data_curta}';
+        } else {
+            $defaultContent['meta']['title'] = 'Casamento de {primeiro_nome_noivo} & {primeiro_nome_noiva}';
+        }
+        
+        // Set meta.description with wedding date if available
+        if ($wedding->wedding_date) {
+            $defaultContent['meta']['description'] = "Casamento de {noivo} e {noiva} - {data}";
+        } else {
+            $defaultContent['meta']['description'] = "Casamento de {noivo} e {noiva}";
+        }
+
+        // Create site with populated content
         $site = SiteLayout::create([
             'wedding_id' => $wedding->id,
-            'draft_content' => SiteContentSchema::getDefaultContent(),
+            'draft_content' => $defaultContent,
             'published_content' => null,
             'slug' => $slug,
             'custom_domain' => null,
@@ -92,6 +109,30 @@ class SiteBuilderService implements SiteBuilderServiceInterface
      */
     public function publish(SiteLayout $site, User $user): SiteLayout
     {
+        // Auto-fill meta.title if empty
+        $draftContent = $site->draft_content;
+        if (empty(trim($draftContent['meta']['title'] ?? ''))) {
+            $wedding = $site->wedding;
+            
+            // Set title with couple names and date using placeholders
+            if ($wedding->wedding_date) {
+                $draftContent['meta']['title'] = 'Casamento de {primeiro_nome_noivo} & {primeiro_nome_noiva} em {data_curta}';
+            } else {
+                $draftContent['meta']['title'] = 'Casamento de {primeiro_nome_noivo} & {primeiro_nome_noiva}';
+            }
+            
+            // Also set description if empty
+            if (empty(trim($draftContent['meta']['description'] ?? ''))) {
+                if ($wedding->wedding_date) {
+                    $draftContent['meta']['description'] = "Casamento de {noivo} e {noiva} - {data}";
+                } else {
+                    $draftContent['meta']['description'] = "Casamento de {noivo} e {noiva}";
+                }
+            }
+            
+            $site->draft_content = $draftContent;
+        }
+        
         // Validate content before publishing
         $errors = SiteContentSchema::validate($site->draft_content);
         

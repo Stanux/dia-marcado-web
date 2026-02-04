@@ -159,17 +159,17 @@ describe('MediaScreen.vue', () => {
       expect(emptyState.props('type')).toBe('no-albums');
     });
 
-    it('deve exibir EmptyState quando há álbuns mas nenhum selecionado', () => {
+    it('deve exibir mensagem quando há álbuns mas nenhum selecionado', () => {
       const wrapper = mount(MediaScreen, {
         props: {
           albums: mockAlbums
         }
       });
 
-      // Should render EmptyState with type="no-media"
-      const emptyState = wrapper.findComponent({ name: 'EmptyState' });
-      expect(emptyState.exists()).toBe(true);
-      expect(emptyState.props('type')).toBe('no-media');
+      // Should render the "no album selected" message
+      const emptyStateDiv = wrapper.find('.empty-state');
+      expect(emptyStateDiv.exists()).toBe(true);
+      expect(emptyStateDiv.text()).toContain('Nenhum álbum selecionado');
     });
 
     it('deve exibir AlbumContent quando álbum está selecionado', async () => {
