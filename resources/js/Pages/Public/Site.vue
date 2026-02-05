@@ -52,6 +52,15 @@ const isSectionEnabled = (sectionKey) => {
 const getSectionContent = (sectionKey) => {
     return sections.value[sectionKey] || {};
 };
+
+// Get enabled sections map for header navigation filtering
+const enabledSections = computed(() => {
+    const result = {};
+    Object.keys(sections.value).forEach(key => {
+        result[key] = sections.value[key]?.enabled ?? false;
+    });
+    return result;
+});
 </script>
 
 <template>
@@ -61,6 +70,7 @@ const getSectionContent = (sectionKey) => {
             v-if="isSectionEnabled('header')"
             :content="getSectionContent('header')"
             :theme="theme"
+            :enabled-sections="enabledSections"
         />
 
         <!-- Hero Section -->

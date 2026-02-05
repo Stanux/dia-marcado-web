@@ -8,6 +8,7 @@
  * @Requirements: 8.1, 8.5, 8.6, 8.7
  */
 import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     content: {
@@ -18,13 +19,86 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    enabledSections: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
+const page = usePage();
+
 // Computed properties
-const logo = computed(() => props.content.logo || { url: '', alt: '' });
-const navigation = computed(() => props.content.navigation || []);
+const logo = computed(() => props.content.logo || { type: 'image', url: '', alt: '' });
+const navigation = computed(() => {
+    // Filter navigation items to only show enabled sections
+    const items = props.content.navigation || [];
+    if (!items.length) return [];
+    
+    return items.filter(item => {
+        // Always show if showInMenu is false (hidden items)
+        if (!item.showInMenu) return false;
+        
+        // Check if target section is enabled
+        if (item.sectionKey && props.enabledSections) {
+            return props.enabledSections[item.sectionKey] === true;
+        }
+        
+        return true;
+    });
+});
 const actionButton = computed(() => props.content.actionButton || { label: '', target: '', style: 'primary' });
 const style = computed(() => props.content.style || {});
+const titleTypography = computed(() => props.content.titleTypography || {});
+const subtitleTypography = computed(() => props.content.subtitleTypography || {});
+
+/**
+ * Replace placeholders in text with actual wedding data
+ */
+const replacePlaceholders = (text) => {
+    if (!text) return text;
+    
+    const wedding = page.props.wedding;
+    if (!wedding) return text;
+    
+    let result = text;
+    
+    // Replace wedding date
+    if (wedding.wedding_date) {
+        const date = new Date(wedding.wedding_date);
+        
+        // {data} = formato longo: "15 de Março de 2025"
+        const monthNames = [
+            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        ];
+        const longDate = `${date.getDate()} de ${monthNames[date.getMonth()]} de ${date.getFullYear()}`;
+        
+        // {data_curta} = formato curto: "15/03/2025"
+        const shortDate = date.toLocaleDateString('pt-BR', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            year: 'numeric' 
+        });
+        
+        result = result.replace(/{data}/g, longDate);
+        result = result.replace(/{data_curta}/g, shortDate);
+    }
+    
+    // Replace bride and groom names
+    if (wedding.bride_name) {
+        result = result.replace(/{noiva}/g, wedding.bride_name);
+        const firstName = wedding.bride_name.split(' ')[0];
+        result = result.replace(/{primeiro_nome_noiva}/g, firstName);
+    }
+    
+    if (wedding.groom_name) {
+        result = result.replace(/{noivo}/g, wedding.groom_name);
+        const firstName = wedding.groom_name.split(' ')[0];
+        result = result.replace(/{primeiro_nome_noivo}/g, firstName);
+    }
+    
+    return result;
+};
 
 // Mobile menu state
 const isMobileMenuOpen = ref(false);
@@ -106,12 +180,31 @@ const navigateTo = (target, type) => {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
             <div class="flex items-center h-full py-4" :class="alignmentClass">
                 <!-- Logo -->
-                <div v-if="logo.url" class="flex-shrink-0">
+                <div v-if="logo.type === 'image' && logo.url" class="flex-shrink-0">
                     <img 
                         :src="logo.url" 
                         :alt="logo.alt || 'Logo'"
-                        class="h-12 w-auto object-contain"
+                        :style="{ height: style.logoHeight || '64px' }"
+                        class="w-auto object-contain"
                     />
+                </div>
+                
+                <!-- Logo Text (Initials) -->
+                <div v-else-if="logo.type === 'text' && logo.text" class="flex-shrink-0">
+                    <span 
+                        class="font-bold tracking-wider"
+                        :style="{ 
+                            color: logo.text.typography?.fontColor || theme.primaryColor || '#333333', 
+                            fontFamily: logo.text.typography?.fontFamily || theme.fontFamily || 'Playfair Display',
+                            fontSize: logo.text.typography?.fontSize ? `${logo.text.typography.fontSize}px` : '48px',
+                            fontWeight: logo.text.typography?.fontWeight || 700,
+                            fontStyle: logo.text.typography?.fontItalic ? 'italic' : 'normal',
+                        }"
+                    >
+                        {{ (logo.text.initials?.[0] || '').toUpperCase().charAt(0) }}
+                        <span class="mx-1">{{ logo.text.connector || '&' }}</span>
+                        {{ (logo.text.initials?.[1] || '').toUpperCase().charAt(0) }}
+                    </span>
                 </div>
 
                 <!-- Title & Subtitle -->
@@ -121,16 +214,30 @@ const navigateTo = (target, type) => {
                 >
                     <h1 
                         v-if="content.title"
-                        class="text-xl font-semibold"
-                        :style="{ color: theme.primaryColor, fontFamily: theme.fontFamily }"
+                        :style="{ 
+                            color: titleTypography.fontColor || theme.primaryColor, 
+                            fontFamily: titleTypography.fontFamily || theme.fontFamily,
+                            fontSize: titleTypography.fontSize ? `${titleTypography.fontSize}px` : '20px',
+                            fontWeight: titleTypography.fontWeight || 600,
+                            fontStyle: titleTypography.fontItalic ? 'italic' : 'normal',
+                            textDecoration: titleTypography.fontUnderline ? 'underline' : 'none',
+                        }"
                     >
-                        {{ content.title }}
+                        {{ replacePlaceholders(content.title) }}
                     </h1>
                     <p 
                         v-if="content.subtitle"
-                        class="text-sm text-gray-600 mt-0.5"
+                        class="mt-0.5"
+                        :style="{ 
+                            color: subtitleTypography.fontColor || '#6b7280',
+                            fontFamily: subtitleTypography.fontFamily || theme.fontFamily,
+                            fontSize: subtitleTypography.fontSize ? `${subtitleTypography.fontSize}px` : '14px',
+                            fontWeight: subtitleTypography.fontWeight || 400,
+                            fontStyle: subtitleTypography.fontItalic ? 'italic' : 'normal',
+                            textDecoration: subtitleTypography.fontUnderline ? 'underline' : 'none',
+                        }"
                     >
-                        {{ content.subtitle }}
+                        {{ replacePlaceholders(content.subtitle) }}
                     </p>
                 </div>
 

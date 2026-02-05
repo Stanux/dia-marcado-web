@@ -7,7 +7,7 @@
  * 
  * @Requirements: 9.1, 9.2, 9.4, 9.5
  */
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
     content: {
@@ -70,8 +70,11 @@ const animationClass = computed(() => {
     }
 });
 
-// Check if media is a video
+// Check media type
 const isVideo = computed(() => media.value.type === 'video');
+const isGallery = computed(() => media.value.type === 'gallery');
+const isImage = computed(() => media.value.type === 'image' || (!isVideo.value && !isGallery.value));
+
 const isYouTube = computed(() => {
     const url = media.value.url || '';
     return url.includes('youtube.com') || url.includes('youtu.be');
@@ -99,14 +102,49 @@ const placeholderStyle = computed(() => ({
     background: `linear-gradient(135deg, ${props.theme.primaryColor || '#d4a574'}, ${props.theme.secondaryColor || '#8b7355'})`,
 }));
 
+// Gallery carousel state
+const currentGalleryIndex = ref(0);
+let galleryInterval = null;
+
+// Start gallery carousel
+const startGalleryCarousel = () => {
+    if (isGallery.value && media.value.images?.length > 1) {
+        galleryInterval = setInterval(() => {
+            currentGalleryIndex.value = (currentGalleryIndex.value + 1) % media.value.images.length;
+        }, 5000); // Change image every 5 seconds
+    }
+};
+
+// Stop gallery carousel
+const stopGalleryCarousel = () => {
+    if (galleryInterval) {
+        clearInterval(galleryInterval);
+        galleryInterval = null;
+    }
+};
+
+onMounted(() => {
+    // Trigger animation after mount
+    setTimeout(() => {
+        isVisible.value = true;
+    }, 100);
+    
+    // Start gallery carousel if applicable
+    startGalleryCarousel();
+});
+
+onUnmounted(() => {
+    stopGalleryCarousel();
+});
+
 // Navigate to target
 const navigateTo = (target) => {
-    if (target.startsWith('#')) {
+    if (target && target.startsWith('#')) {
         const element = document.querySelector(target);
         if (element) {
             element.scrollIntoView({ behavior: 'smooth' });
         }
-    } else {
+    } else if (target) {
         window.location.href = target;
     }
 };
@@ -119,8 +157,40 @@ const navigateTo = (target) => {
     >
         <!-- Background Media -->
         <div class="absolute inset-0 overflow-hidden">
+            <!-- Gallery (Banner Rotativo) -->
+            <template v-if="isGallery && media.images?.length > 0">
+                <div class="relative w-full h-full">
+                    <!-- Gallery Images -->
+                    <div
+                        v-for="(image, index) in media.images"
+                        :key="index"
+                        class="absolute inset-0 transition-opacity duration-1000"
+                        :class="{ 'opacity-100': index === currentGalleryIndex, 'opacity-0': index !== currentGalleryIndex }"
+                    >
+                        <img 
+                            :src="image.url" 
+                            :alt="image.alt || `Slide ${index + 1}`" 
+                            class="w-full h-full object-cover"
+                            loading="eager"
+                        />
+                    </div>
+                    
+                    <!-- Gallery Indicators -->
+                    <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                        <button
+                            v-for="(image, index) in media.images"
+                            :key="index"
+                            @click="currentGalleryIndex = index"
+                            class="w-2 h-2 rounded-full transition-all"
+                            :class="index === currentGalleryIndex ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/75'"
+                            :aria-label="`Ir para slide ${index + 1}`"
+                        ></button>
+                    </div>
+                </div>
+            </template>
+            
             <!-- Image Background -->
-            <template v-if="!isVideo && media.url">
+            <template v-else-if="isImage && media.url">
                 <img
                     :src="media.url"
                     :alt="content.title || 'Hero image'"
@@ -235,13 +305,6 @@ const navigateTo = (target) => {
                     {{ ctaSecondary.label }}
                 </a>
             </div>
-        </div>
-
-        <!-- Scroll Indicator -->
-        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-            <svg class="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
         </div>
     </section>
 </template>

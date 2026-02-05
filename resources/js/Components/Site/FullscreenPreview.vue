@@ -2,7 +2,8 @@
 /**
  * Fullscreen Preview Component
  * 
- * Displays site preview in fullscreen mode with device breakpoint selector
+ * Displays site preview in fullscreen mode with device breakpoint selector.
+ * Uses the same rendering as published site.
  */
 import { ref } from 'vue';
 import SitePreview from './SitePreview.vue';
@@ -120,13 +121,15 @@ const setPreviewMode = (mode) => {
                 </div>
 
                 <!-- Preview Content Area -->
-                <div class="w-full min-h-screen">
+                <div class="w-full min-h-screen flex justify-center" style="margin: 0; padding: 0;">
                     <div
-                        class="mx-auto bg-white shadow-lg transition-all duration-300"
+                        class="bg-white transition-all duration-300"
                         :style="{ 
                             width: previewBreakpoints[previewMode].width,
                             maxWidth: '100%',
-                            minHeight: '100vh'
+                            minHeight: '100vh',
+                            margin: 0,
+                            padding: 0,
                         }"
                     >
                         <SitePreview 

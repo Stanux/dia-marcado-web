@@ -75,7 +75,8 @@ class PublicSiteController extends Controller
             $wedding
         );
 
-        return view('public.site', [
+        // Use Inertia to render with Vue components (same as preview)
+        return inertia('Public/Site', [
             'site' => $site,
             'content' => $content,
             'wedding' => $wedding,

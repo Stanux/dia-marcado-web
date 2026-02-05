@@ -110,9 +110,13 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         $siteData['draft_content'] = $siteLayout->draft_content;
         $siteData['published_content'] = $siteLayout->published_content;
         
+        // Load wedding data for placeholders
+        $wedding = $siteLayout->wedding;
+        
         return Inertia::render('Sites/Editor', [
             'site' => $siteData,
             'weddingId' => $weddingId,
+            'wedding' => $wedding,
         ]);
     })->name('sites.edit');
     

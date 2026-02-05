@@ -131,16 +131,6 @@ const themeStyles = computed(() => ({
     scroll-behavior: smooth;
 }
 
-/* Link styles */
-.public-site-layout a {
-    color: inherit;
-    text-decoration: none;
-}
-
-.public-site-layout a:hover {
-    text-decoration: underline;
-}
-
 /* Button base styles */
 .public-site-layout .btn-primary {
     display: inline-block;

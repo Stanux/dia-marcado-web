@@ -56,9 +56,37 @@ const emit = defineEmits(['change']);
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
 
+// Initialize typography for existing logo text if missing
+if (localContent.value.logo?.type === 'text' && localContent.value.logo.text && !localContent.value.logo.text.typography) {
+    localContent.value.logo.text.typography = {
+        fontFamily: 'Playfair Display',
+        fontColor: '#333333',
+        fontSize: 48,
+        fontWeight: 700,
+        fontItalic: false,
+        fontUnderline: false,
+    };
+    // Emit the change to save the initialized typography
+    emit('change', JSON.parse(JSON.stringify(localContent.value)));
+}
+
 // Watch for external content changes
 watch(() => props.content, (newContent) => {
     localContent.value = JSON.parse(JSON.stringify(newContent));
+    
+    // Initialize typography for existing logo text if missing
+    if (localContent.value.logo?.type === 'text' && localContent.value.logo.text && !localContent.value.logo.text.typography) {
+        localContent.value.logo.text.typography = {
+            fontFamily: 'Playfair Display',
+            fontColor: '#333333',
+            fontSize: 48,
+            fontWeight: 700,
+            fontItalic: false,
+            fontUnderline: false,
+        };
+        // Emit the change to save the initialized typography
+        emit('change', JSON.parse(JSON.stringify(localContent.value)));
+    }
 }, { deep: true });
 
 /**
@@ -201,6 +229,24 @@ const updateLogoType = (type) => {
             localContent.value.logo.text = {
                 initials: ['', ''],
                 connector: '&',
+                typography: {
+                    fontFamily: 'Playfair Display',
+                    fontColor: '#333333',
+                    fontSize: 48,
+                    fontWeight: 700,
+                    fontItalic: false,
+                    fontUnderline: false,
+                },
+            };
+        } else if (!localContent.value.logo.text.typography) {
+            // Se text existe mas typography não, inicializar typography
+            localContent.value.logo.text.typography = {
+                fontFamily: 'Playfair Display',
+                fontColor: '#333333',
+                fontSize: 48,
+                fontWeight: 700,
+                fontItalic: false,
+                fontUnderline: false,
             };
         }
     } else if (type === 'image') {
@@ -225,6 +271,18 @@ const updateLogoText = (field, value) => {
     }
     if (!localContent.value.logo.text) {
         localContent.value.logo.text = { initials: ['', ''], connector: '&' };
+    }
+    
+    // Ensure typography is initialized
+    if (!localContent.value.logo.text.typography) {
+        localContent.value.logo.text.typography = {
+            fontFamily: 'Playfair Display',
+            fontColor: '#333333',
+            fontSize: 48,
+            fontWeight: 700,
+            fontItalic: false,
+            fontUnderline: false,
+        };
     }
     
     if (field === 'initial1' || field === 'initial2') {
@@ -308,7 +366,7 @@ const logoText = computed(() => logo.value.text || { initials: ['', ''], connect
 const logoTextTypography = computed(() => logoText.value.typography || {
     fontFamily: 'Playfair Display',
     fontColor: '#333333',
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: 700,
     fontItalic: false,
     fontUnderline: false,

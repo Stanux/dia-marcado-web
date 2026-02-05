@@ -3,12 +3,17 @@
  * SitePreview Component
  * 
  * Renders a complete live preview of the site based on draft content.
- * Supports 100% of customizations from SiteContentSchema.
+ * Uses the same public components as the published site to ensure 100% fidelity.
  */
 import { computed } from 'vue';
-import { SECTION_IDS } from '@/Composables/useSiteEditor';
 import { usePage } from '@inertiajs/vue3';
-import { ref, onMounted, onUnmounted } from 'vue';
+import PublicHeader from '@/Components/Public/PublicHeader.vue';
+import PublicHero from '@/Components/Public/PublicHero.vue';
+import PublicSaveTheDate from '@/Components/Public/PublicSaveTheDate.vue';
+import PublicGiftRegistry from '@/Components/Public/PublicGiftRegistry.vue';
+import PublicRsvp from '@/Components/Public/PublicRsvp.vue';
+import PublicPhotoGallery from '@/Components/Public/PublicPhotoGallery.vue';
+import PublicFooter from '@/Components/Public/PublicFooter.vue';
 
 const props = defineProps({
     content: {
@@ -23,435 +28,128 @@ const props = defineProps({
 
 const page = usePage();
 
-// Theme
-const theme = computed(() => props.content?.theme || {});
-const sections = computed(() => props.content?.sections || {});
-const primaryColor = computed(() => theme.value.primaryColor || '#d4a574');
-const secondaryColor = computed(() => theme.value.secondaryColor || '#8b7355');
-const fontFamily = computed(() => theme.value.fontFamily || 'Playfair Display');
-const fontSize = computed(() => theme.value.fontSize || '16px');
+// Extract sections from content
+const sections = computed(() => props.content.sections || {});
 
-/**
- * Replace placeholders in text with actual wedding data
- */
-const replacePlaceholders = (text) => {
-    if (!text) return text;
-    
-    const wedding = page.props.wedding;
-    if (!wedding) return text;
-    
-    let result = text;
-    
-    // Replace wedding date
-    if (wedding.date) {
-        const date = new Date(wedding.date);
-        const formattedDate = date.toLocaleDateString('pt-BR', { 
-            day: '2-digit', 
-            month: '2-digit', 
-            year: 'numeric' 
-        });
-        result = result.replace(/{data}/g, formattedDate);
-    }
-    
-    // Replace bride and groom names
-    if (wedding.bride_name) {
-        result = result.replace(/{noiva}/g, wedding.bride_name);
-        const firstName = wedding.bride_name.split(' ')[0];
-        result = result.replace(/{primeiro_nome_noiva}/g, firstName);
-    }
-    
-    if (wedding.groom_name) {
-        result = result.replace(/{noivo}/g, wedding.groom_name);
-        const firstName = wedding.groom_name.split(' ')[0];
-        result = result.replace(/{primeiro_nome_noivo}/g, firstName);
-    }
-    
+// Extract theme from content
+const theme = computed(() => props.content.theme || {
+    primaryColor: '#d4a574',
+    secondaryColor: '#8b7355',
+    fontFamily: 'Georgia, serif',
+    fontSize: '16px',
+});
+
+// Mock wedding data for preview (uses actual wedding data from page props if available)
+const wedding = computed(() => page.props.wedding || {});
+
+// Check if section is enabled
+const isSectionEnabled = (sectionKey) => {
+    return sections.value[sectionKey]?.enabled ?? false;
+};
+
+// Get section content
+const getSectionContent = (sectionKey) => {
+    return sections.value[sectionKey] || {};
+};
+
+// Get enabled sections map for header navigation filtering
+const enabledSections = computed(() => {
+    const result = {};
+    Object.keys(sections.value).forEach(key => {
+        result[key] = sections.value[key]?.enabled ?? false;
+    });
     return result;
-};
-
-/**
- * Extract YouTube video ID from various URL formats
- */
-const getYouTubeId = (url) => {
-    if (!url) return null;
-    const patterns = [
-        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-        /youtube\.com\/v\/([^&\n?#]+)/,
-    ];
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) return match[1];
-    }
-    return null;
-};
-
-/**
- * Extract Vimeo video ID from URL
- */
-const getVimeoId = (url) => {
-    if (!url) return null;
-    const match = url.match(/vimeo\.com\/(\d+)/);
-    return match ? match[1] : null;
-};
-
-/**
- * Check if URL is a YouTube video
- */
-const isYouTubeUrl = (url) => {
-    return url && (url.includes('youtube.com') || url.includes('youtu.be'));
-};
-
-/**
- * Check if URL is a Vimeo video
- */
-const isVimeoUrl = (url) => {
-    return url && url.includes('vimeo.com');
-};
-
-/**
- * Check if URL is a direct video file
- */
-const isDirectVideoUrl = (url) => {
-    if (!url) return false;
-    return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
-};
-
-// Section configs
-const header = computed(() => sections.value.header || {});
-const hero = computed(() => sections.value.hero || {});
-const saveTheDate = computed(() => sections.value.saveTheDate || {});
-const giftRegistry = computed(() => sections.value.giftRegistry || {});
-const rsvp = computed(() => sections.value.rsvp || {});
-const photoGallery = computed(() => sections.value.photoGallery || {});
-const footer = computed(() => sections.value.footer || {});
-
-// Styles
-const headerStyle = computed(() => header.value.style || {});
-const heroStyle = computed(() => hero.value.style || {});
-const saveTheDateStyle = computed(() => saveTheDate.value.style || {});
-const footerStyle = computed(() => footer.value.style || {});
-const galleryStyle = computed(() => photoGallery.value.style || {});
-
-// Navigation items that should be shown in menu
-const visibleNavigationItems = computed(() => {
-    if (!header.value.navigation || !Array.isArray(header.value.navigation)) {
-        return [];
-    }
-    return header.value.navigation.filter(item => item.showInMenu && sections.value[item.sectionKey]?.enabled);
-});
-
-// Gallery carousel state
-const currentGalleryIndex = ref(0);
-let galleryInterval = null;
-
-// Start gallery carousel
-const startGalleryCarousel = () => {
-    if (hero.value.media?.type === 'gallery' && hero.value.media?.images?.length > 1) {
-        galleryInterval = setInterval(() => {
-            currentGalleryIndex.value = (currentGalleryIndex.value + 1) % hero.value.media.images.length;
-        }, 5000); // Change image every 5 seconds
-    }
-};
-
-// Stop gallery carousel
-const stopGalleryCarousel = () => {
-    if (galleryInterval) {
-        clearInterval(galleryInterval);
-        galleryInterval = null;
-    }
-};
-
-// Current gallery image
-const currentGalleryImage = computed(() => {
-    if (hero.value.media?.type === 'gallery' && hero.value.media?.images?.length > 0) {
-        return hero.value.media.images[currentGalleryIndex.value];
-    }
-    return null;
-});
-
-onMounted(() => {
-    startGalleryCarousel();
-});
-
-onUnmounted(() => {
-    stopGalleryCarousel();
 });
 </script>
 
 <template>
     <div 
-        class="site-preview overflow-hidden"
-        :style="{ fontFamily: fontFamily + ', serif', fontSize: fontSize }"
+        class="site-preview bg-white min-h-screen"
+        :style="{ 
+            fontFamily: theme.fontFamily + ', serif', 
+            fontSize: theme.fontSize,
+            width: '100%',
+            margin: 0,
+            padding: 0,
+            boxSizing: 'border-box',
+        }"
     >
-        <!-- HEADER -->
-        <header 
-            v-if="header.enabled"
-            class="w-full flex justify-center px-4 py-3"
-            :style="{ backgroundColor: headerStyle.backgroundColor || '#ffffff', minHeight: headerStyle.height || '80px' }"
+        <!-- Header Section -->
+        <PublicHeader
+            v-if="isSectionEnabled('header')"
+            :content="getSectionContent('header')"
+            :theme="theme"
+            :enabled-sections="enabledSections"
+        />
+
+        <!-- Hero Section -->
+        <PublicHero
+            v-if="isSectionEnabled('hero')"
+            :content="getSectionContent('hero')"
+            :theme="theme"
+        />
+
+        <!-- Save the Date Section -->
+        <PublicSaveTheDate
+            v-if="isSectionEnabled('saveTheDate')"
+            :content="getSectionContent('saveTheDate')"
+            :theme="theme"
+            :wedding="wedding"
+        />
+
+        <!-- Gift Registry Section -->
+        <PublicGiftRegistry
+            v-if="isSectionEnabled('giftRegistry')"
+            :content="getSectionContent('giftRegistry')"
+            :theme="theme"
+        />
+
+        <!-- RSVP Section -->
+        <PublicRsvp
+            v-if="isSectionEnabled('rsvp')"
+            :content="getSectionContent('rsvp')"
+            :theme="theme"
+        />
+
+        <!-- Photo Gallery Section -->
+        <PublicPhotoGallery
+            v-if="isSectionEnabled('photoGallery')"
+            :content="getSectionContent('photoGallery')"
+            :theme="theme"
+        />
+
+        <!-- Footer Section -->
+        <PublicFooter
+            v-if="isSectionEnabled('footer')"
+            :content="getSectionContent('footer')"
+            :theme="theme"
+        />
+
+        <!-- Empty State -->
+        <div 
+            v-if="!isSectionEnabled('header') && !isSectionEnabled('hero') && !isSectionEnabled('saveTheDate') && !isSectionEnabled('giftRegistry') && !isSectionEnabled('rsvp') && !isSectionEnabled('photoGallery') && !isSectionEnabled('footer')" 
+            class="flex items-center justify-center min-h-[400px] bg-gray-50"
         >
-            <div class="w-4/5 flex items-center justify-between">
-                <!-- Logo (sempre à esquerda) -->
-                <div class="flex items-center gap-2">
-                    <!-- Logo tipo imagem -->
-                    <img 
-                        v-if="header.logo?.type === 'image' && header.logo?.url" 
-                        :src="header.logo.url" 
-                        :alt="header.logo.alt || 'Logo'" 
-                        class="h-16 w-auto object-contain" 
-                    />
-                    <!-- Logo tipo texto (iniciais) -->
-                    <span 
-                        v-else-if="header.logo?.type === 'text' && header.logo?.text" 
-                        class="text-lg font-semibold tracking-wider"
-                        :style="{ color: primaryColor }"
-                    >
-                        {{ (header.logo.text.initials?.[0] || '').toUpperCase().charAt(0) }} 
-                        {{ header.logo.text.connector || '&' }} 
-                        {{ (header.logo.text.initials?.[1] || '').toUpperCase().charAt(0) }}
-                    </span>
-                    <!-- Fallback: coração -->
-                    <div 
-                        v-else 
-                        class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" 
-                        :style="{ backgroundColor: primaryColor }"
-                    >
-                        ♥
-                    </div>
-                </div>
-
-                <!-- Título e Subtítulo (sempre centralizados) -->
-                <div class="absolute left-1/2 transform -translate-x-1/2 text-center">
-                    <div v-if="header.title">
-                        <span class="font-semibold text-sm" :style="{ color: secondaryColor }">{{ replacePlaceholders(header.title) }}</span>
-                    </div>
-                    <div v-if="header.subtitle">
-                        <span class="text-xs text-gray-500">{{ replacePlaceholders(header.subtitle) }}</span>
-                    </div>
-                </div>
-
-                <!-- Menu de Navegação (sempre à direita) -->
-                <nav v-if="visibleNavigationItems.length" class="flex gap-3 text-xs text-gray-600">
-                    <a 
-                        v-for="(item, i) in visibleNavigationItems" 
-                        :key="i"
-                        :href="`#${SECTION_IDS[item.sectionKey]}`"
-                        class="hover:opacity-70 transition-opacity"
-                    >
-                        {{ item.label }}
-                    </a>
-                </nav>
-                
-                <!-- Botão de Ação (se houver) -->
-                <button 
-                    v-if="header.actionButton?.label" 
-                    class="px-3 py-1.5 rounded text-xs text-white font-medium ml-3" 
-                    :style="{ backgroundColor: primaryColor }"
-                >
-                    {{ header.actionButton.label }}
-                </button>
-            </div>
-        </header>
-
-        <!-- HERO -->
-        <section 
-            v-if="hero.enabled"
-            :id="SECTION_IDS.hero"
-            class="relative flex items-center justify-center overflow-hidden w-full"
-            :class="{ 'min-h-[300px]': hero.layout === 'full-bleed', 'min-h-[200px]': hero.layout !== 'full-bleed' }"
-        >
-            <div class="absolute inset-0">
-                <!-- Gallery (Banner Rotativo) -->
-                <template v-if="hero.media?.type === 'gallery' && hero.media?.images?.length > 0">
-                    <div class="relative w-full h-full">
-                        <!-- Gallery Images -->
-                        <div
-                            v-for="(image, index) in hero.media.images"
-                            :key="index"
-                            class="absolute inset-0 transition-opacity duration-1000"
-                            :class="{ 'opacity-100': index === currentGalleryIndex, 'opacity-0': index !== currentGalleryIndex }"
-                        >
-                            <img :src="image.url" :alt="image.alt || `Slide ${index + 1}`" class="w-full h-full object-cover" />
-                        </div>
-                        
-                        <!-- Gallery Indicators -->
-                        <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
-                            <button
-                                v-for="(image, index) in hero.media.images"
-                                :key="index"
-                                @click="currentGalleryIndex = index"
-                                class="w-2 h-2 rounded-full transition-all"
-                                :class="index === currentGalleryIndex ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/75'"
-                            ></button>
-                        </div>
-                    </div>
-                </template>
-                
-                <!-- YouTube Video -->
-                <iframe 
-                    v-else-if="hero.media?.type === 'video' && hero.media?.url && isYouTubeUrl(hero.media.url)"
-                    :src="`https://www.youtube.com/embed/${getYouTubeId(hero.media.url)}?autoplay=1&mute=1&loop=1&playlist=${getYouTubeId(hero.media.url)}&controls=0&showinfo=0&rel=0&modestbranding=1`"
-                    class="w-full h-full absolute inset-0"
-                    style="pointer-events: none;"
-                    frameborder="0"
-                    allow="autoplay; encrypted-media"
-                    allowfullscreen
-                ></iframe>
-                <!-- Vimeo Video -->
-                <iframe 
-                    v-else-if="hero.media?.type === 'video' && hero.media?.url && isVimeoUrl(hero.media.url)"
-                    :src="`https://player.vimeo.com/video/${getVimeoId(hero.media.url)}?autoplay=1&muted=1&loop=1&background=1`"
-                    class="w-full h-full absolute inset-0"
-                    style="pointer-events: none;"
-                    frameborder="0"
-                    allow="autoplay; fullscreen"
-                ></iframe>
-                <!-- Direct Video File -->
-                <video 
-                    v-else-if="hero.media?.type === 'video' && hero.media?.url && isDirectVideoUrl(hero.media.url)"
-                    :src="hero.media.url"
-                    :autoplay="hero.media.autoplay !== false"
-                    :loop="hero.media.loop !== false"
-                    muted playsinline
-                    class="w-full h-full object-cover"
-                ></video>
-                <!-- Single Image -->
-                <img v-else-if="hero.media?.type === 'image' && hero.media?.url" :src="hero.media.url" alt="Hero" class="w-full h-full object-cover" />
-                <!-- Fallback gradient -->
-                <div v-else class="w-full h-full" :style="{ background: `linear-gradient(135deg, ${primaryColor}22 0%, ${secondaryColor}22 100%)` }"></div>
-                <!-- Overlay -->
-                <div v-if="heroStyle.overlay" class="absolute inset-0" :style="{ backgroundColor: heroStyle.overlay.color || '#000000', opacity: heroStyle.overlay.opacity || 0.3 }"></div>
-            </div>
-            <div class="relative z-10 p-6 max-w-lg" :class="{ 'text-left': heroStyle.textAlign === 'left', 'text-center': heroStyle.textAlign === 'center' || !heroStyle.textAlign, 'text-right': heroStyle.textAlign === 'right' }">
-                <h1 class="text-2xl md:text-3xl font-bold mb-2" :style="{ color: hero.media?.url ? '#ffffff' : secondaryColor }">{{ replacePlaceholders(hero.title) || 'Bem-vindos ao nosso casamento' }}</h1>
-                <p class="text-sm md:text-base mb-4" :style="{ color: hero.media?.url ? '#ffffffcc' : '#666666' }">{{ replacePlaceholders(hero.subtitle) || 'Estamos muito felizes em compartilhar este momento com você' }}</p>
-                <div class="flex gap-2 flex-wrap" :class="{ 'justify-center': heroStyle.textAlign === 'center' || !heroStyle.textAlign }">
-                    <button v-if="hero.ctaPrimary?.label" class="px-4 py-2 rounded text-sm text-white font-medium" :style="{ backgroundColor: primaryColor }">{{ hero.ctaPrimary.label }}</button>
-                    <button v-if="hero.ctaSecondary?.label" class="px-4 py-2 rounded text-sm border font-medium" :style="{ borderColor: primaryColor, color: hero.media?.url ? '#ffffff' : primaryColor }">{{ hero.ctaSecondary.label }}</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- SAVE THE DATE -->
-        <section v-if="saveTheDate.enabled" :id="SECTION_IDS.saveTheDate" class="w-full flex justify-center py-6" :style="{ backgroundColor: saveTheDateStyle.backgroundColor || '#f5f5f5' }">
-            <div class="w-4/5">
-                <div class="max-w-md mx-auto" :class="{ 'bg-white rounded-lg shadow-md p-4': saveTheDateStyle.layout === 'card' }">
-                <h2 class="text-xl font-semibold text-center mb-3" :style="{ color: secondaryColor }">Save the Date</h2>
-                <p v-if="saveTheDate.description" class="text-sm text-gray-600 text-center mb-4">{{ saveTheDate.description }}</p>
-                <div v-if="saveTheDate.showCountdown" class="flex justify-center gap-3 mb-4">
-                    <div class="text-center"><div class="text-2xl font-bold" :style="{ color: primaryColor }">120</div><div class="text-xs text-gray-500">Dias</div></div>
-                    <div class="text-center"><div class="text-2xl font-bold" :style="{ color: primaryColor }">08</div><div class="text-xs text-gray-500">Horas</div></div>
-                    <div class="text-center"><div class="text-2xl font-bold" :style="{ color: primaryColor }">45</div><div class="text-xs text-gray-500">Min</div></div>
-                </div>
-                <div v-if="saveTheDate.showMap" class="bg-gray-200 rounded h-32 flex items-center justify-center mb-3">
-                    <div class="text-center text-gray-500">
-                        <svg class="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        <span class="text-xs">{{ saveTheDate.mapProvider === 'google' ? 'Google Maps' : 'Mapa' }}</span>
-                    </div>
-                </div>
-                <button v-if="saveTheDate.showCalendarButton" class="w-full py-2 rounded text-sm text-white" :style="{ backgroundColor: primaryColor }">📅 Adicionar ao Calendário</button>
-            </div>
-            </div>
-        </section>
-
-        <!-- GIFT REGISTRY -->
-        <section v-if="giftRegistry.enabled" :id="SECTION_IDS.giftRegistry" class="w-full flex justify-center py-6" :style="{ backgroundColor: giftRegistry.style?.backgroundColor || '#ffffff' }">
-            <div class="w-4/5">
-                <div class="max-w-md mx-auto text-center">
-                    <h2 class="text-xl font-semibold mb-2" :style="{ color: secondaryColor }">{{ giftRegistry.title || 'Lista de Presentes' }}</h2>
-                    <p class="text-sm text-gray-600 mb-4">{{ giftRegistry.description || 'Em breve disponibilizaremos nossa lista de presentes.' }}</p>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div v-for="i in 3" :key="i" class="bg-gray-100 rounded p-3">
-                            <div class="w-10 h-10 mx-auto mb-2 bg-gray-200 rounded flex items-center justify-center">🎁</div>
-                            <div class="text-xs text-gray-500">Presente {{ i }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- RSVP -->
-        <section v-if="rsvp.enabled" :id="SECTION_IDS.rsvp" class="w-full flex justify-center py-6" :style="{ backgroundColor: rsvp.style?.backgroundColor || '#f5f5f5' }">
-            <div class="w-4/5">
-                <div class="max-w-md mx-auto">
-                    <h2 class="text-xl font-semibold text-center mb-2" :style="{ color: secondaryColor }">{{ rsvp.title || 'Confirme sua Presença' }}</h2>
-                    <p v-if="rsvp.description" class="text-sm text-gray-600 text-center mb-4">{{ rsvp.description }}</p>
-                    <div class="space-y-3">
-                        <div v-for="(field, i) in (rsvp.mockFields || [])" :key="i">
-                            <label class="block text-xs text-gray-600 mb-1">{{ field.label }}</label>
-                            <input v-if="field.type === 'text' || field.type === 'email' || field.type === 'number'" :type="field.type" :placeholder="field.label" class="w-full px-3 py-2 border rounded text-sm" disabled />
-                            <select v-else-if="field.type === 'select'" class="w-full px-3 py-2 border rounded text-sm bg-white" disabled><option>Selecione...</option></select>
-                        </div>
-                        <template v-if="!rsvp.mockFields?.length">
-                            <div><label class="block text-xs text-gray-600 mb-1">Nome</label><input type="text" placeholder="Seu nome" class="w-full px-3 py-2 border rounded text-sm" disabled /></div>
-                            <div><label class="block text-xs text-gray-600 mb-1">Email</label><input type="email" placeholder="seu@email.com" class="w-full px-3 py-2 border rounded text-sm" disabled /></div>
-                        </template>
-                        <button class="w-full py-2 rounded text-sm text-white font-medium" :style="{ backgroundColor: primaryColor }">Confirmar Presença</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- PHOTO GALLERY -->
-        <section v-if="photoGallery.enabled" :id="SECTION_IDS.photoGallery" class="w-full flex justify-center py-6" :style="{ backgroundColor: galleryStyle.backgroundColor || '#ffffff' }">
-            <div class="w-4/5">
-                <div class="max-w-lg mx-auto">
-                <div v-for="(album, key) in photoGallery.albums" :key="key" class="mb-6">
-                    <h3 class="text-lg font-semibold mb-3" :style="{ color: secondaryColor }">{{ album.title || key }}</h3>
-                    <div v-if="album.photos?.length" class="grid gap-2" :class="{ 'grid-cols-2': galleryStyle.columns === 2, 'grid-cols-3': galleryStyle.columns === 3 || !galleryStyle.columns, 'grid-cols-4': galleryStyle.columns === 4 }">
-                        <div v-for="(photo, i) in album.photos.slice(0, 6)" :key="i" class="aspect-square bg-gray-100 rounded overflow-hidden">
-                            <img :src="photo.url || photo" :alt="photo.alt || `Foto ${i + 1}`" class="w-full h-full object-cover" />
-                        </div>
-                    </div>
-                    <div v-else class="grid grid-cols-3 gap-2">
-                        <div v-for="i in 6" :key="i" class="aspect-square bg-gray-100 rounded flex items-center justify-center">
-                            <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        </div>
-                    </div>
-                </div>
-                <div v-if="!photoGallery.albums || Object.keys(photoGallery.albums).length === 0" class="text-center py-8">
-                    <svg class="w-12 h-12 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <p class="text-sm text-gray-500">Galeria de Fotos</p>
-                </div>
-                <p v-if="photoGallery.showLightbox" class="text-xs text-gray-400 text-center mt-2">Clique nas fotos para ampliar</p>
-            </div>
-            </div>
-        </section>
-
-        <!-- FOOTER -->
-        <footer v-if="footer.enabled" class="w-full flex justify-center py-4" :style="{ backgroundColor: footerStyle.backgroundColor || '#333333', color: footerStyle.textColor || '#ffffff', borderTop: footerStyle.borderTop ? '1px solid #e5e5e5' : 'none' }">
-            <div class="w-4/5">
-                <div class="max-w-md mx-auto text-center">
-                <div v-if="footer.socialLinks?.length" class="flex justify-center gap-3 mb-3">
-                    <a v-for="(link, i) in footer.socialLinks" :key="i" :href="link.url || '#'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm" :style="{ backgroundColor: primaryColor }">
-                        <span v-if="link.platform === 'instagram'">📷</span>
-                        <span v-else-if="link.platform === 'facebook'">📘</span>
-                        <span v-else-if="link.platform === 'twitter'">🐦</span>
-                        <span v-else-if="link.platform === 'youtube'">▶️</span>
-                        <span v-else>🔗</span>
-                    </a>
-                </div>
-                <p class="text-xs opacity-80">{{ footer.copyrightText || '© ' + (footer.copyrightYear || new Date().getFullYear()) + ' - Todos os direitos reservados' }}</p>
-                <a v-if="footer.showPrivacyPolicy" :href="footer.privacyPolicyUrl || '#'" class="text-xs underline opacity-60 hover:opacity-100">Política de Privacidade</a>
-                <button v-if="footer.showBackToTop" class="mt-3 text-xs opacity-60 hover:opacity-100 flex items-center justify-center mx-auto gap-1">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-                    Voltar ao topo
-                </button>
-            </div>
-            </div>
-        </footer>
-
-        <!-- EMPTY STATE -->
-        <div v-if="!header.enabled && !hero.enabled && !saveTheDate.enabled && !giftRegistry.enabled && !rsvp.enabled && !photoGallery.enabled && !footer.enabled" class="flex items-center justify-center min-h-[300px] bg-gray-50">
             <div class="text-center text-gray-400">
-                <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                <p class="text-sm">Ative as seções para visualizar o preview</p>
+                <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <p class="text-base">Ative as seções para visualizar o preview</p>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-.site-preview { background-color: #ffffff; min-height: 400px; }
-.site-preview section { transition: all 0.3s ease; }
-video { object-fit: cover; }
+.site-preview {
+    transition: all 0.3s ease;
+    font-family: var(--font-family);
+    font-size: var(--font-size);
+    line-height: 1.6;
+    color: #333;
+}
+
+.site-preview * {
+    box-sizing: border-box;
+}
 </style>
