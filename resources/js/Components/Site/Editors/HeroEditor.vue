@@ -10,6 +10,7 @@
 import { ref, watch, computed } from 'vue';
 import { SECTION_IDS, SECTION_LABELS } from '@/Composables/useSiteEditor';
 import TypographyControl from '@/Components/Site/TypographyControl.vue';
+import MediaGalleryModal from '@/Components/Site/MediaGalleryModal.vue';
 
 const props = defineProps({
     content: {
@@ -75,6 +76,44 @@ const updateMedia = (field, value) => {
     }
     localContent.value.media[field] = value;
     emitChange();
+};
+
+/**
+ * Update gallery images
+ */
+const updateGalleryImages = (images) => {
+    if (!localContent.value.media) {
+        localContent.value.media = { type: 'gallery', images: [] };
+    }
+    localContent.value.media.images = images;
+    emitChange();
+};
+
+/**
+ * Add image to gallery
+ */
+const addImageToGallery = (imageData) => {
+    if (!localContent.value.media) {
+        localContent.value.media = { type: 'gallery', images: [] };
+    }
+    if (!localContent.value.media.images) {
+        localContent.value.media.images = [];
+    }
+    localContent.value.media.images.push({
+        url: imageData.url,
+        alt: imageData.alt || '',
+    });
+    emitChange();
+};
+
+/**
+ * Remove image from gallery
+ */
+const removeImageFromGallery = (index) => {
+    if (localContent.value.media?.images) {
+        localContent.value.media.images.splice(index, 1);
+        emitChange();
+    }
 };
 
 /**
@@ -158,6 +197,8 @@ const ctaSecondary = computed(() => localContent.value.ctaSecondary || { label: 
 const style = computed(() => localContent.value.style || {});
 const overlay = computed(() => style.value.overlay || { color: '#000000', opacity: 0.3 });
 const isVideo = computed(() => media.value.type === 'video');
+const isGallery = computed(() => media.value.type === 'gallery');
+const isImage = computed(() => media.value.type === 'image');
 const titleTypography = computed(() => localContent.value.titleTypography || {
     fontFamily: 'Playfair Display',
     fontColor: '#ffffff',
@@ -174,6 +215,57 @@ const subtitleTypography = computed(() => localContent.value.subtitleTypography 
     fontItalic: false,
     fontUnderline: false,
 });
+
+// Modal states
+const showImageGallery = ref(false);
+const showVideoGallery = ref(false);
+const showBannerGallery = ref(false);
+const videoSourceType = ref('gallery'); // 'gallery' or 'url'
+
+/**
+ * Open image gallery modal
+ */
+const openImageGallery = () => {
+    showImageGallery.value = true;
+};
+
+/**
+ * Open video gallery modal
+ */
+const openVideoGallery = () => {
+    showVideoGallery.value = true;
+};
+
+/**
+ * Open banner gallery modal (for adding images to gallery)
+ */
+const openBannerGallery = () => {
+    showBannerGallery.value = true;
+};
+
+/**
+ * Handle image selection from gallery
+ */
+const onImageSelected = (imageData) => {
+    updateMedia('url', imageData.url);
+    showImageGallery.value = false;
+};
+
+/**
+ * Handle video selection from gallery
+ */
+const onVideoSelected = (videoData) => {
+    updateMedia('url', videoData.url);
+    showVideoGallery.value = false;
+};
+
+/**
+ * Handle banner image selection
+ */
+const onBannerImageSelected = (imageData) => {
+    addImageToGallery(imageData);
+    showBannerGallery.value = false;
+};
 </script>
 
 <template>
@@ -189,39 +281,176 @@ const subtitleTypography = computed(() => localContent.value.subtitleTypography 
                     @change="updateMedia('type', $event.target.value)"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                 >
-                    <option value="image">Imagem</option>
+                    <option value="image">Imagem Única</option>
+                    <option value="gallery">Banner Rotativo (Galeria)</option>
                     <option value="video">Vídeo</option>
-                    <option value="gallery">Galeria</option>
                 </select>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">
-                    {{ media.type === 'video' ? 'URL do Vídeo' : 'URL da Imagem' }}
-                </label>
-                <input
-                    type="text"
-                    :value="media.url"
-                    @input="updateMedia('url', $event.target.value)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    :placeholder="media.type === 'video' ? 'https://youtube.com/... ou https://vimeo.com/...' : 'https://exemplo.com/imagem.jpg'"
-                />
-                <p class="mt-1 text-xs text-gray-500">
-                    {{ media.type === 'video' ? 'Suporta YouTube, Vimeo ou URL direta de vídeo' : 'Cole uma URL ou use o gerenciador de mídia' }}
-                </p>
-            </div>
+            <!-- Image Selection -->
+            <template v-if="isImage">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Imagem de Fundo</label>
+                    <button
+                        @click="openImageGallery"
+                        class="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-md hover:border-wedding-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-wedding-600"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Selecionar da Galeria (máx. 1920×1080px)
+                    </button>
+                    <p class="mt-1 text-xs text-gray-500">Dimensões recomendadas: 1920×1080px. Imagens maiores serão redimensionadas com crop.</p>
+                </div>
 
-            <!-- Video-specific options -->
+                <!-- Preview da imagem -->
+                <div v-if="media.url" class="p-3 bg-gray-50 rounded-md">
+                    <div class="flex items-start gap-3">
+                        <img :src="media.url" alt="Preview" class="w-32 h-20 object-cover border border-gray-200 rounded" />
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">Imagem selecionada</p>
+                            <p class="text-xs text-gray-500 truncate">{{ media.url }}</p>
+                        </div>
+                        <button
+                            @click="updateMedia('url', '')"
+                            class="p-1 text-red-400 hover:text-red-600"
+                            title="Remover"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Gallery Selection -->
+            <template v-if="isGallery">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Imagens do Banner Rotativo</label>
+                    <button
+                        @click="openBannerGallery"
+                        class="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-md hover:border-wedding-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-wedding-600"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Adicionar Imagem (máx. 1920×1080px)
+                    </button>
+                    <p class="mt-1 text-xs text-gray-500">Adicione múltiplas imagens para criar um banner rotativo</p>
+                </div>
+
+                <!-- Gallery Images List -->
+                <div v-if="media.images && media.images.length > 0" class="space-y-2">
+                    <div
+                        v-for="(image, index) in media.images"
+                        :key="index"
+                        class="p-3 bg-gray-50 rounded-md flex items-center gap-3"
+                    >
+                        <img :src="image.url" :alt="image.alt" class="w-24 h-16 object-cover border border-gray-200 rounded" />
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900">Imagem {{ index + 1 }}</p>
+                            <p class="text-xs text-gray-500 truncate">{{ image.url }}</p>
+                        </div>
+                        <button
+                            @click="removeImageFromGallery(index)"
+                            class="p-1 text-red-400 hover:text-red-600"
+                            title="Remover"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div v-else class="p-4 bg-gray-50 rounded-md text-center text-sm text-gray-500">
+                    Nenhuma imagem adicionada ao banner rotativo
+                </div>
+            </template>
+
+            <!-- Video Selection -->
             <template v-if="isVideo">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Imagem de Fallback</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fonte do Vídeo</label>
+                    <div class="flex gap-3 mb-3">
+                        <button
+                            @click="videoSourceType = 'gallery'"
+                            :class="[
+                                'flex-1 px-4 py-2 border-2 rounded-md font-medium transition-all',
+                                videoSourceType === 'gallery'
+                                    ? 'border-wedding-500 bg-wedding-50 text-wedding-700'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                            ]"
+                        >
+                            Da Galeria
+                        </button>
+                        <button
+                            @click="videoSourceType = 'url'"
+                            :class="[
+                                'flex-1 px-4 py-2 border-2 rounded-md font-medium transition-all',
+                                videoSourceType === 'url'
+                                    ? 'border-wedding-500 bg-wedding-50 text-wedding-700'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                            ]"
+                        >
+                            URL Externa
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Video from Gallery -->
+                <div v-if="videoSourceType === 'gallery'">
+                    <button
+                        @click="openVideoGallery"
+                        class="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-md hover:border-wedding-500 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-wedding-600"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Selecionar Vídeo da Galeria
+                    </button>
+                    <p class="mt-1 text-xs text-gray-500">Escolha um vídeo já enviado para sua galeria</p>
+                </div>
+
+                <!-- Video from URL -->
+                <div v-else>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">URL do Vídeo</label>
                     <input
                         type="text"
-                        :value="media.fallback"
-                        @input="updateMedia('fallback', $event.target.value)"
+                        :value="media.url"
+                        @input="updateMedia('url', $event.target.value)"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                        placeholder="Imagem exibida enquanto o vídeo carrega"
+                        placeholder="https://youtube.com/... ou https://vimeo.com/..."
                     />
+                    <p class="mt-1 text-xs text-gray-500">
+                        Suporta YouTube, Vimeo ou URL direta de vídeo (.mp4, .webm, .ogg)
+                    </p>
+                </div>
+
+                <!-- Video Preview -->
+                <div v-if="media.url" class="p-3 bg-gray-50 rounded-md">
+                    <div class="flex items-start gap-3">
+                        <div class="w-32 h-20 bg-gray-200 border border-gray-300 rounded flex items-center justify-center">
+                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900">Vídeo selecionado</p>
+                            <p class="text-xs text-gray-500 truncate">{{ media.url }}</p>
+                        </div>
+                        <button
+                            @click="updateMedia('url', '')"
+                            class="p-1 text-red-400 hover:text-red-600"
+                            title="Remover"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="flex items-center space-x-6">
@@ -489,6 +718,37 @@ const subtitleTypography = computed(() => localContent.value.subtitleTypography 
             </div>
         </div>
     </div>
+
+    <!-- Media Gallery Modals -->
+    <MediaGalleryModal
+        :show="showImageGallery"
+        :max-width="1920"
+        :max-height="1080"
+        :allow-crop="true"
+        title="Selecionar Imagem de Fundo"
+        @close="showImageGallery = false"
+        @select="onImageSelected"
+    />
+
+    <MediaGalleryModal
+        :show="showBannerGallery"
+        :max-width="1920"
+        :max-height="1080"
+        :allow-crop="true"
+        title="Adicionar Imagem ao Banner"
+        @close="showBannerGallery = false"
+        @select="onBannerImageSelected"
+    />
+
+    <MediaGalleryModal
+        :show="showVideoGallery"
+        :max-width="1920"
+        :max-height="1080"
+        :media-type="'video'"
+        title="Selecionar Vídeo"
+        @close="showVideoGallery = false"
+        @select="onVideoSelected"
+    />
 </template>
 
 <style scoped>
@@ -499,6 +759,21 @@ const subtitleTypography = computed(() => localContent.value.subtitleTypography 
     border-color: #b8998a;
 }
 .text-wedding-600 {
+    color: #a18072;
+}
+.text-wedding-700 {
+    color: #8b6b5d;
+}
+.border-wedding-500 {
+    border-color: #b8998a;
+}
+.bg-wedding-50 {
+    background-color: #f5f1ee;
+}
+.hover\:border-wedding-500:hover {
+    border-color: #b8998a;
+}
+.hover\:text-wedding-600:hover {
     color: #a18072;
 }
 </style>

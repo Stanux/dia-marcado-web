@@ -7,6 +7,8 @@
  */
 import { computed } from 'vue';
 import { SECTION_IDS } from '@/Composables/useSiteEditor';
+import { usePage } from '@inertiajs/vue3';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
     content: {
@@ -19,6 +21,8 @@ const props = defineProps({
     },
 });
 
+const page = usePage();
+
 // Theme
 const theme = computed(() => props.content?.theme || {});
 const sections = computed(() => props.content?.sections || {});
@@ -26,6 +30,44 @@ const primaryColor = computed(() => theme.value.primaryColor || '#d4a574');
 const secondaryColor = computed(() => theme.value.secondaryColor || '#8b7355');
 const fontFamily = computed(() => theme.value.fontFamily || 'Playfair Display');
 const fontSize = computed(() => theme.value.fontSize || '16px');
+
+/**
+ * Replace placeholders in text with actual wedding data
+ */
+const replacePlaceholders = (text) => {
+    if (!text) return text;
+    
+    const wedding = page.props.wedding;
+    if (!wedding) return text;
+    
+    let result = text;
+    
+    // Replace wedding date
+    if (wedding.date) {
+        const date = new Date(wedding.date);
+        const formattedDate = date.toLocaleDateString('pt-BR', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            year: 'numeric' 
+        });
+        result = result.replace(/{data}/g, formattedDate);
+    }
+    
+    // Replace bride and groom names
+    if (wedding.bride_name) {
+        result = result.replace(/{noiva}/g, wedding.bride_name);
+        const firstName = wedding.bride_name.split(' ')[0];
+        result = result.replace(/{primeiro_nome_noiva}/g, firstName);
+    }
+    
+    if (wedding.groom_name) {
+        result = result.replace(/{noivo}/g, wedding.groom_name);
+        const firstName = wedding.groom_name.split(' ')[0];
+        result = result.replace(/{primeiro_nome_noivo}/g, firstName);
+    }
+    
+    return result;
+};
 
 /**
  * Extract YouTube video ID from various URL formats
@@ -89,6 +131,51 @@ const heroStyle = computed(() => hero.value.style || {});
 const saveTheDateStyle = computed(() => saveTheDate.value.style || {});
 const footerStyle = computed(() => footer.value.style || {});
 const galleryStyle = computed(() => photoGallery.value.style || {});
+
+// Navigation items that should be shown in menu
+const visibleNavigationItems = computed(() => {
+    if (!header.value.navigation || !Array.isArray(header.value.navigation)) {
+        return [];
+    }
+    return header.value.navigation.filter(item => item.showInMenu && sections.value[item.sectionKey]?.enabled);
+});
+
+// Gallery carousel state
+const currentGalleryIndex = ref(0);
+let galleryInterval = null;
+
+// Start gallery carousel
+const startGalleryCarousel = () => {
+    if (hero.value.media?.type === 'gallery' && hero.value.media?.images?.length > 1) {
+        galleryInterval = setInterval(() => {
+            currentGalleryIndex.value = (currentGalleryIndex.value + 1) % hero.value.media.images.length;
+        }, 5000); // Change image every 5 seconds
+    }
+};
+
+// Stop gallery carousel
+const stopGalleryCarousel = () => {
+    if (galleryInterval) {
+        clearInterval(galleryInterval);
+        galleryInterval = null;
+    }
+};
+
+// Current gallery image
+const currentGalleryImage = computed(() => {
+    if (hero.value.media?.type === 'gallery' && hero.value.media?.images?.length > 0) {
+        return hero.value.media.images[currentGalleryIndex.value];
+    }
+    return null;
+});
+
+onMounted(() => {
+    startGalleryCarousel();
+});
+
+onUnmounted(() => {
+    stopGalleryCarousel();
+});
 </script>
 
 <template>
@@ -99,63 +186,109 @@ const galleryStyle = computed(() => photoGallery.value.style || {});
         <!-- HEADER -->
         <header 
             v-if="header.enabled"
-            class="flex items-center px-3 py-2"
-            :class="{
-                'justify-start': headerStyle.alignment === 'left',
-                'justify-center': headerStyle.alignment === 'center',
-                'justify-between': headerStyle.alignment !== 'left' && headerStyle.alignment !== 'center',
-            }"
-            :style="{ backgroundColor: headerStyle.backgroundColor || '#ffffff', minHeight: headerStyle.height || '60px' }"
+            class="w-full flex justify-center px-4 py-3"
+            :style="{ backgroundColor: headerStyle.backgroundColor || '#ffffff', minHeight: headerStyle.height || '80px' }"
         >
-            <div class="flex items-center gap-2">
-                <!-- Logo tipo imagem -->
-                <img 
-                    v-if="header.logo?.type === 'image' && header.logo?.url" 
-                    :src="header.logo.url" 
-                    :alt="header.logo.alt || 'Logo'" 
-                    class="h-8 w-auto object-contain" 
-                />
-                <!-- Logo tipo texto (iniciais) -->
-                <span 
-                    v-else-if="header.logo?.type === 'text' && header.logo?.text" 
-                    class="text-lg font-semibold tracking-wider"
-                    :style="{ color: primaryColor }"
-                >
-                    {{ (header.logo.text.initials?.[0] || '').toUpperCase().charAt(0) }} 
-                    {{ header.logo.text.connector || '&' }} 
-                    {{ (header.logo.text.initials?.[1] || '').toUpperCase().charAt(0) }}
-                </span>
-                <!-- Fallback: coração -->
-                <div 
-                    v-else 
-                    class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" 
+            <div class="w-4/5 flex items-center justify-between">
+                <!-- Logo (sempre à esquerda) -->
+                <div class="flex items-center gap-2">
+                    <!-- Logo tipo imagem -->
+                    <img 
+                        v-if="header.logo?.type === 'image' && header.logo?.url" 
+                        :src="header.logo.url" 
+                        :alt="header.logo.alt || 'Logo'" 
+                        class="h-16 w-auto object-contain" 
+                    />
+                    <!-- Logo tipo texto (iniciais) -->
+                    <span 
+                        v-else-if="header.logo?.type === 'text' && header.logo?.text" 
+                        class="text-lg font-semibold tracking-wider"
+                        :style="{ color: primaryColor }"
+                    >
+                        {{ (header.logo.text.initials?.[0] || '').toUpperCase().charAt(0) }} 
+                        {{ header.logo.text.connector || '&' }} 
+                        {{ (header.logo.text.initials?.[1] || '').toUpperCase().charAt(0) }}
+                    </span>
+                    <!-- Fallback: coração -->
+                    <div 
+                        v-else 
+                        class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" 
+                        :style="{ backgroundColor: primaryColor }"
+                    >
+                        ♥
+                    </div>
+                </div>
+
+                <!-- Título e Subtítulo (sempre centralizados) -->
+                <div class="absolute left-1/2 transform -translate-x-1/2 text-center">
+                    <div v-if="header.title">
+                        <span class="font-semibold text-sm" :style="{ color: secondaryColor }">{{ replacePlaceholders(header.title) }}</span>
+                    </div>
+                    <div v-if="header.subtitle">
+                        <span class="text-xs text-gray-500">{{ replacePlaceholders(header.subtitle) }}</span>
+                    </div>
+                </div>
+
+                <!-- Menu de Navegação (sempre à direita) -->
+                <nav v-if="visibleNavigationItems.length" class="flex gap-3 text-xs text-gray-600">
+                    <a 
+                        v-for="(item, i) in visibleNavigationItems" 
+                        :key="i"
+                        :href="`#${SECTION_IDS[item.sectionKey]}`"
+                        class="hover:opacity-70 transition-opacity"
+                    >
+                        {{ item.label }}
+                    </a>
+                </nav>
+                
+                <!-- Botão de Ação (se houver) -->
+                <button 
+                    v-if="header.actionButton?.label" 
+                    class="px-3 py-1.5 rounded text-xs text-white font-medium ml-3" 
                     :style="{ backgroundColor: primaryColor }"
                 >
-                    ♥
-                </div>
-                <div v-if="header.title || header.subtitle">
-                    <span class="font-semibold text-sm" :style="{ color: secondaryColor }">{{ header.title || 'Seu Casamento' }}</span>
-                    <span v-if="header.subtitle" class="text-xs text-gray-500 block">{{ header.subtitle }}</span>
-                </div>
+                    {{ header.actionButton.label }}
+                </button>
             </div>
-            <nav v-if="header.navigation?.length" class="flex gap-2 text-xs text-gray-600">
-                <span v-for="(item, i) in header.navigation" :key="i">{{ item.label }}</span>
-            </nav>
-            <nav v-else class="flex gap-2 text-xs text-gray-500"><span>Início</span><span>•</span><span>RSVP</span></nav>
-            <button v-if="header.actionButton?.label" class="px-2 py-1 rounded text-xs text-white" :style="{ backgroundColor: primaryColor }">{{ header.actionButton.label }}</button>
         </header>
 
         <!-- HERO -->
         <section 
             v-if="hero.enabled"
             :id="SECTION_IDS.hero"
-            class="relative flex items-center justify-center overflow-hidden"
+            class="relative flex items-center justify-center overflow-hidden w-full"
             :class="{ 'min-h-[300px]': hero.layout === 'full-bleed', 'min-h-[200px]': hero.layout !== 'full-bleed' }"
         >
             <div class="absolute inset-0">
+                <!-- Gallery (Banner Rotativo) -->
+                <template v-if="hero.media?.type === 'gallery' && hero.media?.images?.length > 0">
+                    <div class="relative w-full h-full">
+                        <!-- Gallery Images -->
+                        <div
+                            v-for="(image, index) in hero.media.images"
+                            :key="index"
+                            class="absolute inset-0 transition-opacity duration-1000"
+                            :class="{ 'opacity-100': index === currentGalleryIndex, 'opacity-0': index !== currentGalleryIndex }"
+                        >
+                            <img :src="image.url" :alt="image.alt || `Slide ${index + 1}`" class="w-full h-full object-cover" />
+                        </div>
+                        
+                        <!-- Gallery Indicators -->
+                        <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                            <button
+                                v-for="(image, index) in hero.media.images"
+                                :key="index"
+                                @click="currentGalleryIndex = index"
+                                class="w-2 h-2 rounded-full transition-all"
+                                :class="index === currentGalleryIndex ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/75'"
+                            ></button>
+                        </div>
+                    </div>
+                </template>
+                
                 <!-- YouTube Video -->
                 <iframe 
-                    v-if="hero.media?.type === 'video' && hero.media?.url && isYouTubeUrl(hero.media.url)"
+                    v-else-if="hero.media?.type === 'video' && hero.media?.url && isYouTubeUrl(hero.media.url)"
                     :src="`https://www.youtube.com/embed/${getYouTubeId(hero.media.url)}?autoplay=1&mute=1&loop=1&playlist=${getYouTubeId(hero.media.url)}&controls=0&showinfo=0&rel=0&modestbranding=1`"
                     class="w-full h-full absolute inset-0"
                     style="pointer-events: none;"
@@ -181,16 +314,16 @@ const galleryStyle = computed(() => photoGallery.value.style || {});
                     muted playsinline
                     class="w-full h-full object-cover"
                 ></video>
-                <!-- Image -->
-                <img v-else-if="hero.media?.url" :src="hero.media.url" alt="Hero" class="w-full h-full object-cover" />
+                <!-- Single Image -->
+                <img v-else-if="hero.media?.type === 'image' && hero.media?.url" :src="hero.media.url" alt="Hero" class="w-full h-full object-cover" />
                 <!-- Fallback gradient -->
                 <div v-else class="w-full h-full" :style="{ background: `linear-gradient(135deg, ${primaryColor}22 0%, ${secondaryColor}22 100%)` }"></div>
                 <!-- Overlay -->
                 <div v-if="heroStyle.overlay" class="absolute inset-0" :style="{ backgroundColor: heroStyle.overlay.color || '#000000', opacity: heroStyle.overlay.opacity || 0.3 }"></div>
             </div>
             <div class="relative z-10 p-6 max-w-lg" :class="{ 'text-left': heroStyle.textAlign === 'left', 'text-center': heroStyle.textAlign === 'center' || !heroStyle.textAlign, 'text-right': heroStyle.textAlign === 'right' }">
-                <h1 class="text-2xl md:text-3xl font-bold mb-2" :style="{ color: hero.media?.url ? '#ffffff' : secondaryColor }">{{ hero.title || 'Bem-vindos ao nosso casamento' }}</h1>
-                <p class="text-sm md:text-base mb-4" :style="{ color: hero.media?.url ? '#ffffffcc' : '#666666' }">{{ hero.subtitle || 'Estamos muito felizes em compartilhar este momento com você' }}</p>
+                <h1 class="text-2xl md:text-3xl font-bold mb-2" :style="{ color: hero.media?.url ? '#ffffff' : secondaryColor }">{{ replacePlaceholders(hero.title) || 'Bem-vindos ao nosso casamento' }}</h1>
+                <p class="text-sm md:text-base mb-4" :style="{ color: hero.media?.url ? '#ffffffcc' : '#666666' }">{{ replacePlaceholders(hero.subtitle) || 'Estamos muito felizes em compartilhar este momento com você' }}</p>
                 <div class="flex gap-2 flex-wrap" :class="{ 'justify-center': heroStyle.textAlign === 'center' || !heroStyle.textAlign }">
                     <button v-if="hero.ctaPrimary?.label" class="px-4 py-2 rounded text-sm text-white font-medium" :style="{ backgroundColor: primaryColor }">{{ hero.ctaPrimary.label }}</button>
                     <button v-if="hero.ctaSecondary?.label" class="px-4 py-2 rounded text-sm border font-medium" :style="{ borderColor: primaryColor, color: hero.media?.url ? '#ffffff' : primaryColor }">{{ hero.ctaSecondary.label }}</button>
@@ -199,8 +332,9 @@ const galleryStyle = computed(() => photoGallery.value.style || {});
         </section>
 
         <!-- SAVE THE DATE -->
-        <section v-if="saveTheDate.enabled" :id="SECTION_IDS.saveTheDate" class="p-6" :style="{ backgroundColor: saveTheDateStyle.backgroundColor || '#f5f5f5' }">
-            <div class="max-w-md mx-auto" :class="{ 'bg-white rounded-lg shadow-md p-4': saveTheDateStyle.layout === 'card' }">
+        <section v-if="saveTheDate.enabled" :id="SECTION_IDS.saveTheDate" class="w-full flex justify-center py-6" :style="{ backgroundColor: saveTheDateStyle.backgroundColor || '#f5f5f5' }">
+            <div class="w-4/5">
+                <div class="max-w-md mx-auto" :class="{ 'bg-white rounded-lg shadow-md p-4': saveTheDateStyle.layout === 'card' }">
                 <h2 class="text-xl font-semibold text-center mb-3" :style="{ color: secondaryColor }">Save the Date</h2>
                 <p v-if="saveTheDate.description" class="text-sm text-gray-600 text-center mb-4">{{ saveTheDate.description }}</p>
                 <div v-if="saveTheDate.showCountdown" class="flex justify-center gap-3 mb-4">
@@ -216,45 +350,51 @@ const galleryStyle = computed(() => photoGallery.value.style || {});
                 </div>
                 <button v-if="saveTheDate.showCalendarButton" class="w-full py-2 rounded text-sm text-white" :style="{ backgroundColor: primaryColor }">📅 Adicionar ao Calendário</button>
             </div>
+            </div>
         </section>
 
         <!-- GIFT REGISTRY -->
-        <section v-if="giftRegistry.enabled" :id="SECTION_IDS.giftRegistry" class="p-6" :style="{ backgroundColor: giftRegistry.style?.backgroundColor || '#ffffff' }">
-            <div class="max-w-md mx-auto text-center">
-                <h2 class="text-xl font-semibold mb-2" :style="{ color: secondaryColor }">{{ giftRegistry.title || 'Lista de Presentes' }}</h2>
-                <p class="text-sm text-gray-600 mb-4">{{ giftRegistry.description || 'Em breve disponibilizaremos nossa lista de presentes.' }}</p>
-                <div class="grid grid-cols-3 gap-2">
-                    <div v-for="i in 3" :key="i" class="bg-gray-100 rounded p-3">
-                        <div class="w-10 h-10 mx-auto mb-2 bg-gray-200 rounded flex items-center justify-center">🎁</div>
-                        <div class="text-xs text-gray-500">Presente {{ i }}</div>
+        <section v-if="giftRegistry.enabled" :id="SECTION_IDS.giftRegistry" class="w-full flex justify-center py-6" :style="{ backgroundColor: giftRegistry.style?.backgroundColor || '#ffffff' }">
+            <div class="w-4/5">
+                <div class="max-w-md mx-auto text-center">
+                    <h2 class="text-xl font-semibold mb-2" :style="{ color: secondaryColor }">{{ giftRegistry.title || 'Lista de Presentes' }}</h2>
+                    <p class="text-sm text-gray-600 mb-4">{{ giftRegistry.description || 'Em breve disponibilizaremos nossa lista de presentes.' }}</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div v-for="i in 3" :key="i" class="bg-gray-100 rounded p-3">
+                            <div class="w-10 h-10 mx-auto mb-2 bg-gray-200 rounded flex items-center justify-center">🎁</div>
+                            <div class="text-xs text-gray-500">Presente {{ i }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- RSVP -->
-        <section v-if="rsvp.enabled" :id="SECTION_IDS.rsvp" class="p-6" :style="{ backgroundColor: rsvp.style?.backgroundColor || '#f5f5f5' }">
-            <div class="max-w-md mx-auto">
-                <h2 class="text-xl font-semibold text-center mb-2" :style="{ color: secondaryColor }">{{ rsvp.title || 'Confirme sua Presença' }}</h2>
-                <p v-if="rsvp.description" class="text-sm text-gray-600 text-center mb-4">{{ rsvp.description }}</p>
-                <div class="space-y-3">
-                    <div v-for="(field, i) in (rsvp.mockFields || [])" :key="i">
-                        <label class="block text-xs text-gray-600 mb-1">{{ field.label }}</label>
-                        <input v-if="field.type === 'text' || field.type === 'email' || field.type === 'number'" :type="field.type" :placeholder="field.label" class="w-full px-3 py-2 border rounded text-sm" disabled />
-                        <select v-else-if="field.type === 'select'" class="w-full px-3 py-2 border rounded text-sm bg-white" disabled><option>Selecione...</option></select>
+        <section v-if="rsvp.enabled" :id="SECTION_IDS.rsvp" class="w-full flex justify-center py-6" :style="{ backgroundColor: rsvp.style?.backgroundColor || '#f5f5f5' }">
+            <div class="w-4/5">
+                <div class="max-w-md mx-auto">
+                    <h2 class="text-xl font-semibold text-center mb-2" :style="{ color: secondaryColor }">{{ rsvp.title || 'Confirme sua Presença' }}</h2>
+                    <p v-if="rsvp.description" class="text-sm text-gray-600 text-center mb-4">{{ rsvp.description }}</p>
+                    <div class="space-y-3">
+                        <div v-for="(field, i) in (rsvp.mockFields || [])" :key="i">
+                            <label class="block text-xs text-gray-600 mb-1">{{ field.label }}</label>
+                            <input v-if="field.type === 'text' || field.type === 'email' || field.type === 'number'" :type="field.type" :placeholder="field.label" class="w-full px-3 py-2 border rounded text-sm" disabled />
+                            <select v-else-if="field.type === 'select'" class="w-full px-3 py-2 border rounded text-sm bg-white" disabled><option>Selecione...</option></select>
+                        </div>
+                        <template v-if="!rsvp.mockFields?.length">
+                            <div><label class="block text-xs text-gray-600 mb-1">Nome</label><input type="text" placeholder="Seu nome" class="w-full px-3 py-2 border rounded text-sm" disabled /></div>
+                            <div><label class="block text-xs text-gray-600 mb-1">Email</label><input type="email" placeholder="seu@email.com" class="w-full px-3 py-2 border rounded text-sm" disabled /></div>
+                        </template>
+                        <button class="w-full py-2 rounded text-sm text-white font-medium" :style="{ backgroundColor: primaryColor }">Confirmar Presença</button>
                     </div>
-                    <template v-if="!rsvp.mockFields?.length">
-                        <div><label class="block text-xs text-gray-600 mb-1">Nome</label><input type="text" placeholder="Seu nome" class="w-full px-3 py-2 border rounded text-sm" disabled /></div>
-                        <div><label class="block text-xs text-gray-600 mb-1">Email</label><input type="email" placeholder="seu@email.com" class="w-full px-3 py-2 border rounded text-sm" disabled /></div>
-                    </template>
-                    <button class="w-full py-2 rounded text-sm text-white font-medium" :style="{ backgroundColor: primaryColor }">Confirmar Presença</button>
                 </div>
             </div>
         </section>
 
         <!-- PHOTO GALLERY -->
-        <section v-if="photoGallery.enabled" :id="SECTION_IDS.photoGallery" class="p-6" :style="{ backgroundColor: galleryStyle.backgroundColor || '#ffffff' }">
-            <div class="max-w-lg mx-auto">
+        <section v-if="photoGallery.enabled" :id="SECTION_IDS.photoGallery" class="w-full flex justify-center py-6" :style="{ backgroundColor: galleryStyle.backgroundColor || '#ffffff' }">
+            <div class="w-4/5">
+                <div class="max-w-lg mx-auto">
                 <div v-for="(album, key) in photoGallery.albums" :key="key" class="mb-6">
                     <h3 class="text-lg font-semibold mb-3" :style="{ color: secondaryColor }">{{ album.title || key }}</h3>
                     <div v-if="album.photos?.length" class="grid gap-2" :class="{ 'grid-cols-2': galleryStyle.columns === 2, 'grid-cols-3': galleryStyle.columns === 3 || !galleryStyle.columns, 'grid-cols-4': galleryStyle.columns === 4 }">
@@ -274,11 +414,13 @@ const galleryStyle = computed(() => photoGallery.value.style || {});
                 </div>
                 <p v-if="photoGallery.showLightbox" class="text-xs text-gray-400 text-center mt-2">Clique nas fotos para ampliar</p>
             </div>
+            </div>
         </section>
 
         <!-- FOOTER -->
-        <footer v-if="footer.enabled" class="p-4" :style="{ backgroundColor: footerStyle.backgroundColor || '#333333', color: footerStyle.textColor || '#ffffff', borderTop: footerStyle.borderTop ? '1px solid #e5e5e5' : 'none' }">
-            <div class="max-w-md mx-auto text-center">
+        <footer v-if="footer.enabled" class="w-full flex justify-center py-4" :style="{ backgroundColor: footerStyle.backgroundColor || '#333333', color: footerStyle.textColor || '#ffffff', borderTop: footerStyle.borderTop ? '1px solid #e5e5e5' : 'none' }">
+            <div class="w-4/5">
+                <div class="max-w-md mx-auto text-center">
                 <div v-if="footer.socialLinks?.length" class="flex justify-center gap-3 mb-3">
                     <a v-for="(link, i) in footer.socialLinks" :key="i" :href="link.url || '#'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm" :style="{ backgroundColor: primaryColor }">
                         <span v-if="link.platform === 'instagram'">📷</span>
@@ -294,6 +436,7 @@ const galleryStyle = computed(() => photoGallery.value.style || {});
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
                     Voltar ao topo
                 </button>
+            </div>
             </div>
         </footer>
 

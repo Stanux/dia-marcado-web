@@ -126,7 +126,7 @@
         /* Hero */
         .hero {
             position: relative;
-            min-height: {{ $heroLayout === 'full-bleed' ? '100vh' : '60vh' }};
+            min-height: {{ $heroLayout === 'full-bleed' ? '80vh' : '60vh' }};
             display: flex;
             align-items: center;
             justify-content: center;
@@ -174,6 +174,35 @@
         @keyframes hero-fade { from { opacity: 0; } to { opacity: 1; } }
         @keyframes hero-slide { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes hero-zoom { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+        /* Hero Gallery */
+        .hero-gallery {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        }
+        .hero-gallery-slide {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+        .hero-gallery-slide.active {
+            opacity: 1;
+        }
+        .hero-gallery-indicators {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px; z-index: 10;
+        }
+        .hero-gallery-indicator {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            border: none; cursor: pointer;
+            transition: all 0.3s;
+        }
+        .hero-gallery-indicator.active {
+            width: 24px; background: white;
+        }
+        .hero-gallery-indicator:hover {
+            background: rgba(255, 255, 255, 0.75);
+        }
 
         /* Save the Date */
         @php
@@ -296,7 +325,7 @@
                 @endphp
                 
                 @if($logoType === 'image' && !empty($content['sections']['header']['logo']['url']))
-                    <img src="{{ $content['sections']['header']['logo']['url'] }}" alt="{{ $content['sections']['header']['logo']['alt'] ?? 'Logo' }}" style="max-height: 50px;">
+                    <img src="{{ $content['sections']['header']['logo']['url'] }}" alt="{{ $content['sections']['header']['logo']['alt'] ?? 'Logo' }}" style="max-height: 100px; max-width: 310px; height: auto; width: auto;">
                 @elseif($logoType === 'text')
                     @php
                         $logoText = $content['sections']['header']['logo']['text'] ?? [];
@@ -513,7 +542,25 @@
     </section>
     @else
     <section class="hero" id="hero">
-        @if($mediaType === 'video' && $mediaUrl)
+        @if($mediaType === 'gallery' && !empty($heroMedia['images']))
+            <!-- Gallery (Banner Rotativo) -->
+            <div class="hero-gallery">
+                @foreach($heroMedia['images'] as $index => $image)
+                <div class="hero-gallery-slide {{ $index === 0 ? 'active' : '' }}" data-index="{{ $index }}">
+                    <div class="hero-background" style="background-image: url('{{ $image['url'] }}');"></div>
+                </div>
+                @endforeach
+                
+                <!-- Gallery Indicators -->
+                @if(count($heroMedia['images']) > 1)
+                <div class="hero-gallery-indicators">
+                    @foreach($heroMedia['images'] as $index => $image)
+                    <button class="hero-gallery-indicator {{ $index === 0 ? 'active' : '' }}" data-index="{{ $index }}"></button>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+        @elseif($mediaType === 'video' && $mediaUrl)
             @if($mediaFallback)
             <div class="hero-background" style="background-image: url('{{ $mediaFallback }}');"></div>
             @endif
@@ -768,6 +815,64 @@
     @endif
 
     <script>
+        // Hero Gallery Carousel
+        (function() {
+            const gallery = document.querySelector('.hero-gallery');
+            if (!gallery) return;
+            
+            const slides = gallery.querySelectorAll('.hero-gallery-slide');
+            const indicators = gallery.querySelectorAll('.hero-gallery-indicator');
+            
+            if (slides.length <= 1) return;
+            
+            let currentIndex = 0;
+            let intervalId = null;
+            
+            function showSlide(index) {
+                // Remove active class from all slides and indicators
+                slides.forEach(slide => slide.classList.remove('active'));
+                indicators.forEach(indicator => indicator.classList.remove('active'));
+                
+                // Add active class to current slide and indicator
+                slides[index].classList.add('active');
+                indicators[index].classList.add('active');
+                
+                currentIndex = index;
+            }
+            
+            function nextSlide() {
+                const nextIndex = (currentIndex + 1) % slides.length;
+                showSlide(nextIndex);
+            }
+            
+            function startAutoplay() {
+                stopAutoplay();
+                intervalId = setInterval(nextSlide, 5000);
+            }
+            
+            function stopAutoplay() {
+                if (intervalId) {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                }
+            }
+            
+            // Add click handlers to indicators
+            indicators.forEach((indicator, index) => {
+                indicator.addEventListener('click', () => {
+                    showSlide(index);
+                    startAutoplay(); // Restart autoplay after manual navigation
+                });
+            });
+            
+            // Start autoplay
+            startAutoplay();
+            
+            // Pause on hover (optional)
+            gallery.addEventListener('mouseenter', stopAutoplay);
+            gallery.addEventListener('mouseleave', startAutoplay);
+        })();
+        
         // Countdown timer
         @if($wedding->wedding_date && ($content['sections']['saveTheDate']['showCountdown'] ?? true))
         (function() {

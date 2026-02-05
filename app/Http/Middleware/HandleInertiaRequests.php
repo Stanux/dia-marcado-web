@@ -38,10 +38,25 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
             ],
             'weddingId' => $weddingId,
+            'flash' => [
+                'message' => fn () => $request->session()->get('message'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
             'ziggy' => fn () => [
                 ...(new \Tighten\Ziggy\Ziggy)->toArray(),
                 'location' => $request->url(),
             ],
         ];
+    }
+
+    /**
+     * Handle unauthenticated requests.
+     */
+    public function onUnauthenticated(Request $request): void
+    {
+        // For Inertia requests, redirect to login
+        if ($request->header('X-Inertia')) {
+            $request->session()->put('url.intended', $request->url());
+        }
     }
 }

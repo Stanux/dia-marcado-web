@@ -9,7 +9,6 @@
  * @Requirements: 11.1, 11.3, 11.4
  */
 import { ref, watch, computed } from 'vue';
-import NavigationSettings from './NavigationSettings.vue';
 
 const props = defineProps({
     content: {
@@ -54,26 +53,12 @@ const updateStyle = (field, value) => {
     emitChange();
 };
 
-/**
- * Update navigation settings
- */
-const updateNavigation = (navigation) => {
-    localContent.value.navigation = navigation;
-    emitChange();
-};
-
 // Computed properties
 const style = computed(() => localContent.value.style || {});
 </script>
 
 <template>
     <div class="space-y-6">
-        <!-- Navigation Settings -->
-        <NavigationSettings
-            :navigation="localContent.navigation"
-            @change="updateNavigation"
-        />
-
         <!-- Integration Notice -->
         <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <div class="flex">

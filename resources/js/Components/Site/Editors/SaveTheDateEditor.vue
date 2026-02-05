@@ -8,7 +8,6 @@
  * @Requirements: 10.1, 10.2, 10.5, 10.6
  */
 import { ref, watch, computed } from 'vue';
-import NavigationSettings from './NavigationSettings.vue';
 
 const props = defineProps({
     content: {
@@ -64,14 +63,6 @@ const updateStyle = (field, value) => {
     emitChange();
 };
 
-/**
- * Update navigation settings
- */
-const updateNavigation = (navigation) => {
-    localContent.value.navigation = navigation;
-    emitChange();
-};
-
 // Computed properties
 const mapCoordinates = computed(() => localContent.value.mapCoordinates || { lat: null, lng: null });
 const style = computed(() => localContent.value.style || {});
@@ -79,12 +70,6 @@ const style = computed(() => localContent.value.style || {});
 
 <template>
     <div class="space-y-6">
-        <!-- Navigation Settings -->
-        <NavigationSettings
-            :navigation="localContent.navigation"
-            @change="updateNavigation"
-        />
-
         <!-- Description -->
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Descrição</h3>

@@ -29,6 +29,11 @@ Route::get('/admin/simple-login', function () {
     return view('auth.filament-login');
 })->name('filament.admin.auth.simple-login');
 
+// Alias for login route (used by Laravel's authentication system)
+Route::get('/login', function () {
+    return redirect()->route('filament.admin.auth.login');
+})->name('login');
+
 // Fallback POST route for Filament login when JavaScript is disabled
 Route::post('/admin/login', [FilamentLoginController::class, 'store'])
     ->middleware(['web'])

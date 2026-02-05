@@ -11,7 +11,7 @@ import { Head, usePage } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import SectionSidebar from '@/Components/Site/SectionSidebar.vue';
 import SectionEditor from '@/Components/Site/SectionEditor.vue';
-import SitePreview from '@/Components/Site/SitePreview.vue';
+import FullscreenPreview from '@/Components/Site/FullscreenPreview.vue';
 import PublishDialog from '@/Components/Site/PublishDialog.vue';
 import Toast from '@/Components/Site/Toast.vue';
 import useSiteEditor from '@/Composables/useSiteEditor';
@@ -63,7 +63,6 @@ const {
 // Local state
 const activeSection = ref('header');
 const showPreview = ref(false);
-const previewMode = ref('desktop'); // 'mobile', 'tablet', 'desktop'
 const showVersionHistory = ref(false);
 const showPublishDialog = ref(false);
 
@@ -179,13 +178,6 @@ const toggleVersionHistory = async () => {
     if (showVersionHistory.value && versions.value.length === 0) {
         await loadVersions();
     }
-};
-
-// Preview breakpoints
-const previewBreakpoints = {
-    mobile: '375px',
-    tablet: '768px',
-    desktop: '1280px',
 };
 
 // Format last saved time
@@ -343,48 +335,6 @@ onUnmounted(() => {
                 </div>
             </main>
 
-            <!-- Preview Panel (Slide-over) -->
-            <aside
-                v-if="showPreview"
-                class="w-96 bg-white border-l border-gray-200 flex flex-col"
-            >
-                <div class="p-4 border-b border-gray-200">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="font-medium text-gray-900">Preview</h2>
-                        <button @click="showPreview = false" class="text-gray-400 hover:text-gray-600">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                    
-                    <!-- Breakpoint Selector -->
-                    <div class="flex space-x-2">
-                        <button
-                            v-for="(width, mode) in previewBreakpoints"
-                            :key="mode"
-                            @click="previewMode = mode"
-                            class="flex-1 px-3 py-2 text-xs font-medium rounded-md"
-                            :class="previewMode === mode ? 'bg-wedding-100 text-wedding-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-                        >
-                            {{ mode === 'mobile' ? 'Mobile' : mode === 'tablet' ? 'Tablet' : 'Desktop' }}
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="flex-1 p-4 overflow-auto bg-gray-50">
-                    <div
-                        class="bg-white border border-gray-200 rounded-lg mx-auto overflow-hidden"
-                        :style="{ width: previewBreakpoints[previewMode], maxWidth: '100%' }"
-                    >
-                        <SitePreview 
-                            :content="draftContent" 
-                            :mode="previewMode"
-                        />
-                    </div>
-                </div>
-            </aside>
-
             <!-- Version History Panel (Slide-over) -->
             <aside
                 v-if="showVersionHistory"
@@ -454,6 +404,13 @@ onUnmounted(() => {
             @close="showPublishDialog = false"
             @published="handlePublishSuccess"
             @error="handlePublishError"
+        />
+
+        <!-- Fullscreen Preview -->
+        <FullscreenPreview
+            :show="showPreview"
+            :content="draftContent"
+            @close="showPreview = false"
         />
 
         <!-- Toast Notification -->

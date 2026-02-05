@@ -25,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'wedding.inertia' => \App\Http\Middleware\EnsureWeddingContextForInertia::class,
             'permission' => \App\Http\Middleware\CheckModulePermission::class,
         ]);
+
+        // Use custom Authenticate middleware
+        $middleware->redirectGuestsTo(fn () => route('filament.admin.auth.login'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
