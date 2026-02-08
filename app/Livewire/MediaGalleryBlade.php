@@ -38,6 +38,7 @@ class MediaGalleryBlade extends Component
     public bool $showEditModal = false;
     public bool $showDeleteModal = false;
     public bool $showMoveModal = false;
+    public bool $showDeleteMediaModal = false;
     
     // Form data
     public string $albumName = '';
@@ -328,6 +329,20 @@ class MediaGalleryBlade extends Component
     }
 
     // Media Operations
+    public function openDeleteMediaModal(): void
+    {
+        if (count($this->selectedMediaIds) > 0) {
+            $this->showDeleteMediaModal = true;
+            $this->dispatch('open-modal', id: 'delete-media-modal');
+        }
+    }
+
+    public function closeDeleteMediaModal(): void
+    {
+        $this->showDeleteMediaModal = false;
+        $this->dispatch('close-modal', id: 'delete-media-modal');
+    }
+
     public function deleteSelectedMedia(): void
     {
         try {
@@ -341,6 +356,7 @@ class MediaGalleryBlade extends Component
             }
 
             $this->clearSelection();
+            $this->closeDeleteMediaModal();
             
             $this->dispatch('notify', [
                 'type' => 'success',

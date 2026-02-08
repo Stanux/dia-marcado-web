@@ -4,8 +4,8 @@
         .fi-main-ctn, .fi-page, .fi-content { max-width: none !important; width: 100% !important; margin: 0 !important; }
         .media-gallery-grid {
             display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 2rem;
+            grid-template-columns: 260px 1fr;
+            gap: 1rem;
             width: 100%;
             align-items: start;
             /* padding: 1.5rem; */
@@ -23,7 +23,7 @@
     <div class="media-gallery-grid" x-data="{ dragover: false }">
         {{-- Sidebar: Álbuns --}}
         <div class="w-full">
-            <x-filament::section compact>
+            <x-filament::section>
                 <x-slot name="heading">
                     <span class="flex items-center gap-2 font-black uppercase tracking-tight">
                         <x-filament::icon icon="heroicon-m-folder" class="w-4 h-4" />
@@ -46,7 +46,7 @@
                         <div
                             class="relative transition-all hover:bg-gray-50 dark:hover:bg-white/5 {{ $selectedAlbumId === $album['id'] ? 'bg-primary-50 dark:bg-primary-500/10' : '' }}"
                         >
-                            <div class="flex items-center px-6 py-4">
+                            <div class="flex items-center px-4 py-4">
                                 <button
                                     wire:click="selectAlbum('{{ $album['id'] }}')"
                                     class="flex-1 min-w-0 text-left outline-none"
@@ -76,13 +76,15 @@
                                             Editar Nome
                                         </x-filament::dropdown.list.item>
 
-                                        <x-filament::dropdown.list.item
-                                            wire:click="openDeleteModal('{{ $album['id'] }}')"
-                                            icon="heroicon-m-trash"
-                                            color="danger"
-                                        >
-                                            Excluir Álbum
-                                        </x-filament::dropdown.list.item>
+                                        @if($album['media_count'] === 0)
+                                            <x-filament::dropdown.list.item
+                                                wire:click="openDeleteModal('{{ $album['id'] }}')"
+                                                icon="heroicon-m-trash"
+                                                color="danger"
+                                            >
+                                                Excluir Álbum
+                                            </x-filament::dropdown.list.item>
+                                        @endif
                                     </x-filament::dropdown.list>
                                 </x-filament::dropdown>
                             </div>
@@ -107,28 +109,7 @@
                         </span>
                     </x-slot>
 
-                    <x-slot name="headerEnd">
-                         <div class="flex items-center gap-2">
-                            <x-filament::icon-button
-                                wire:click="setGridSize('small')"
-                                icon="heroicon-m-squares-2x2"
-                                :color="$gridSize === 'small' ? 'primary' : 'gray'"
-                                size="sm"
-                            />
-                            <x-filament::icon-button
-                                wire:click="setGridSize('medium')"
-                                icon="heroicon-m-squares-plus"
-                                :color="$gridSize === 'medium' ? 'primary' : 'gray'"
-                                size="sm"
-                            />
-                            <x-filament::icon-button
-                                wire:click="setGridSize('large')"
-                                icon="heroicon-m-view-columns"
-                                :color="$gridSize === 'large' ? 'primary' : 'gray'"
-                                size="sm"
-                            />
-                        </div>
-                    </x-slot>
+
 
                     {{-- Upload --}}
                     <div
@@ -167,17 +148,42 @@
                         @endif
                     </div>
 
+                    {{-- Grid Controls --}}
+                    <div class="flex justify-end gap-2 mb-4 px-2">
+                            <x-filament::icon-button
+                                wire:click="setGridSize('small')"
+                                icon="heroicon-s-rectangle-stack"
+                                :color="$gridSize === 'small' ? 'primary' : 'gray'"
+                                size="sm"
+                                tooltip="Visualização Compacta"
+                            />
+                            <x-filament::icon-button
+                                wire:click="setGridSize('medium')"
+                                icon="heroicon-s-squares-2x2"
+                                :color="$gridSize === 'medium' ? 'primary' : 'gray'"
+                                size="sm"
+                                tooltip="Visualização Padrão"
+                            />
+                            <x-filament::icon-button
+                                wire:click="setGridSize('large')"
+                                icon="heroicon-m-view-columns"
+                                :color="$gridSize === 'large' ? 'primary' : 'gray'"
+                                size="sm"
+                                tooltip="Visualização Detalhada"
+                            />
+                    </div>
+
                     {{-- Selection Actions --}}
                     @if(count($selectedMediaIds) > 0)
-                        <div class="mb-8 p-6 bg-gray-900 dark:bg-primary-600 rounded-3xl shadow-2xl flex flex-wrap items-center justify-between gap-6 ring-1 ring-white/10">
+                        <div class="mb-8 p-6 bg-white dark:bg-primary-600 rounded-3xl shadow-2xl flex flex-wrap items-center justify-between gap-6 ring-1 ring-gray-200 dark:ring-white/10">
                             <div class="flex items-center gap-8">
-                                <div class="px-5 py-2 bg-white/10 rounded-2xl">
-                                    <span class="text-3xl font-black text-white leading-none">{{ count($selectedMediaIds) }}</span>
-                                    <span class="text-[10px] text-white/60 uppercase font-black ml-2 tracking-tighter">Itens</span>
+                                <div class="px-5 py-2 bg-primary-50 dark:bg-white/10 rounded-2xl">
+                                    <span class="text-3xl font-black text-primary-600 dark:text-white leading-none">{{ count($selectedMediaIds) }}</span>
+                                    <span class="text-[10px] text-gray-500 dark:text-white/60 uppercase font-black ml-2 tracking-tighter">Itens</span>
                                 </div>
                                 <div class="flex items-center gap-4">
-                                    <button wire:click="selectAllMedia" class="text-sm font-black text-white hover:text-primary-100 transition-all">Todos</button>
-                                    <button wire:click="clearSelection" class="text-sm font-black text-white/50 hover:text-white transition-all">Limpar</button>
+                                    <button wire:click="selectAllMedia" class="text-sm font-black text-gray-600 hover:text-primary-600 dark:text-white dark:hover:text-primary-100 transition-all">Todos</button>
+                                    <button wire:click="clearSelection" class="text-sm font-black text-gray-400 hover:text-gray-900 dark:text-white/50 dark:hover:text-white transition-all">Limpar</button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
@@ -185,13 +191,12 @@
                                     wire:click="openMoveModal"
                                     color="gray"
                                     icon="heroicon-m-folder-arrow-down"
-                                    class="!bg-white/10 !border-none !text-white active:scale-95 transition-transform"
+                                    class="!bg-gray-100 dark:!bg-white/10 !border-none !text-gray-900 dark:!text-white active:scale-95 transition-transform"
                                 >
                                     Mover
                                 </x-filament::button>
                                 <x-filament::button
-                                    wire:click="deleteSelectedMedia"
-                                    wire:confirm="Confirmar exclusão permanente?"
+                                    wire:click="openDeleteMediaModal"
                                     color="danger"
                                     icon="heroicon-m-trash"
                                     class="shadow-xl active:scale-95 transition-transform"
@@ -207,7 +212,9 @@
                         <div class="grid gap-4 {{ $gridSize === 'small' ? 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10' : ($gridSize === 'medium' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4')}} pt-6">
                             @foreach($this->selectedAlbum['media'] as $media)
                                 <div
-                                    class="relative group aspect-square rounded-3xl overflow-hidden bg-gray-100 dark:bg-white/5 cursor-pointer border-4 transition-all duration-300 {{ in_array($media['id'], $selectedMediaIds) ? 'border-primary-500 scale-95 shadow-2xl' : 'border-transparent hover:border-black/5 dark:hover:border-white/10' }}"
+                                    wire:key="{{ $media['id'] }}"
+                                    class="relative group rounded-3xl overflow-hidden bg-gray-100 dark:bg-white/5 cursor-pointer border-4 transition-all duration-300 {{ in_array($media['id'], $selectedMediaIds) ? 'border-primary-500 scale-95 shadow-2xl' : 'border-transparent hover:border-black/5 dark:hover:border-white/10' }}"
+                                    style="aspect-ratio: {{ $gridSize === 'large' ? '3/4' : '1/1' }};"
                                     wire:click="toggleMediaSelection('{{ $media['id'] }}')"
                                 >
                                     @if($media['type'] === 'image')
@@ -220,7 +227,7 @@
 
                                     <div class="absolute inset-0 bg-black/5 hover:bg-black/0 transition-colors"></div>
                                     
-                                    <div class="absolute top-4 right-4 z-10">
+                                    <div class="absolute z-10" style="top: 1rem; right: 1rem; left: auto;">
                                         <div class="w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow-lg {{ in_array($media['id'], $selectedMediaIds) ? 'bg-primary-500 text-white' : 'bg-black/20 text-transparent' }}">
                                             <x-filament::icon icon="heroicon-m-check" class="w-4 h-4" />
                                         </div>
@@ -322,6 +329,30 @@
             <div class="flex justify-center gap-4">
                 <x-filament::button color="gray" wire:click="closeDeleteModal" variant="ghost" class="font-black">Voltar</x-filament::button>
                 <x-filament::button color="danger" wire:click="deleteAlbum" size="xl" class="shadow-2xl">Confirmar Exclusão</x-filament::button>
+            </div>
+        </div>
+    </x-filament::modal>
+
+    {{-- Delete Media --}}
+    <x-filament::modal
+        id="delete-media-modal"
+        :visible="$showDeleteMediaModal"
+        heading="Excluir Mídias Permanentemente"
+        width="md"
+        on-close="$wire.set('showDeleteMediaModal', false)"
+        alignment="center"
+        icon="heroicon-o-trash"
+        icon-color="danger"
+    >
+        <div class="text-center py-6 space-y-6">
+            <div class="bg-rose-50 dark:bg-rose-500/10 p-6 rounded-3xl border border-rose-100 dark:border-rose-500/20">
+                <p class="text-rose-900 dark:text-rose-400 font-bold leading-relaxed">
+                    Atenção: Ao confirmar, {{ count($selectedMediaIds) }} mídia(s) será(ão) <strong>destruída(s)</strong> e não poderá(ão) ser recuperada(s).
+                </p>
+            </div>
+            <div class="flex justify-center gap-4">
+                <x-filament::button color="gray" wire:click="closeDeleteMediaModal" variant="ghost" class="font-black">Voltar</x-filament::button>
+                <x-filament::button color="danger" wire:click="deleteSelectedMedia" size="xl" class="shadow-2xl">Confirmar Exclusão</x-filament::button>
             </div>
         </div>
     </x-filament::modal>
