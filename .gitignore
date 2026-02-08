@@ -39,3 +39,10 @@ dia-marcado-web/storage/framework/views/*
 dia-marcado-web/storage/logs/*
 .phpunit.cache/test-results
 bootstrap/cache/*.php
+
+# Ignore temporary test and upload files
+storage/app/private/livewire-tmp/
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
