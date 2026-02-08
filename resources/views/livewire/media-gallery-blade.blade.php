@@ -25,7 +25,7 @@
         <div class="w-full">
             <x-filament::section compact>
                 <x-slot name="heading">
-                    <span class="flex items-center gap-2 font-black uppercase tracking-tight text-gray-400">
+                    <span class="flex items-center gap-2 font-black uppercase tracking-tight">
                         <x-filament::icon icon="heroicon-m-folder" class="w-4 h-4" />
                         Álbuns
                     </span>
@@ -286,7 +286,7 @@
                 </x-filament::input.select>
             </div>
             
-            <div class="flex justify-end gap-4 pt-8 border-t border-gray-100 dark:border-white/5">
+            <div class="flex justify-end gap-4 border-t border-gray-100 dark:border-white/5 pt-4">
                 <x-filament::button
                     color="gray"
                     wire:click="{{ $showCreateModal ? 'closeCreateModal' : 'closeEditModal' }}"
