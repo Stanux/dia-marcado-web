@@ -148,6 +148,11 @@ class AlbumResource extends Resource
 
     public static function canAccess(): bool
     {
+        // Allow access in console for route cache generation
+        if (app()->runningInConsole()) {
+            return true;
+        }
+
         $user = auth()->user();
         if (!$user) {
             return false;

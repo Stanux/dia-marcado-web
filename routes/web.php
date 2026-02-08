@@ -155,3 +155,9 @@ Route::post('/site/{slug}/auth', [PublicSiteController::class, 'authenticate'])
 
 Route::get('/site/{slug}/calendar', [PublicSiteController::class, 'calendar'])
     ->name('public.site.calendar');
+
+// Manual route registration for broken Filament resource
+Route::middleware(['web', \Filament\Http\Middleware\Authenticate::class])->group(function () {
+    Route::get('/admin/albums', \App\Filament\Resources\AlbumResource\Pages\ListAlbums::class)
+        ->name('filament.admin.resources.albums.index');
+});
