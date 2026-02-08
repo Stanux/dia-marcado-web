@@ -128,9 +128,9 @@
                             class="hidden"
                         >
                         
-                        <div class="flex flex-col items-center gap-6">
+                        <div class="flex flex-col border border-dotted border-gray-200 dark:border-white/10 rounded-3xl items-center gap-0">
                             <x-filament::icon icon="heroicon-o-cloud-arrow-up" class="w-16 h-16 text-gray-300" />
-                            <div class="space-y-2 p-6">
+                            <div class="space-y-2 p-3">
                                 <h3 class="text-xl font-black">Arraste seus arquivos</h3>
                                 <p class="text-sm text-gray-500">
                                     Ou 
@@ -149,7 +149,7 @@
                     </div>
 
                     {{-- Grid Controls --}}
-                    <div class="flex justify-end gap-2 mb-4 px-2">
+                    <div class="flex justify-end gap-2 p-2">
                             <x-filament::icon-button
                                 wire:click="setGridSize('small')"
                                 icon="heroicon-s-rectangle-stack"
@@ -209,7 +209,7 @@
 
                     {{-- Grid --}}
                     @if(count($this->selectedAlbum['media']) > 0)
-                        <div class="grid gap-4 {{ $gridSize === 'small' ? 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10' : ($gridSize === 'medium' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4')}} pt-6">
+                        <div class="grid gap-4 {{ $gridSize === 'small' ? 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10' : ($gridSize === 'medium' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4')}}">
                             @foreach($this->selectedAlbum['media'] as $media)
                                 <div
                                     wire:key="{{ $media['id'] }}"
