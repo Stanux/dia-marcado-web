@@ -68,6 +68,9 @@ class PublicSiteController extends Controller
 
         // Load the wedding for placeholder replacement
         $wedding = $site->wedding;
+        
+        // Load gift registry config for the wedding
+        $wedding->load('giftRegistryConfig');
 
         // Apply placeholders to published content
         $content = $this->placeholderService->replaceInArray(

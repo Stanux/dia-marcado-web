@@ -75,9 +75,6 @@ const handleToggle = (event, sectionKey) => {
             <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">
                 Seções
             </h2>
-            <p class="text-xs text-gray-500 mt-1">
-                Clique para editar, toggle para ativar/desativar
-            </p>
         </div>
 
         <!-- Section List -->

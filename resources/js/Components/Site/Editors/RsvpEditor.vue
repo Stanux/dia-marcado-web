@@ -74,7 +74,7 @@ const mockFields = computed(() => localContent.value.mockFields || [
 </script>
 
 <template>
-    <div class="space-y-6">
+    <div class="space-y-6 h-full overflow-y-auto">
         <!-- Navigation Settings -->
         <NavigationSettings
             :navigation="localContent.navigation"

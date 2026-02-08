@@ -133,7 +133,7 @@ const socialPlatforms = [
 </script>
 
 <template>
-    <div class="space-y-6">
+    <div class="space-y-6 h-full overflow-y-auto">
         <!-- Social Links -->
         <div class="space-y-4">
             <div class="flex items-center justify-between">

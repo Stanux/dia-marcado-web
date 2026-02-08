@@ -94,6 +94,30 @@ class Wedding extends Model
     }
 
     /**
+     * Get the gift items for this wedding.
+     */
+    public function giftItems(): HasMany
+    {
+        return $this->hasMany(GiftItem::class);
+    }
+
+    /**
+     * Get the transactions for this wedding.
+     */
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    /**
+     * Get the gift registry config for this wedding.
+     */
+    public function giftRegistryConfig(): HasOne
+    {
+        return $this->hasOne(GiftRegistryConfig::class);
+    }
+
+    /**
      * Check if a user is part of this wedding.
      */
     public function hasUser(User $user): bool

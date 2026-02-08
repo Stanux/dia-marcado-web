@@ -102,6 +102,9 @@ const enabledSections = computed(() => {
             v-if="isSectionEnabled('giftRegistry')"
             :content="getSectionContent('giftRegistry')"
             :theme="theme"
+            :event-id="wedding.id"
+            :config="wedding.gift_registry_config"
+            :is-preview="true"
         />
 
         <!-- RSVP Section -->

@@ -36,7 +36,7 @@ class SiteLayoutResource extends WeddingScopedResource
 
     protected static ?string $pluralModelLabel = 'Sites';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 5;
 
     public static function form(Form $form): Form
     {

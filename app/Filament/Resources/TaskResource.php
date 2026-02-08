@@ -34,7 +34,7 @@ class TaskResource extends WeddingScopedResource
 
     protected static ?string $pluralModelLabel = 'Tarefas';
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 7;
 
     public static function form(Form $form): Form
     {

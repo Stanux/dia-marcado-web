@@ -2,14 +2,26 @@
 
 use App\Http\Controllers\Api\Admin\SystemConfigController;
 use App\Http\Controllers\Api\AlbumController;
+use App\Http\Controllers\Api\GiftController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\QuotaController;
 use App\Http\Controllers\Api\SiteLayoutController;
 use App\Http\Controllers\Api\SiteMediaController;
 use App\Http\Controllers\Api\SiteTemplateController;
+use App\Http\Controllers\WebhookController;
 use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Webhook routes (no authentication required - validated by signature)
+Route::post('/webhooks/pagseguro', [WebhookController::class, 'handle'])->name('webhooks.pagseguro');
+
+// Public gift registry routes (no authentication required)
+Route::prefix('events/{eventId}/gifts')->group(function () {
+    Route::get('/', [GiftController::class, 'index']);
+    Route::get('/{giftId}', [GiftController::class, 'show']);
+    Route::post('/{giftId}/purchase', [GiftController::class, 'purchase']);
+});
 
 Route::middleware(['auth:web'])->group(function () {
     // User info (no wedding context required)

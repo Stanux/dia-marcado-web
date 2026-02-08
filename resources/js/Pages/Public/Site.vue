@@ -88,11 +88,14 @@ const enabledSections = computed(() => {
             :wedding="wedding"
         />
 
-        <!-- Gift Registry Section (Mockup) -->
+        <!-- Gift Registry Section -->
         <PublicGiftRegistry
             v-if="isSectionEnabled('giftRegistry')"
             :content="getSectionContent('giftRegistry')"
             :theme="theme"
+            :event-id="wedding.id"
+            :config="wedding.gift_registry_config"
+            :is-preview="false"
         />
 
         <!-- RSVP Section (Mockup) -->

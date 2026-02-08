@@ -61,6 +61,7 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
     
     // Site API routes
     Route::put('/sites/{site}/draft', [\App\Http\Controllers\Api\SiteLayoutController::class, 'updateDraft'])->name('sites.update-draft');
+    Route::put('/sites/{site}/settings', [\App\Http\Controllers\Api\SiteLayoutController::class, 'updateSettings'])->name('sites.update-settings');
     Route::get('/sites/{site}/qa', [\App\Http\Controllers\Api\SiteLayoutController::class, 'qa'])->name('sites.qa');
     Route::post('/sites/{site}/publish', [\App\Http\Controllers\Api\SiteLayoutController::class, 'publish'])->name('sites.publish');
     Route::post('/sites/{site}/rollback', [\App\Http\Controllers\Api\SiteLayoutController::class, 'rollback'])->name('sites.rollback');
@@ -112,6 +113,9 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         
         // Load wedding data for placeholders
         $wedding = $siteLayout->wedding;
+        
+        // Load gift registry config for the wedding
+        $wedding->load('giftRegistryConfig');
         
         return Inertia::render('Sites/Editor', [
             'site' => $siteData,

@@ -392,7 +392,7 @@ const style = computed(() => localContent.value.style || {});
 </script>
 
 <template>
-    <div class="space-y-6">
+    <div class="space-y-6 h-full overflow-y-auto">
         <!-- Logo Section -->
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Logo</h3>

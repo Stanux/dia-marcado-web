@@ -9,6 +9,7 @@
  */
 import { Head, usePage } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import axios from 'axios';
 import SectionSidebar from '@/Components/Site/SectionSidebar.vue';
 import SectionEditor from '@/Components/Site/SectionEditor.vue';
 import FullscreenPreview from '@/Components/Site/FullscreenPreview.vue';
@@ -48,6 +49,8 @@ const {
     isPublishing,
     lastSaved,
     updateSection,
+    updateMeta,
+    updateTheme,
     save,
     publish,
     rollback,
@@ -93,7 +96,41 @@ const sections = computed(() => {
 
 // Current section content
 const currentSectionContent = computed(() => {
-    if (!draftContent.value?.sections) return null;
+    if (!draftContent.value) return null;
+    
+    // Special sections (meta, theme, settings) are stored at root level
+    if (activeSection.value === 'meta') {
+        return draftContent.value.meta || {
+            title: '',
+            description: '',
+            ogImage: '',
+            canonical: '',
+        };
+    }
+    
+    if (activeSection.value === 'theme') {
+        return draftContent.value.theme || {
+            primaryColor: '#d4a574',
+            secondaryColor: '#8b7355',
+            fontFamily: 'Playfair Display',
+            fontSize: '16px',
+        };
+    }
+    
+    if (activeSection.value === 'settings') {
+        // Settings include site-level configuration
+        return {
+            slug: site.value.slug || '',
+            custom_domain: site.value.custom_domain || '',
+            access_token: site.value.access_token || '',
+            is_published: site.value.is_published || false,
+            published_at: site.value.published_at || null,
+            ...(draftContent.value.settings || {}),
+        };
+    }
+    
+    // Regular sections
+    if (!draftContent.value.sections) return null;
     return draftContent.value.sections[activeSection.value] || null;
 });
 
@@ -121,8 +158,58 @@ const toggleSection = (sectionKey) => {
 };
 
 // Handle section content update
-const handleSectionUpdate = (data) => {
-    updateSection(activeSection.value, data);
+const handleSectionUpdate = async (data) => {
+    // Special sections use dedicated update methods
+    if (activeSection.value === 'meta') {
+        updateMeta(data);
+    } else if (activeSection.value === 'theme') {
+        updateTheme(data);
+    } else if (activeSection.value === 'settings') {
+        // Settings include both site-level and content-level data
+        // Extract site-level fields
+        const siteFields = ['slug', 'custom_domain', 'access_token'];
+        const siteData = {};
+        const contentData = {};
+        
+        Object.keys(data).forEach(key => {
+            if (siteFields.includes(key)) {
+                siteData[key] = data[key];
+            } else if (key !== 'is_published' && key !== 'published_at') {
+                contentData[key] = data[key];
+            }
+        });
+        
+        // Update site-level fields if any changed
+        if (Object.keys(siteData).length > 0) {
+            try {
+                const response = await axios.put(`/admin/sites/${site.value.id}/settings`, siteData);
+                if (response.data?.data) {
+                    // Update site object with response
+                    Object.assign(site.value, {
+                        slug: response.data.data.slug,
+                        custom_domain: response.data.data.custom_domain,
+                        has_password: response.data.data.has_password,
+                    });
+                    showToast('success', 'Configurações atualizadas com sucesso!');
+                }
+            } catch (error) {
+                console.error('Error updating site settings:', error);
+                const message = error.response?.data?.message || 'Erro ao atualizar configurações';
+                showToast('error', message);
+            }
+        }
+        
+        // Update content-level settings
+        if (Object.keys(contentData).length > 0) {
+            if (!draftContent.value.settings) {
+                draftContent.value.settings = {};
+            }
+            draftContent.value.settings = { ...draftContent.value.settings, ...contentData };
+        }
+    } else {
+        // Regular sections
+        updateSection(activeSection.value, data);
+    }
 };
 
 // Handle publish - open dialog
@@ -150,18 +237,14 @@ const showToast = (type, message) => {
         type,
         message,
     };
+    setTimeout(() => {
+        toast.value.show = false;
+    }, 3000);
 };
 
 // Close toast
 const closeToast = () => {
     toast.value.show = false;
-};
-
-// Handle rollback with confirmation
-const handleRollback = async () => {
-    if (confirm('Tem certeza que deseja reverter para a última versão publicada?')) {
-        await rollback();
-    }
 };
 
 // Handle version restore
@@ -246,6 +329,15 @@ onUnmounted(() => {
             </div>
 
             <div class="flex items-center space-x-3">
+                <!-- Save Button -->
+                <button
+                    @click="save"
+                    :disabled="!isDirty || isSaving"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Salvar
+                </button>
+
                 <!-- Version History Button -->
                 <button
                     @click="toggleVersionHistory"
@@ -270,24 +362,6 @@ onUnmounted(() => {
                     Preview
                 </button>
 
-                <!-- Save Button -->
-                <button
-                    @click="save"
-                    :disabled="!isDirty || isSaving"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    Salvar
-                </button>
-
-                <!-- Rollback Button (only if published) -->
-                <button
-                    v-if="site.is_published"
-                    @click="handleRollback"
-                    class="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md hover:bg-amber-100"
-                >
-                    Rollback
-                </button>
-
                 <!-- Publish Button -->
                 <button
                     @click="handlePublish"
@@ -300,6 +374,19 @@ onUnmounted(() => {
                     </svg>
                     {{ isPublishing ? 'Publicando...' : 'Publicar' }}
                 </button>
+
+                <!-- View Site Button (only if published) -->
+                <a
+                    v-if="site.is_published"
+                    :href="`/site/${site.slug}`"
+                    target="_blank"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 flex items-center"
+                >
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Ver Site
+                </a>
             </div>
         </header>
 
@@ -314,10 +401,10 @@ onUnmounted(() => {
             />
 
             <!-- Editor Area -->
-            <main class="flex-1 overflow-auto p-6">
-                <div class="max-w-4xl mx-auto">
+            <main class="flex-1 overflow-hidden p-6 flex flex-col">
+                <div class="w-full flex-1 flex flex-col min-h-0">
                     <!-- Draft Watermark -->
-                    <div v-if="site.is_draft" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center text-amber-800">
+                    <div v-if="site.is_draft" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center text-amber-800 flex-shrink-0">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
@@ -331,6 +418,7 @@ onUnmounted(() => {
                         :content="currentSectionContent"
                         :enabled-sections="enabledSections"
                         @change="handleSectionUpdate"
+                        class="flex-1 min-h-0 overflow-hidden"
                     />
                 </div>
             </main>
@@ -385,9 +473,12 @@ onUnmounted(() => {
                                 </div>
                                 <button
                                     @click="handleRestore(version.id)"
-                                    class="ml-2 text-xs text-wedding-600 hover:text-wedding-800"
+                                    class="ml-2 px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                    :class="version.is_published 
+                                        ? 'text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100' 
+                                        : 'text-wedding-600 bg-wedding-50 border border-wedding-200 hover:bg-wedding-100'"
                                 >
-                                    Restaurar
+                                    {{ version.is_published ? 'Rollback' : 'Restaurar' }}
                                 </button>
                             </div>
                         </li>
@@ -444,5 +535,11 @@ onUnmounted(() => {
 }
 .text-wedding-800 {
     color: #6b5347;
+}
+.border-wedding-200 {
+    border-color: #e5d5c9;
+}
+.hover\:bg-wedding-100:hover {
+    background-color: #f5ebe4;
 }
 </style>

@@ -76,6 +76,21 @@ const updateStyle = (field, value) => {
 };
 
 /**
+ * Format date for display
+ */
+const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
+/**
  * Section titles for display
  */
 const sectionTitles = {
@@ -111,9 +126,9 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
 </script>
 
 <template>
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full min-h-0">
         <!-- Section Header -->
-        <div class="px-6 py-4 border-b border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200 flex-shrink-0">
             <h2 class="text-lg font-semibold text-gray-900">{{ sectionTitle }}</h2>
             <p class="text-sm text-gray-500 mt-1">
                 Configure os elementos desta seção
@@ -121,7 +136,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
         </div>
 
         <!-- Section Content -->
-        <div class="p-6 space-y-6">
+        <div class="p-6 flex-1 flex flex-col overflow-hidden min-h-0">
             <!-- Use dedicated editor component if available -->
             <component
                 v-if="hasCustomEditor"
@@ -129,6 +144,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                 :content="localContent"
                 :enabled-sections="enabledSections"
                 @change="handleChange"
+                class="flex-1 min-h-0"
             />
 
             <!-- Meta Section Editor -->
@@ -252,12 +268,89 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
 
             <!-- Settings Section Editor -->
             <template v-else-if="sectionType === 'settings'">
-                <div class="space-y-4">
+                <div class="space-y-6">
+                    <!-- Site Configuration Section -->
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Configurações do Site</h3>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">URL do Site</label>
+                            <div class="flex items-center">
+                                <span class="inline-flex items-center px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                                    {{ window.location.origin }}/site/
+                                </span>
+                                <input
+                                    type="text"
+                                    :value="localContent.slug"
+                                    @input="updateField('slug', $event.target.value)"
+                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:ring-wedding-500 focus:border-wedding-500"
+                                    placeholder="meu-casamento"
+                                    pattern="[a-z0-9-]+"
+                                />
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">Apenas letras minúsculas, números e hífens</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Domínio Personalizado</label>
+                            <input
+                                type="url"
+                                :value="localContent.custom_domain"
+                                @input="updateField('custom_domain', $event.target.value)"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                placeholder="https://meusite.com.br"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Opcional: domínio próprio para o site</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Senha de Acesso</label>
+                            <input
+                                type="password"
+                                :value="localContent.access_token"
+                                @input="updateField('access_token', $event.target.value)"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                placeholder="Deixe em branco para site público"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Deixe em branco para site público</p>
+                        </div>
+                    </div>
+
+                    <!-- Status Section -->
+                    <div class="space-y-4 pt-6 border-t border-gray-200">
+                        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Status</h3>
+                        
+                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700">Status de Publicação</span>
+                                <span 
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                    :class="localContent.is_published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'"
+                                >
+                                    {{ localContent.is_published ? 'Publicado' : 'Rascunho' }}
+                                </span>
+                            </div>
+                            <p class="text-xs text-gray-500">Use o botão "Publicar" no topo da página para publicar o site</p>
+                            
+                            <div v-if="localContent.published_at" class="mt-3 pt-3 border-t border-gray-200">
+                                <p class="text-xs text-gray-600">
+                                    <strong>Publicado em:</strong> {{ formatDate(localContent.published_at) }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info Alert -->
                     <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p class="text-sm text-blue-800">
-                            <strong>Configurações do Site</strong><br>
-                            Configurações avançadas como proteção por senha e domínio customizado são gerenciadas na página de configurações do site.
-                        </p>
+                        <div class="flex">
+                            <svg class="w-5 h-5 text-blue-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="text-sm text-blue-800">
+                                <p class="font-medium mb-1">Dica</p>
+                                <p>As alterações nas configurações são salvas automaticamente. Para aplicar as mudanças no site público, não esqueça de publicar usando o botão no topo da página.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </template>

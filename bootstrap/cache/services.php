@@ -45,8 +45,9 @@
     41 => 'Termwind\\Laravel\\TermwindServiceProvider',
     42 => 'RyanChandler\\BladeCaptureDirective\\BladeCaptureDirectiveServiceProvider',
     43 => 'Spatie\\LaravelIgnition\\IgnitionServiceProvider',
-    44 => 'App\\Providers\\AppServiceProvider',
-    45 => 'App\\Providers\\Filament\\AdminPanelProvider',
+    44 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
+    45 => 'App\\Providers\\AppServiceProvider',
+    46 => 'App\\Providers\\Filament\\AdminPanelProvider',
   ),
   'eager' => 
   array (
@@ -79,8 +80,9 @@
     26 => 'Termwind\\Laravel\\TermwindServiceProvider',
     27 => 'RyanChandler\\BladeCaptureDirective\\BladeCaptureDirectiveServiceProvider',
     28 => 'Spatie\\LaravelIgnition\\IgnitionServiceProvider',
-    29 => 'App\\Providers\\AppServiceProvider',
-    30 => 'App\\Providers\\Filament\\AdminPanelProvider',
+    29 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
+    30 => 'App\\Providers\\AppServiceProvider',
+    31 => 'App\\Providers\\Filament\\AdminPanelProvider',
   ),
   'deferred' => 
   array (

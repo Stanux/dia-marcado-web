@@ -29,6 +29,8 @@ use App\Events\SitePublished;
 use App\Listeners\ClearOnboardingSession;
 use App\Listeners\SendSitePublishedNotification;
 use App\Models\SiteLayout;
+use App\Models\Wedding;
+use App\Observers\WeddingObserver;
 use App\Policies\SiteLayoutPolicy;
 use App\Services\PermissionService;
 use App\Services\Site\AccessTokenService;
@@ -82,6 +84,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register Livewire components
+        \Livewire\Livewire::component('media-gallery-picker', \App\Livewire\MediaGalleryPicker::class);
+        
+        // Register model observers
+        Wedding::observe(WeddingObserver::class);
+
         // Register policies
         Gate::policy(SiteLayout::class, SiteLayoutPolicy::class);
 

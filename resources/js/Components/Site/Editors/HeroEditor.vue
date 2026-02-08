@@ -269,7 +269,7 @@ const onBannerImageSelected = (imageData) => {
 </script>
 
 <template>
-    <div class="space-y-6">
+    <div class="space-y-6 h-full overflow-y-auto">
         <!-- Media Section -->
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Mídia</h3>

@@ -2,13 +2,15 @@
 /**
  * GiftRegistryEditor Component
  * 
- * Editor for the Gift Registry section of the wedding site (mockup).
- * Simple fields for title, description, and background color.
- * Will be integrated with the Gift Catalog module in the future.
+ * Editor for the Gift Registry section of the wedding site.
+ * Includes configuration for typography, fees, and section settings.
+ * Configurations are saved as part of the site draft content.
  * 
- * @Requirements: 11.1, 11.3, 11.4
+ * @Requirements: 3.1, 3.2, 6.1, 6.2, 6.7, 6.8, 11.1, 11.3, 11.4
  */
 import { ref, watch, computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+import TypographyControl from '@/Components/Site/TypographyControl.vue';
 
 const props = defineProps({
     content: {
@@ -19,18 +21,87 @@ const props = defineProps({
 
 const emit = defineEmits(['change']);
 
+const page = usePage();
+const wedding = computed(() => page.props.wedding);
+const giftRegistryConfig = computed(() => wedding.value?.gift_registry_config);
+
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
+
+// Initialize config from content or from database
+if (!localContent.value.config) {
+    localContent.value.config = {
+        section_title: giftRegistryConfig.value?.section_title || 'Lista de Presentes',
+        fee_modality: giftRegistryConfig.value?.fee_modality || 'couple_pays',
+    };
+}
+
+// Initialize typography from config or defaults
+if (!localContent.value.titleTypography) {
+    localContent.value.titleTypography = {
+        fontFamily: giftRegistryConfig.value?.title_font_family || 'Playfair Display',
+        fontColor: giftRegistryConfig.value?.title_color || '#333333',
+        fontSize: giftRegistryConfig.value?.title_font_size || 48,
+        fontWeight: giftRegistryConfig.value?.title_style === 'bold' || giftRegistryConfig.value?.title_style === 'bold_italic' ? 700 : 400,
+        fontItalic: giftRegistryConfig.value?.title_style === 'italic' || giftRegistryConfig.value?.title_style === 'bold_italic',
+        fontUnderline: false,
+    };
+}
 
 // Watch for external content changes
 watch(() => props.content, (newContent) => {
     localContent.value = JSON.parse(JSON.stringify(newContent));
+    
+    // Ensure config exists
+    if (!localContent.value.config && giftRegistryConfig.value) {
+        localContent.value.config = {
+            section_title: giftRegistryConfig.value.section_title || 'Lista de Presentes',
+            fee_modality: giftRegistryConfig.value.fee_modality || 'couple_pays',
+        };
+    }
+    
+    // Ensure typography exists
+    if (!localContent.value.titleTypography && giftRegistryConfig.value) {
+        localContent.value.titleTypography = {
+            fontFamily: giftRegistryConfig.value.title_font_family || 'Playfair Display',
+            fontColor: giftRegistryConfig.value.title_color || '#333333',
+            fontSize: giftRegistryConfig.value.title_font_size || 48,
+            fontWeight: giftRegistryConfig.value.title_style === 'bold' || giftRegistryConfig.value.title_style === 'bold_italic' ? 700 : 400,
+            fontItalic: giftRegistryConfig.value.title_style === 'italic' || giftRegistryConfig.value.title_style === 'bold_italic',
+            fontUnderline: false,
+        };
+    }
 }, { deep: true });
 
 /**
- * Emit changes to parent
+ * Emit changes to parent (includes config in the content)
  */
 const emitChange = () => {
+    // Sync typography to config before emitting
+    if (localContent.value.titleTypography) {
+        if (!localContent.value.config) {
+            localContent.value.config = {};
+        }
+        
+        localContent.value.config.title_font_family = localContent.value.titleTypography.fontFamily;
+        localContent.value.config.title_color = localContent.value.titleTypography.fontColor;
+        localContent.value.config.title_font_size = localContent.value.titleTypography.fontSize;
+        
+        // Convert typography to style
+        const isBold = localContent.value.titleTypography.fontWeight >= 700;
+        const isItalic = localContent.value.titleTypography.fontItalic;
+        
+        if (isBold && isItalic) {
+            localContent.value.config.title_style = 'bold_italic';
+        } else if (isBold) {
+            localContent.value.config.title_style = 'bold';
+        } else if (isItalic) {
+            localContent.value.config.title_style = 'italic';
+        } else {
+            localContent.value.config.title_style = 'normal';
+        }
+    }
+    
     emit('change', JSON.parse(JSON.stringify(localContent.value)));
 };
 
@@ -53,53 +124,111 @@ const updateStyle = (field, value) => {
     emitChange();
 };
 
+/**
+ * Update config field
+ */
+const updateConfig = (field, value) => {
+    if (!localContent.value.config) {
+        localContent.value.config = {};
+    }
+    localContent.value.config[field] = value;
+    emitChange();
+};
+
+/**
+ * Update title typography
+ */
+const updateTitleTypography = (field, value) => {
+    if (!localContent.value.titleTypography) {
+        localContent.value.titleTypography = {
+            fontFamily: 'Playfair Display',
+            fontColor: '#333333',
+            fontSize: 48,
+            fontWeight: 400,
+            fontItalic: false,
+            fontUnderline: false,
+        };
+    }
+    
+    localContent.value.titleTypography[field] = value;
+    emitChange();
+};
+
+/**
+ * Calculate fee example
+ */
+const feeExample = computed(() => {
+    const feePercentage = 0.05; // 5%
+    const examplePrice = 10000; // R$ 100,00 in cents
+    
+    const feeModality = localContent.value.config?.fee_modality || 'couple_pays';
+    let displayPrice, feeAmount, netAmountCouple;
+    
+    if (feeModality === 'couple_pays') {
+        displayPrice = examplePrice;
+        feeAmount = Math.round(examplePrice * feePercentage);
+        netAmountCouple = examplePrice - feeAmount;
+    } else {
+        feeAmount = Math.round(examplePrice * feePercentage);
+        displayPrice = examplePrice + feeAmount;
+        netAmountCouple = examplePrice;
+    }
+    
+    return {
+        displayPrice: (displayPrice / 100).toFixed(2).replace('.', ','),
+        feeAmount: (feeAmount / 100).toFixed(2).replace('.', ','),
+        netAmountCouple: (netAmountCouple / 100).toFixed(2).replace('.', ','),
+    };
+});
+
 // Computed properties
 const style = computed(() => localContent.value.style || {});
+const config = computed(() => localContent.value.config || {});
+const titleTypography = computed(() => localContent.value.titleTypography || {
+    fontFamily: 'Playfair Display',
+    fontColor: '#333333',
+    fontSize: 48,
+    fontWeight: 400,
+    fontItalic: false,
+    fontUnderline: false,
+});
 </script>
 
 <template>
-    <div class="space-y-6">
-        <!-- Integration Notice -->
-        <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <div class="flex">
-                <svg class="w-5 h-5 text-amber-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                    <h4 class="text-sm font-medium text-amber-800">Módulo em desenvolvimento</h4>
-                    <p class="mt-1 text-sm text-amber-700">
-                        Esta seção será integrada com o Catálogo de Presentes quando o módulo estiver disponível.
-                        Por enquanto, você pode personalizar o texto e estilo da prévia.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Content Settings -->
+    <div class="space-y-6 h-full overflow-y-auto">
+        <!-- Typography Settings -->
         <div class="space-y-4">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Conteúdo</h3>
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Personalização do Título</h3>
+            <p class="text-sm text-gray-600">Configure a aparência do título da seção de lista de presentes</p>
             
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Título da Seção</label>
                 <input
                     type="text"
-                    :value="localContent.title"
-                    @input="updateField('title', $event.target.value)"
+                    :value="config.section_title"
+                    @input="updateConfig('section_title', $event.target.value)"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                     placeholder="Lista de Presentes"
                 />
+                <p class="mt-1 text-xs text-gray-500">Título exibido na seção de presentes</p>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                <textarea
-                    :value="localContent.description"
-                    @input="updateField('description', $event.target.value)"
-                    rows="3"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    placeholder="Em breve você poderá ver nossa lista de presentes..."
-                ></textarea>
-            </div>
+            <!-- Tipografia do Título -->
+            <TypographyControl
+                :font-family="titleTypography.fontFamily"
+                :font-color="titleTypography.fontColor"
+                :font-size="titleTypography.fontSize"
+                :font-weight="titleTypography.fontWeight"
+                :font-italic="titleTypography.fontItalic"
+                :font-underline="titleTypography.fontUnderline"
+                @update:font-family="updateTitleTypography('fontFamily', $event)"
+                @update:font-color="updateTitleTypography('fontColor', $event)"
+                @update:font-size="updateTitleTypography('fontSize', $event)"
+                @update:font-weight="updateTitleTypography('fontWeight', $event)"
+                @update:font-italic="updateTitleTypography('fontItalic', $event)"
+                @update:font-underline="updateTitleTypography('fontUnderline', $event)"
+                label="Tipografia do Título"
+            />
         </div>
 
         <!-- Style Settings -->
@@ -125,19 +254,33 @@ const style = computed(() => localContent.value.style || {});
             </div>
         </div>
 
-        <!-- Preview -->
+        <!-- Fee Configuration -->
         <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Prévia</h3>
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Configuração de Taxas</h3>
+            <p class="text-sm text-gray-600">Defina quem paga a taxa da plataforma</p>
             
-            <div 
-                class="p-6 rounded-lg text-center"
-                :style="{ backgroundColor: style.backgroundColor || '#ffffff' }"
-            >
-                <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-                </svg>
-                <h4 class="text-lg font-semibold text-gray-900">{{ localContent.title || 'Lista de Presentes' }}</h4>
-                <p class="mt-2 text-gray-600">{{ localContent.description || 'Em breve...' }}</p>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Modalidade de Taxa</label>
+                <select
+                    :value="config.fee_modality"
+                    @change="updateConfig('fee_modality', $event.target.value)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                >
+                    <option value="couple_pays">Noivos Pagam a Taxa</option>
+                    <option value="guest_pays">Convidados Pagam a Taxa</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-500">Escolha quem absorve o custo da taxa da plataforma</p>
+            </div>
+
+            <!-- Fee Example -->
+            <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p class="text-sm font-medium text-gray-900 mb-2">Exemplo de Cálculo</p>
+                <div class="text-sm space-y-1 text-gray-700">
+                    <p><strong>Exemplo:</strong> Presente de R$ 100,00</p>
+                    <p>• Convidado paga: <strong>R$ {{ feeExample.displayPrice }}</strong></p>
+                    <p>• Taxa da plataforma (5%): <strong>R$ {{ feeExample.feeAmount }}</strong></p>
+                    <p>• Vocês recebem: <strong>R$ {{ feeExample.netAmountCouple }}</strong></p>
+                </div>
             </div>
         </div>
     </div>
@@ -149,5 +292,14 @@ const style = computed(() => localContent.value.style || {});
 }
 .focus\:border-wedding-500:focus {
     border-color: #b8998a;
+}
+.bg-wedding-600 {
+    background-color: #a18072;
+}
+.bg-wedding-700 {
+    background-color: #8b6b5d;
+}
+.text-wedding-600 {
+    color: #a18072;
 }
 </style>

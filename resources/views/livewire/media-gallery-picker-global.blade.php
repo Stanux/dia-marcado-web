@@ -1,0 +1,1 @@
+@livewire('media-gallery-picker')

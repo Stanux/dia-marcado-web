@@ -51,6 +51,10 @@ class AdminPanelProvider extends PanelProvider
                 'panels::styles.after',
                 fn () => new \Illuminate\Support\HtmlString('<style>.fi-page-header { padding-top: 0.25rem !important; padding-bottom: 0.5rem !important; } .gap-y-8 { gap: 0.5rem !important; } .fi-main .py-8, .fi-sidebar-nav { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; } .fi-sidebar-nav-groups { gap: 0.5rem !important; } .fi-page-header > div:first-child { align-items: flex-end !important; } .fi-page-header-actions { margin-top: 0 !important; }</style>')
             )
+            ->renderHook(
+                'panels::body.end',
+                fn () => view('livewire.media-gallery-picker-global')
+            )
             ->colors([
                 'primary' => Color::Rose,
             ])

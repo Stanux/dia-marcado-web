@@ -88,6 +88,11 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         $sanitizedContent = $this->sanitizer->sanitizeArray($content);
 
         return DB::transaction(function () use ($site, $sanitizedContent, $user) {
+            // Extract and save gift registry config if present
+            if (isset($sanitizedContent['sections']['giftRegistry']['config'])) {
+                $this->saveGiftRegistryConfig($site->wedding, $sanitizedContent['sections']['giftRegistry']['config']);
+            }
+
             // Update draft content
             $site->draft_content = $sanitizedContent;
             $site->save();
@@ -301,5 +306,34 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         }
 
         return $merged;
+    }
+
+    /**
+     * Save gift registry configuration to database.
+     * 
+     * @param Wedding $wedding The wedding
+     * @param array $config The configuration data
+     * @return void
+     */
+    private function saveGiftRegistryConfig(Wedding $wedding, array $config): void
+    {
+        // Extract typography data if present
+        $titleFontFamily = $config['title_font_family'] ?? null;
+        $titleColor = $config['title_color'] ?? null;
+        $titleFontSize = $config['title_font_size'] ?? null;
+        $titleStyle = $config['title_style'] ?? 'normal';
+        
+        \App\Models\GiftRegistryConfig::updateOrCreate(
+            ['wedding_id' => $wedding->id],
+            [
+                'is_enabled' => true, // Always enabled if section is enabled in site
+                'section_title' => $config['section_title'] ?? 'Lista de Presentes',
+                'title_font_family' => $titleFontFamily,
+                'title_font_size' => $titleFontSize,
+                'title_color' => $titleColor,
+                'title_style' => $titleStyle,
+                'fee_modality' => $config['fee_modality'] ?? 'couple_pays',
+            ]
+        );
     }
 }

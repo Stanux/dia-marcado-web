@@ -37,6 +37,8 @@ class SiteMedia extends WeddingScopedModel
         'status',
         'batch_id',
         'error_message',
+        'width',
+        'height',
     ];
 
     protected $casts = [

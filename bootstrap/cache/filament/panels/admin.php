@@ -4,6 +4,12 @@
     'app.filament.resources.album-resource.pages.create-album' => 'App\\Filament\\Resources\\AlbumResource\\Pages\\CreateAlbum',
     'app.filament.resources.album-resource.pages.edit-album' => 'App\\Filament\\Resources\\AlbumResource\\Pages\\EditAlbum',
     'app.filament.resources.album-resource.pages.list-albums' => 'App\\Filament\\Resources\\AlbumResource\\Pages\\ListAlbums',
+    'app.filament.resources.gift-item-resource.pages.create-gift-item' => 'App\\Filament\\Resources\\GiftItemResource\\Pages\\CreateGiftItem',
+    'app.filament.resources.gift-item-resource.pages.edit-gift-item' => 'App\\Filament\\Resources\\GiftItemResource\\Pages\\EditGiftItem',
+    'app.filament.resources.gift-item-resource.pages.list-gift-items' => 'App\\Filament\\Resources\\GiftItemResource\\Pages\\ListGiftItems',
+    'app.filament.resources.gift-registry-config-resource.pages.create-gift-registry-config' => 'App\\Filament\\Resources\\GiftRegistryConfigResource\\Pages\\CreateGiftRegistryConfig',
+    'app.filament.resources.gift-registry-config-resource.pages.edit-gift-registry-config' => 'App\\Filament\\Resources\\GiftRegistryConfigResource\\Pages\\EditGiftRegistryConfig',
+    'app.filament.resources.gift-registry-config-resource.pages.list-gift-registry-configs' => 'App\\Filament\\Resources\\GiftRegistryConfigResource\\Pages\\ListGiftRegistryConfigs',
     'app.filament.resources.media-resource.pages.create-media' => 'App\\Filament\\Resources\\MediaResource\\Pages\\CreateMedia',
     'app.filament.resources.media-resource.pages.edit-media' => 'App\\Filament\\Resources\\MediaResource\\Pages\\EditMedia',
     'app.filament.resources.media-resource.pages.list-media' => 'App\\Filament\\Resources\\MediaResource\\Pages\\ListMedia',
@@ -19,6 +25,8 @@
     'app.filament.resources.task-resource.pages.create-task' => 'App\\Filament\\Resources\\TaskResource\\Pages\\CreateTask',
     'app.filament.resources.task-resource.pages.edit-task' => 'App\\Filament\\Resources\\TaskResource\\Pages\\EditTask',
     'app.filament.resources.task-resource.pages.list-tasks' => 'App\\Filament\\Resources\\TaskResource\\Pages\\ListTasks',
+    'app.filament.resources.transaction-resource.pages.list-transactions' => 'App\\Filament\\Resources\\TransactionResource\\Pages\\ListTransactions',
+    'app.filament.resources.transaction-resource.pages.view-transaction' => 'App\\Filament\\Resources\\TransactionResource\\Pages\\ViewTransaction',
     'app.filament.resources.user-resource.pages.create-user' => 'App\\Filament\\Resources\\UserResource\\Pages\\CreateUser',
     'app.filament.resources.user-resource.pages.edit-user' => 'App\\Filament\\Resources\\UserResource\\Pages\\EditUser',
     'app.filament.resources.user-resource.pages.list-users' => 'App\\Filament\\Resources\\UserResource\\Pages\\ListUsers',
@@ -57,20 +65,20 @@
   ),
   'pages' => 
   array (
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/CreateFirstWedding.php' => 'App\\Filament\\Pages\\CreateFirstWedding',
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/Dashboard.php' => 'App\\Filament\\Pages\\Dashboard',
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/MediaGallery.php' => 'App\\Filament\\Pages\\MediaGallery',
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/MediaSettings.php' => 'App\\Filament\\Pages\\MediaSettings',
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/MediaUpload.php' => 'App\\Filament\\Pages\\MediaUpload',
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/MyPlan.php' => 'App\\Filament\\Pages\\MyPlan',
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/Onboarding.php' => 'App\\Filament\\Pages\\Onboarding',
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/SiteEditor.php' => 'App\\Filament\\Pages\\SiteEditor',
-    '/var/www/html/dia-marcado-web/app/Filament/Pages/WeddingSettings.php' => 'App\\Filament\\Pages\\WeddingSettings',
+    '/var/www/html/app/Filament/Pages/CreateFirstWedding.php' => 'App\\Filament\\Pages\\CreateFirstWedding',
+    '/var/www/html/app/Filament/Pages/Dashboard.php' => 'App\\Filament\\Pages\\Dashboard',
+    '/var/www/html/app/Filament/Pages/MediaGallery.php' => 'App\\Filament\\Pages\\MediaGallery',
+    '/var/www/html/app/Filament/Pages/MediaSettings.php' => 'App\\Filament\\Pages\\MediaSettings',
+    '/var/www/html/app/Filament/Pages/MediaUpload.php' => 'App\\Filament\\Pages\\MediaUpload',
+    '/var/www/html/app/Filament/Pages/MyPlan.php' => 'App\\Filament\\Pages\\MyPlan',
+    '/var/www/html/app/Filament/Pages/Onboarding.php' => 'App\\Filament\\Pages\\Onboarding',
+    '/var/www/html/app/Filament/Pages/SiteEditor.php' => 'App\\Filament\\Pages\\SiteEditor',
+    '/var/www/html/app/Filament/Pages/WeddingSettings.php' => 'App\\Filament\\Pages\\WeddingSettings',
     0 => 'App\\Filament\\Pages\\Dashboard',
   ),
   'pageDirectories' => 
   array (
-    0 => '/var/www/html/dia-marcado-web/app/Filament/Pages',
+    0 => '/var/www/html/app/Filament/Pages',
   ),
   'pageNamespaces' => 
   array (
@@ -78,18 +86,21 @@
   ),
   'resources' => 
   array (
-    '/var/www/html/dia-marcado-web/app/Filament/Resources/AlbumResource.php' => 'App\\Filament\\Resources\\AlbumResource',
-    '/var/www/html/dia-marcado-web/app/Filament/Resources/MediaResource.php' => 'App\\Filament\\Resources\\MediaResource',
-    '/var/www/html/dia-marcado-web/app/Filament/Resources/PlanLimitResource.php' => 'App\\Filament\\Resources\\PlanLimitResource',
-    '/var/www/html/dia-marcado-web/app/Filament/Resources/SiteLayoutResource.php' => 'App\\Filament\\Resources\\SiteLayoutResource',
-    '/var/www/html/dia-marcado-web/app/Filament/Resources/SiteTemplateResource.php' => 'App\\Filament\\Resources\\SiteTemplateResource',
-    '/var/www/html/dia-marcado-web/app/Filament/Resources/SystemConfigResource.php' => 'App\\Filament\\Resources\\SystemConfigResource',
-    '/var/www/html/dia-marcado-web/app/Filament/Resources/TaskResource.php' => 'App\\Filament\\Resources\\TaskResource',
-    '/var/www/html/dia-marcado-web/app/Filament/Resources/UserResource.php' => 'App\\Filament\\Resources\\UserResource',
+    '/var/www/html/app/Filament/Resources/AlbumResource.php' => 'App\\Filament\\Resources\\AlbumResource',
+    '/var/www/html/app/Filament/Resources/GiftItemResource.php' => 'App\\Filament\\Resources\\GiftItemResource',
+    '/var/www/html/app/Filament/Resources/GiftRegistryConfigResource.php' => 'App\\Filament\\Resources\\GiftRegistryConfigResource',
+    '/var/www/html/app/Filament/Resources/MediaResource.php' => 'App\\Filament\\Resources\\MediaResource',
+    '/var/www/html/app/Filament/Resources/PlanLimitResource.php' => 'App\\Filament\\Resources\\PlanLimitResource',
+    '/var/www/html/app/Filament/Resources/SiteLayoutResource.php' => 'App\\Filament\\Resources\\SiteLayoutResource',
+    '/var/www/html/app/Filament/Resources/SiteTemplateResource.php' => 'App\\Filament\\Resources\\SiteTemplateResource',
+    '/var/www/html/app/Filament/Resources/SystemConfigResource.php' => 'App\\Filament\\Resources\\SystemConfigResource',
+    '/var/www/html/app/Filament/Resources/TaskResource.php' => 'App\\Filament\\Resources\\TaskResource',
+    '/var/www/html/app/Filament/Resources/TransactionResource.php' => 'App\\Filament\\Resources\\TransactionResource',
+    '/var/www/html/app/Filament/Resources/UserResource.php' => 'App\\Filament\\Resources\\UserResource',
   ),
   'resourceDirectories' => 
   array (
-    0 => '/var/www/html/dia-marcado-web/app/Filament/Resources',
+    0 => '/var/www/html/app/Filament/Resources',
   ),
   'resourceNamespaces' => 
   array (
@@ -97,12 +108,12 @@
   ),
   'widgets' => 
   array (
-    '/var/www/html/dia-marcado-web/app/Filament/Widgets/SiteStatsWidget.php' => 'App\\Filament\\Widgets\\SiteStatsWidget',
-    '/var/www/html/dia-marcado-web/app/Filament/Widgets/WeddingSelector.php' => 'App\\Filament\\Widgets\\WeddingSelector',
+    '/var/www/html/app/Filament/Widgets/SiteStatsWidget.php' => 'App\\Filament\\Widgets\\SiteStatsWidget',
+    '/var/www/html/app/Filament/Widgets/WeddingSelector.php' => 'App\\Filament\\Widgets\\WeddingSelector',
   ),
   'widgetDirectories' => 
   array (
-    0 => '/var/www/html/dia-marcado-web/app/Filament/Widgets',
+    0 => '/var/www/html/app/Filament/Widgets',
   ),
   'widgetNamespaces' => 
   array (
