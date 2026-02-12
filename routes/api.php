@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\SystemConfigController;
 use App\Http\Controllers\Api\AlbumController;
+use App\Http\Controllers\Api\DevPaymentController;
 use App\Http\Controllers\Api\GiftController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\QuotaController;
@@ -22,6 +23,10 @@ Route::prefix('events/{eventId}/gifts')->group(function () {
     Route::get('/{giftId}', [GiftController::class, 'show']);
     Route::post('/{giftId}/purchase', [GiftController::class, 'purchase']);
 });
+
+if (app()->environment('local')) {
+    Route::post('/dev/transactions/{internalId}/confirm', [DevPaymentController::class, 'confirm']);
+}
 
 Route::middleware(['auth:web'])->group(function () {
     // User info (no wedding context required)

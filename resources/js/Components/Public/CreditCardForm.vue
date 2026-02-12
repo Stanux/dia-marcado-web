@@ -188,7 +188,7 @@ async function handleSubmit() {
       payer: {
         name: cardHolder.value,
         email: email.value,
-        cpf: cpf.value.replace(/\D/g, ''),
+        document: cpf.value.replace(/\D/g, ''),
         phone: phone.value.replace(/\D/g, '')
       },
       idempotency_key: generateIdempotencyKey()

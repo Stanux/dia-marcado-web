@@ -28,7 +28,7 @@ class PurchaseGiftRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'payment_method' => ['required', 'string', 'in:credit_card,pix'],
             'idempotency_key' => ['required', 'string', 'min:16', 'max:100'],
             
@@ -36,6 +36,7 @@ class PurchaseGiftRequest extends FormRequest
             'payer.name' => ['required', 'string', 'max:255'],
             'payer.email' => ['required', 'email', 'max:255'],
             'payer.document' => ['required', 'string', 'regex:/^\d{11}$|^\d{14}$/'], // CPF or CNPJ
+            'payer.phone' => ['nullable', 'string', 'regex:/^\d{10,11}$/'],
             
             // Credit card specific fields (required only for credit_card)
             'card_token' => ['required_if:payment_method,credit_card', 'string'],
@@ -50,6 +51,13 @@ class PurchaseGiftRequest extends FormRequest
             'billing.state' => ['nullable', 'string', 'size:2'],
             'billing.postal_code' => ['nullable', 'string', 'regex:/^\d{5}-?\d{3}$/'],
         ];
+
+        $merchantEmail = config('services.pagseguro.merchant_email');
+        if (is_string($merchantEmail) && $merchantEmail !== '') {
+            $rules['payer.email'][] = 'not_in:' . $merchantEmail;
+        }
+
+        return $rules;
     }
 
     /**
@@ -69,8 +77,10 @@ class PurchaseGiftRequest extends FormRequest
             'payer.name.required' => 'O nome do pagador é obrigatório.',
             'payer.email.required' => 'O email do pagador é obrigatório.',
             'payer.email.email' => 'O email do pagador deve ser válido.',
+            'payer.email.not_in' => 'O email do pagador não pode ser o mesmo do recebedor.',
             'payer.document.required' => 'O CPF/CNPJ do pagador é obrigatório.',
             'payer.document.regex' => 'O CPF/CNPJ deve conter apenas números (11 ou 14 dígitos).',
+            'payer.phone.regex' => 'O telefone deve conter apenas números (10 ou 11 dígitos).',
             
             'card_token.required_if' => 'O token do cartão é obrigatório para pagamento com cartão de crédito.',
             'installments.integer' => 'O número de parcelas deve ser um número inteiro.',

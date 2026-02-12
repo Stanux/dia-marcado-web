@@ -200,11 +200,9 @@ class PaymentService
                 ],
             ];
 
-            // Add notification URL if route exists
-            try {
-                $chargeData['notification_urls'] = [route('webhooks.pagseguro')];
-            } catch (\Exception $e) {
-                // Route not defined yet, skip notification URL
+            $notificationUrls = $this->getPagSeguroNotificationUrls();
+            if (!empty($notificationUrls)) {
+                $chargeData['notification_urls'] = $notificationUrls;
             }
 
             // Create charge in PagSeguro
@@ -282,36 +280,55 @@ class PaymentService
                 ->firstOrFail();
             $amounts = $this->calculatePaymentAmounts($giftItem, $config);
 
-            // Prepare charge data for PagSeguro PIX
-            $chargeData = [
+            $orderData = [
                 'reference_id' => $transaction->internal_id,
-                'description' => "Presente: {$giftItem->name}",
-                'amount' => [
-                    'value' => $amounts->grossAmount, // Amount in cents
-                    'currency' => 'BRL',
-                ],
-                'payment_method' => [
-                    'type' => 'PIX',
-                    'pix' => [
-                        'expiration_date' => now()->addMinutes(30)->toIso8601String(),
-                    ],
-                ],
                 'customer' => [
                     'name' => $payerData['name'],
                     'email' => $payerData['email'],
                     'tax_id' => $payerData['document'],
                 ],
+                'items' => [
+                    [
+                        'name' => $giftItem->name,
+                        'quantity' => 1,
+                        'unit_amount' => $amounts->grossAmount,
+                    ],
+                ],
+                'qr_codes' => [
+                    [
+                        'amount' => [
+                            'value' => $amounts->grossAmount,
+                        ],
+                        'expiration_date' => now()
+                            ->addMinutes(max(5, (int) config('services.pagseguro.pix_expiration_minutes', 120)))
+                            ->toIso8601String(),
+                    ],
+                ],
             ];
 
-            // Add notification URL if route exists
-            try {
-                $chargeData['notification_urls'] = [route('webhooks.pagseguro')];
-            } catch (\Exception $e) {
-                // Route not defined yet, skip notification URL
+            if (!empty($payerData['phone'] ?? null)) {
+                $phone = preg_replace('/\D/', '', $payerData['phone']);
+                if (is_string($phone) && strlen($phone) >= 10) {
+                    $area = substr($phone, 0, 2);
+                    $number = substr($phone, 2);
+                    $orderData['customer']['phones'] = [
+                        [
+                            'country' => '55',
+                            'area' => $area,
+                            'number' => $number,
+                            'type' => 'MOBILE',
+                        ],
+                    ];
+                }
             }
 
-            // Create PIX charge in PagSeguro
-            $response = $this->pagSeguroClient->createPixCharge($chargeData);
+            $notificationUrls = $this->getPagSeguroNotificationUrls();
+            if (!empty($notificationUrls)) {
+                $orderData['notification_urls'] = $notificationUrls;
+            }
+
+            // Create PIX order in PagSeguro
+            $response = $this->pagSeguroClient->createPixOrder($orderData);
 
             // Update transaction with PagSeguro response including QR code
             $transaction->update([
@@ -330,6 +347,7 @@ class PaymentService
                 'transaction' => $transaction->fresh(),
                 'qr_code' => $response['qr_code'] ?? null,
                 'qr_code_text' => $response['qr_code_text'] ?? null,
+                'qr_code_base64' => $response['qr_code_base64'] ?? null,
                 'expires_at' => $response['expires_at'] ?? null,
             ];
         } catch (PagSeguroException $e) {
@@ -353,6 +371,29 @@ class PaymentService
     private function generateInternalId(): string
     {
         return 'TXN-' . strtoupper(Str::random(16));
+    }
+
+    private function getPagSeguroNotificationUrls(): ?array
+    {
+        $explicitUrl = config('services.pagseguro.notification_url');
+        if (is_string($explicitUrl) && $explicitUrl !== '') {
+            if (filter_var($explicitUrl, FILTER_VALIDATE_URL) && str_starts_with($explicitUrl, 'https://')) {
+                return [$explicitUrl];
+            }
+            return null;
+        }
+
+        try {
+            $routeUrl = route('webhooks.pagseguro');
+        } catch (\Exception $e) {
+            return null;
+        }
+
+        if (!filter_var($routeUrl, FILTER_VALIDATE_URL) || !str_starts_with($routeUrl, 'https://')) {
+            return null;
+        }
+
+        return [$routeUrl];
     }
 
     /**

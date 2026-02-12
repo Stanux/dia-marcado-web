@@ -186,6 +186,9 @@ class GiftController extends Controller
                     'email' => $validated['payer']['email'],
                     'document' => $validated['payer']['document'],
                 ];
+                if (!empty($validated['payer']['phone'] ?? null)) {
+                    $payerData['phone'] = $validated['payer']['phone'];
+                }
 
                 $result = $this->paymentService->processPixPayment(
                     $gift,
@@ -202,6 +205,7 @@ class GiftController extends Controller
                         'amount_formatted' => 'R$ ' . number_format($result['transaction']->gross_amount / 100, 2, ',', '.'),
                         'qr_code' => $result['qr_code'],
                         'qr_code_text' => $result['qr_code_text'],
+                        'qr_code_base64' => $result['qr_code_base64'] ?? null,
                         'expires_at' => $result['expires_at'],
                     ],
                     'message' => 'QR Code PIX gerado com sucesso. Aguardando pagamento.',
@@ -270,7 +274,7 @@ class GiftController extends Controller
             'id' => $gift->id,
             'name' => $gift->name,
             'description' => $gift->description,
-            'photo_url' => $gift->photo_url,
+            'photo_url' => $gift->getDisplayPhotoUrl(),
             'display_price' => $displayPrice, // Price in cents
             'display_price_formatted' => 'R$ ' . number_format($displayPrice / 100, 2, ',', '.'),
             'quantity_available' => $gift->quantity_available,

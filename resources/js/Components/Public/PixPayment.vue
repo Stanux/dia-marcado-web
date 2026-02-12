@@ -8,7 +8,9 @@
  * 
  * @Requirements: 12.3, 12.4
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+import QRCode from 'qrcode';
 
 interface GiftItem {
   id: number;
@@ -40,6 +42,8 @@ const emit = defineEmits<{
   cancel: [];
 }>();
 
+const page = usePage();
+
 // Form state (for collecting payer data)
 const name = ref('');
 const email = ref('');
@@ -64,6 +68,22 @@ const isFormValid = computed(() => {
 
 const showQRCode = computed(() => {
   return props.qrCodeData !== null;
+});
+
+const isLocal = computed(() => page.props?.appEnv === 'local');
+
+const generatedQrCode = ref<string | null>(null);
+
+const qrCodeImageSrc = computed(() => {
+  const raw = props.qrCodeData?.qr_code_base64 ?? '';
+  const cleaned = raw.replace(/\s+/g, '');
+  if (!cleaned) {
+    return generatedQrCode.value;
+  }
+  if (!/^[A-Za-z0-9+/=]+$/.test(cleaned)) {
+    return generatedQrCode.value;
+  }
+  return `data:image/png;base64,${cleaned}`;
 });
 
 const formattedTime = computed(() => {
@@ -113,7 +133,7 @@ function handleSubmit() {
     payer: {
       name: name.value,
       email: email.value,
-      cpf: cpf.value.replace(/\D/g, ''),
+      document: cpf.value.replace(/\D/g, ''),
       phone: phone.value.replace(/\D/g, '')
     },
     idempotency_key: generateIdempotencyKey()
@@ -146,16 +166,8 @@ async function checkPaymentStatus() {
     // const response = await fetch(`/api/transactions/${props.transactionId}/status`);
     // const data = await response.json();
     
-    // For now, simulate checking
     // In real implementation, the webhook would update the transaction status
     // and we'd poll to check if it's been confirmed
-    
-    // Simulate random confirmation after some time (for demo purposes)
-    if (elapsedTime.value > 10 && Math.random() > 0.7) {
-      paymentStatus.value = 'confirmed';
-      stopPolling();
-      emit('success');
-    }
   } catch (error) {
     console.error('Error checking payment status:', error);
   }
@@ -189,6 +201,32 @@ function handleCancel() {
   emit('cancel');
 }
 
+async function handleSimulatePayment() {
+  if (!props.transactionId || !isLocal.value) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/dev/transactions/${props.transactionId}/confirm`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Falha ao simular pagamento');
+    }
+
+    paymentStatus.value = 'confirmed';
+    stopPolling();
+    emit('success');
+  } catch (error) {
+    console.error('Simulate payment failed:', error);
+  }
+}
+
 // Lifecycle
 onMounted(() => {
   if (showQRCode.value) {
@@ -199,6 +237,25 @@ onMounted(() => {
 onUnmounted(() => {
   stopPolling();
 });
+
+watch(
+  () => props.qrCodeData?.qr_code,
+  async (code) => {
+    generatedQrCode.value = null;
+    if (!code) {
+      return;
+    }
+    try {
+      generatedQrCode.value = await QRCode.toDataURL(code, {
+        width: 260,
+        margin: 1,
+      });
+    } catch (error) {
+      console.error('Failed to generate QR code image:', error);
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -290,8 +347,8 @@ onUnmounted(() => {
         
         <div class="qr-code-image">
           <img 
-            v-if="qrCodeData?.qr_code_base64"
-            :src="`data:image/png;base64,${qrCodeData.qr_code_base64}`"
+            v-if="qrCodeImageSrc"
+            :src="qrCodeImageSrc"
             alt="QR Code PIX"
           />
           <div v-else class="qr-placeholder">
@@ -318,6 +375,10 @@ onUnmounted(() => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
           Copiar código PIX
+        </button>
+
+        <button v-if="isLocal" @click="handleSimulatePayment" class="simulate-button">
+          Simular pagamento confirmado
         </button>
 
         <div class="waiting-status">
@@ -548,6 +609,27 @@ onUnmounted(() => {
 .copy-icon {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+/* Simulate Button (dev only) */
+.simulate-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background-color: #111827;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-bottom: 1.5rem;
+}
+
+.simulate-button:hover {
+  background-color: #0f172a;
 }
 
 /* Waiting Status */

@@ -122,11 +122,17 @@ export function useGiftRegistry(): UseGiftRegistryReturn {
           }
         }
 
+        const payload = data.data ?? data;
+        const transaction =
+          payload.transaction ??
+          (payload.transaction_id
+            ? { internal_id: payload.transaction_id, status: payload.status }
+            : null);
         return {
           success: true,
-          transaction: data.transaction,
-          qr_code: data.qr_code,
-          qr_code_base64: data.qr_code_base64,
+          transaction,
+          qr_code: payload.qr_code,
+          qr_code_base64: payload.qr_code_base64,
           message: data.message,
         };
       } catch (err) {

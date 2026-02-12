@@ -62,19 +62,19 @@ class PagSeguroClient
     }
 
     /**
-     * Create a PIX charge and generate QR Code.
+     * Create a PIX order and generate QR Code.
      *
-     * @param array $chargeData
-     * @return array Contains 'transaction_id', 'qr_code', 'qr_code_text'
+     * @param array $orderData
+     * @return array Contains 'transaction_id', 'qr_code', 'qr_code_text', 'qr_code_base64'
      * @throws PagSeguroException
      */
-    public function createPixCharge(array $chargeData): array
+    public function createPixOrder(array $orderData): array
     {
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->token}",
                 'Content-Type' => 'application/json',
-            ])->post("{$this->apiUrl}/charges", $chargeData);
+            ])->post("{$this->apiUrl}/orders", $orderData);
 
             if (!$response->successful()) {
                 throw new PagSeguroException(
@@ -85,23 +85,37 @@ class PagSeguroClient
 
             $data = $response->json();
 
-            // Validate that QR code data is present
-            if (empty($data['qr_codes'][0]['text'] ?? null)) {
+            $qrCode = $data['qr_codes'][0] ?? null;
+            $qrText = $qrCode['text'] ?? null;
+            $qrLinks = $qrCode['links'] ?? [];
+
+            $base64Url = null;
+            foreach ($qrLinks as $link) {
+                if (($link['rel'] ?? '') === 'QRCODE.BASE64') {
+                    $base64Url = $link['href'] ?? null;
+                    break;
+                }
+            }
+
+            $qrCodeBase64 = $this->fetchQrCodeBase64($base64Url);
+
+            if (empty($qrText)) {
                 throw new PagSeguroException('QR Code não foi gerado pelo PagSeguro');
             }
 
             return [
                 'transaction_id' => $data['id'] ?? null,
-                'qr_code' => $data['qr_codes'][0]['links'][0]['href'] ?? null,
-                'qr_code_text' => $data['qr_codes'][0]['text'] ?? null,
-                'expires_at' => $data['qr_codes'][0]['expiration_date'] ?? null,
+                'qr_code' => $qrText,
+                'qr_code_text' => $qrText,
+                'qr_code_base64' => $qrCodeBase64,
+                'expires_at' => $qrCode['expiration_date'] ?? null,
             ];
         } catch (PagSeguroException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('PagSeguro PIX charge failed', [
+            Log::error('PagSeguro PIX order failed', [
                 'error' => $e->getMessage(),
-                'charge_data' => $chargeData,
+                'order_data' => $orderData,
             ]);
 
             throw new PagSeguroException(
@@ -109,6 +123,45 @@ class PagSeguroClient
                 0,
                 $e
             );
+        }
+    }
+
+    private function fetchQrCodeBase64(?string $url): ?string
+    {
+        if (!$url) {
+            return null;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->token}",
+            ])->get($url);
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $contentType = $response->header('Content-Type', '');
+            if (str_contains($contentType, 'application/json')) {
+                $json = $response->json();
+                if (!empty($json['base64'] ?? null)) {
+                    return $json['base64'];
+                }
+            }
+
+            $body = trim($response->body());
+            if (str_starts_with($body, 'data:image')) {
+                $parts = explode(',', $body, 2);
+                return $parts[1] ?? null;
+            }
+
+            return $body !== '' ? $body : null;
+        } catch (\Exception $e) {
+            Log::warning('PagSeguro QR Code base64 fetch failed', [
+                'error' => $e->getMessage(),
+                'url' => $url,
+            ]);
+            return null;
         }
     }
 
