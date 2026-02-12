@@ -6,7 +6,6 @@ use App\Contracts\Site\AccessTokenServiceInterface;
 use App\Models\SiteLayout;
 use App\Models\SystemConfig;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
 
 /**
  * Service for managing site access tokens (password protection).
@@ -33,7 +32,7 @@ class AccessTokenService implements AccessTokenServiceInterface
 
     /**
      * Set an access token (password) for a site.
-     * The token will be hashed before storage.
+     * Stored in plain text for admin visibility.
      *
      * @param SiteLayout $site The site to protect
      * @param string $token The plain text token/password
@@ -41,7 +40,7 @@ class AccessTokenService implements AccessTokenServiceInterface
      */
     public function setToken(SiteLayout $site, string $token): void
     {
-        $site->access_token = Hash::make($token);
+        $site->access_token = $token;
         $site->save();
     }
 
@@ -73,8 +72,12 @@ class AccessTokenService implements AccessTokenServiceInterface
             return true;
         }
 
-        // Verify the token against the stored hash
-        $isValid = Hash::check($token, $site->access_token);
+        $stored = (string) $site->access_token;
+        if (str_starts_with($stored, '$2y$') || str_starts_with($stored, '$argon2')) {
+            $isValid = \Illuminate\Support\Facades\Hash::check($token, $stored);
+        } else {
+            $isValid = hash_equals($stored, $token);
+        }
 
         return $isValid;
     }

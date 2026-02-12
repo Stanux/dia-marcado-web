@@ -127,6 +127,7 @@ export default function useSiteEditor(initialSite) {
         try {
             const response = await axios.put(`/admin/sites/${site.value.id}/draft`, {
                 content: draftContent.value,
+                create_version: true,
             });
 
             // Update local state with server response
@@ -255,14 +256,31 @@ export default function useSiteEditor(initialSite) {
     };
 
     /**
-     * Auto-save with debounce (2 seconds)
+     * Auto-save with debounce (5 seconds)
      * Watches for changes in draftContent and triggers save
      */
     const debouncedSave = debounce(() => {
-        if (isDirty.value) {
-            save();
+        if (isDirty.value && !isSaving.value) {
+            isSaving.value = true;
+            axios.put(`/admin/sites/${site.value.id}/draft`, {
+                content: draftContent.value,
+                create_version: false,
+            }).then((response) => {
+                site.value = response.data.data;
+                if (response.data.data.draft_content) {
+                    draftContent.value = deepClone(response.data.data.draft_content);
+                }
+                originalContent.value = deepClone(draftContent.value);
+                isDirty.value = false;
+                lastSaved.value = new Date().toISOString();
+            }).catch((err) => {
+                error.value = err.response?.data?.message || 'Erro ao salvar rascunho';
+                console.error('Auto-save error:', err);
+            }).finally(() => {
+                isSaving.value = false;
+            });
         }
-    }, 2000);
+    }, 5000);
 
     // Watch for content changes and trigger auto-save
     watch(

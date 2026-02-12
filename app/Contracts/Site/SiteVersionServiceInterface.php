@@ -42,7 +42,7 @@ interface SiteVersionServiceInterface
      * @param SiteVersion $version The version to restore from
      * @return SiteLayout The updated site layout
      */
-    public function restore(SiteLayout $site, SiteVersion $version): SiteLayout;
+    public function restore(SiteLayout $site, SiteVersion $version, User $user): SiteLayout;
 
     /**
      * Remove old versions exceeding the configured limit.

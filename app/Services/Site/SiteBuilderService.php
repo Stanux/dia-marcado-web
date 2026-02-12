@@ -82,12 +82,12 @@ class SiteBuilderService implements SiteBuilderServiceInterface
     /**
      * {@inheritdoc}
      */
-    public function updateDraft(SiteLayout $site, array $content, User $user): SiteLayout
+    public function updateDraft(SiteLayout $site, array $content, User $user, bool $createVersion = true, string $summary = 'Rascunho atualizado'): SiteLayout
     {
         // Sanitize content to prevent XSS
         $sanitizedContent = $this->sanitizer->sanitizeArray($content);
 
-        return DB::transaction(function () use ($site, $sanitizedContent, $user) {
+        return DB::transaction(function () use ($site, $sanitizedContent, $user, $createVersion, $summary) {
             // Extract and save gift registry config if present
             if (isset($sanitizedContent['sections']['giftRegistry']['config'])) {
                 $this->saveGiftRegistryConfig($site->wedding, $sanitizedContent['sections']['giftRegistry']['config']);
@@ -97,13 +97,15 @@ class SiteBuilderService implements SiteBuilderServiceInterface
             $site->draft_content = $sanitizedContent;
             $site->save();
 
-            // Create version for history tracking
-            $this->versionService->createVersion(
-                $site,
-                $sanitizedContent,
-                $user,
-                'Rascunho atualizado'
-            );
+            if ($createVersion) {
+                // Create version for history tracking
+                $this->versionService->createVersion(
+                    $site,
+                    $sanitizedContent,
+                    $user,
+                    $summary
+                );
+            }
 
             return $site->fresh();
         });
@@ -187,6 +189,7 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         return DB::transaction(function () use ($site, $lastPublishedVersion, $user) {
             // Restore published content from version
             $site->published_content = $lastPublishedVersion->content;
+            $site->draft_content = $lastPublishedVersion->content;
             $site->save();
 
             // Create version recording the rollback

@@ -144,8 +144,10 @@ class SiteLayoutController extends Controller
     {
         $user = $request->user();
         $content = $request->validated('content');
+        $createVersion = $request->validated('create_version', true);
+        $summary = $request->validated('summary', 'Rascunho atualizado');
 
-        $site = $this->siteBuilder->updateDraft($site, $content, $user);
+        $site = $this->siteBuilder->updateDraft($site, $content, $user, $createVersion, $summary);
 
         return response()->json([
             'data' => $this->formatSiteResponse($site, includeContent: true),
@@ -174,12 +176,7 @@ class SiteLayoutController extends Controller
         }
 
         if (array_key_exists('access_token', $validated)) {
-            // Hash the access token if provided, or set to null
-            if ($validated['access_token'] !== null) {
-                $site->access_token = bcrypt($validated['access_token']);
-            } else {
-                $site->access_token = null;
-            }
+            $site->access_token = $validated['access_token'];
         }
 
         $site->save();
@@ -301,7 +298,7 @@ class SiteLayoutController extends Controller
             ], 400);
         }
 
-        $site = $this->versionService->restore($site, $version);
+        $site = $this->versionService->restore($site, $version, $request->user());
 
         return response()->json([
             'data' => $this->formatSiteResponse($site, includeContent: true),

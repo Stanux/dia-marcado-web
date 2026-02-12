@@ -44,7 +44,7 @@ class UpdateSettingsRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:255',
-                'url',
+                'regex:/^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}$/i',
             ],
             'access_token' => [
                 'nullable',
@@ -66,7 +66,7 @@ class UpdateSettingsRequest extends FormRequest
             'slug.regex' => 'O slug deve conter apenas letras minúsculas, números e hífens.',
             'slug.unique' => 'Este slug já está em uso. Escolha outro.',
             'slug.max' => 'O slug não pode ter mais de 100 caracteres.',
-            'custom_domain.url' => 'O domínio customizado deve ser uma URL válida.',
+            'custom_domain.regex' => 'O domínio customizado deve ser um domínio válido.',
             'custom_domain.max' => 'O domínio customizado não pode ter mais de 255 caracteres.',
             'access_token.min' => 'A senha deve ter pelo menos 4 caracteres.',
             'access_token.max' => 'A senha não pode ter mais de 50 caracteres.',

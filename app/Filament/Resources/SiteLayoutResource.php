@@ -63,6 +63,7 @@ class SiteLayoutResource extends WeddingScopedResource
                         Forms\Components\TextInput::make('access_token')
                             ->label('Senha de Acesso')
                             ->password()
+                            ->revealable()
                             ->maxLength(50)
                             ->helperText('Deixe em branco para site público'),
                     ])

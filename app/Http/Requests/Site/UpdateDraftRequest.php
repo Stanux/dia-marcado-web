@@ -33,6 +33,7 @@ class UpdateDraftRequest extends FormRequest
             'content' => ['required', 'array'],
             'content.sections' => ['required', 'array'],
             'summary' => ['nullable', 'string', 'max:500'],
+            'create_version' => ['nullable', 'boolean'],
         ];
     }
 

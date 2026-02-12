@@ -5,12 +5,17 @@
  * Displays site preview in fullscreen mode with device breakpoint selector.
  * Uses the same rendering as published site.
  */
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
+import axios from 'axios';
 import SitePreview from './SitePreview.vue';
 
 const props = defineProps({
     content: {
         type: Object,
+        required: true,
+    },
+    siteId: {
+        type: String,
         required: true,
     },
     show: {
@@ -23,6 +28,9 @@ const emit = defineEmits(['close']);
 
 // Preview mode state
 const previewMode = ref('desktop'); // 'mobile', 'tablet', 'desktop'
+const previewContent = ref(null);
+const isLoading = ref(false);
+const loadError = ref(null);
 
 // Preview breakpoints
 const previewBreakpoints = {
@@ -40,6 +48,30 @@ const handleClose = () => {
 const setPreviewMode = (mode) => {
     previewMode.value = mode;
 };
+
+const loadPreview = async () => {
+    if (!props.siteId) return;
+    isLoading.value = true;
+    loadError.value = null;
+    try {
+        const response = await axios.get(`/api/sites/${props.siteId}/preview`);
+        previewContent.value = response.data?.data?.content || props.content;
+    } catch (err) {
+        loadError.value = err?.response?.data?.message || 'Erro ao carregar preview';
+        previewContent.value = props.content;
+    } finally {
+        isLoading.value = false;
+    }
+};
+
+watch(
+    () => props.show,
+    (show) => {
+        if (show) {
+            loadPreview();
+        }
+    }
+);
 </script>
 
 <template>
@@ -132,8 +164,15 @@ const setPreviewMode = (mode) => {
                             padding: 0,
                         }"
                     >
-                        <SitePreview 
-                            :content="content" 
+                        <div v-if="isLoading" class="p-8 text-center text-gray-500">
+                            Carregando preview...
+                        </div>
+                        <div v-else-if="loadError" class="p-8 text-center text-red-600">
+                            {{ loadError }}
+                        </div>
+                        <SitePreview
+                            v-else
+                            :content="previewContent || content"
                             :mode="previewMode"
                         />
                     </div>

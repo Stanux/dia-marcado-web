@@ -96,41 +96,40 @@ const sections = computed(() => {
 
 // Current section content
 const currentSectionContent = computed(() => {
-    if (!draftContent.value) return null;
-    
     // Special sections (meta, theme, settings) are stored at root level
     if (activeSection.value === 'meta') {
-        return draftContent.value.meta || {
+        return draftContent.value?.meta || {
             title: '',
             description: '',
             ogImage: '',
             canonical: '',
         };
     }
-    
+
     if (activeSection.value === 'theme') {
-        return draftContent.value.theme || {
+        return draftContent.value?.theme || {
             primaryColor: '#d4a574',
             secondaryColor: '#8b7355',
             fontFamily: 'Playfair Display',
             fontSize: '16px',
         };
     }
-    
+
     if (activeSection.value === 'settings') {
         // Settings include site-level configuration
         return {
-            slug: site.value.slug || '',
-            custom_domain: site.value.custom_domain || '',
-            access_token: site.value.access_token || '',
-            is_published: site.value.is_published || false,
-            published_at: site.value.published_at || null,
-            ...(draftContent.value.settings || {}),
+            slug: site.value?.slug || '',
+            custom_domain: site.value?.custom_domain || '',
+            access_token: site.value?.access_token || '',
+            has_password: site.value?.has_password || false,
+            is_published: site.value?.is_published || false,
+            published_at: site.value?.published_at || null,
+            ...(draftContent.value?.settings || {}),
         };
     }
-    
+
     // Regular sections
-    if (!draftContent.value.sections) return null;
+    if (!draftContent.value?.sections) return null;
     return draftContent.value.sections[activeSection.value] || null;
 });
 
@@ -172,15 +171,30 @@ const handleSectionUpdate = async (data) => {
         const contentData = {};
         
         Object.keys(data).forEach(key => {
+            if (key === '__saveSettings') {
+                return;
+            }
             if (siteFields.includes(key)) {
-                siteData[key] = data[key];
+                if (key === 'access_token') {
+                    // Only send access_token if explicitly set or cleared
+                    if (data[key] === null) {
+                        siteData[key] = null;
+                    } else if (data[key] !== '' && data[key] !== undefined) {
+                        siteData[key] = data[key];
+                    }
+                } else if (data[key] === '' || data[key] === undefined) {
+                    siteData[key] = null;
+                } else {
+                    siteData[key] = data[key];
+                }
             } else if (key !== 'is_published' && key !== 'published_at') {
                 contentData[key] = data[key];
             }
         });
         
-        // Update site-level fields if any changed
-        if (Object.keys(siteData).length > 0) {
+        // Update site-level fields only on explicit save (avoid 422 while typing)
+        const shouldSaveSettings = data?.__saveSettings === true;
+        if (shouldSaveSettings && Object.keys(siteData).length > 0) {
             try {
                 const response = await axios.put(`/admin/sites/${site.value.id}/settings`, siteData);
                 if (response.data?.data) {
@@ -206,6 +220,14 @@ const handleSectionUpdate = async (data) => {
             }
             draftContent.value.settings = { ...draftContent.value.settings, ...contentData };
         }
+
+        // Keep local edits for site-level fields in draft settings to avoid input reset
+        if (Object.keys(siteData).length > 0) {
+            if (!draftContent.value.settings) {
+                draftContent.value.settings = {};
+            }
+            draftContent.value.settings = { ...draftContent.value.settings, ...siteData };
+        }
     } else {
         // Regular sections
         updateSection(activeSection.value, data);
@@ -215,6 +237,17 @@ const handleSectionUpdate = async (data) => {
 // Handle publish - open dialog
 const handlePublish = () => {
     showPublishDialog.value = true;
+};
+
+const openPreview = async () => {
+    if (isDirty.value) {
+        const saved = await save();
+        if (!saved) {
+            showToast('error', 'Erro ao salvar antes do preview');
+            return;
+        }
+    }
+    showPreview.value = true;
 };
 
 // Handle publish success
@@ -351,7 +384,7 @@ onUnmounted(() => {
 
                 <!-- Preview Button -->
                 <button
-                    @click="showPreview = !showPreview"
+                    @click="openPreview"
                     class="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md flex items-center"
                     :class="{ 'bg-gray-100': showPreview }"
                 >
@@ -501,6 +534,7 @@ onUnmounted(() => {
         <FullscreenPreview
             :show="showPreview"
             :content="draftContent"
+            :site-id="site.id"
             @close="showPreview = false"
         />
 
