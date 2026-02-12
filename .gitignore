@@ -30,6 +30,9 @@ yarn-error.log
 /.vscode
 # Arquivos de documentação temporária
 *.md
+!documents/guest-module-approval-checklist.md
+!documents/guest-module-ears-plan.md
+!documents/multi-site-technical-plan.md
 
 
 
@@ -47,3 +50,15 @@ storage/framework/sessions/*
 storage/framework/testing/*
 storage/framework/views/*
 storage/framework/cache/*.php
+
+# Local caches
+/bootstrap/cache/filament/
+
+# Local media artifacts
+/storage/app/private/sites/
+
+# Livewire dev/test blades
+/resources/views/livewire/media-gallery-picker-original.blade.php
+/resources/views/livewire/media-gallery-picker-test.blade.php
+/resources/views/livewire/media-gallery-picker.blade.php.bak
+/resources/views/livewire/test-simple.blade.php
