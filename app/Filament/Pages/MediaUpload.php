@@ -380,10 +380,10 @@ class MediaUpload extends Page implements HasForms
 
                 // Generate UUID filename
                 $newFilename = Str::uuid()->toString() . '.' . $extension;
-                $newPath = 'media/' . $wedding->id . '/' . $newFilename;
+                $newPath = 'sites/' . $wedding->id . '/media/' . $newFilename;
 
                 // Store file
-                $file->storeAs('media/' . $wedding->id, $newFilename, 'public');
+                $file->storeAs('sites/' . $wedding->id . '/media', $newFilename, 'public');
 
                 // Create media record
                 SiteMedia::create([

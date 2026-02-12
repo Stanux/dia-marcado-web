@@ -435,7 +435,7 @@ class MediaGalleryBlade extends Component
                 }
 
                 // Store file first
-                $path = $file->store("weddings/{$wedding->id}/media", 'public');
+                $path = $file->store("sites/{$wedding->id}/media", 'public');
 
                 // Create media record with path
                 SiteMedia::create([

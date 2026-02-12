@@ -89,7 +89,7 @@ class MediaUploadService implements MediaUploadServiceInterface
         // Generate unique filename
         $extension = strtolower($file->getClientOriginalExtension());
         $filename = Str::uuid() . '.' . $extension;
-        $directory = 'sites/' . $site->wedding_id;
+        $directory = 'sites/' . $site->wedding_id . '/media';
         $path = $directory . '/' . $filename;
 
         // Store the file on public disk

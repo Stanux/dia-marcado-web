@@ -6,6 +6,7 @@ use App\Models\Album;
 use App\Models\SiteMedia;
 use Livewire\Component;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Request;
 
 /**
  * Livewire component for media gallery picker with crop support.
@@ -26,20 +27,49 @@ class MediaGalleryPicker extends Component
     // Crop state
     public bool $showCropModal = false;
     public ?array $imageToCrop = null;
-    public array $cropArea = ['x' => 0, 'y' => 0, 'width' => 0, 'height' => 0];
+    public array $cropArea = ['x' => 0, 'y' => 0, 'width' => null, 'height' => null];
 
-    protected $listeners = ['openMediaGallery' => 'open'];
+    public ?string $statePath = null;
 
-    public function mount()
+    public function getListeners()
     {
+        return [
+            "openMediaGallery:{$this->statePath}" => 'open',
+        ];
+    }
+
+    public function mount(?string $statePath = null, ?int $maxWidth = null, ?int $maxHeight = null)
+    {
+        $this->statePath = $statePath;
+        if ($maxWidth !== null) {
+            $this->maxWidth = $maxWidth;
+        }
+        if ($maxHeight !== null) {
+            $this->maxHeight = $maxHeight;
+        }
         $this->loadAlbums();
     }
 
-    public function open($maxWidth = null, $maxHeight = null)
+    public function open($payload = null, $maxHeight = null)
     {
-        $this->maxWidth = $maxWidth;
-        $this->maxHeight = $maxHeight;
+        if (is_array($payload) || is_object($payload)) {
+            $data = (array) $payload;
+            if (array_key_exists('maxWidth', $data) || array_key_exists('max_width', $data)) {
+                $this->maxWidth = $data['maxWidth'] ?? $data['max_width'];
+            }
+            if (array_key_exists('maxHeight', $data) || array_key_exists('max_height', $data)) {
+                $this->maxHeight = $data['maxHeight'] ?? $data['max_height'];
+            }
+        } else {
+            if ($payload !== null) {
+                $this->maxWidth = $payload;
+            }
+            if ($maxHeight !== null) {
+                $this->maxHeight = $maxHeight;
+            }
+        }
         $this->show = true;
+        // Don't reset statePath here
         $this->selectedAlbumId = null;
         $this->albumMedia = [];
         $this->loadAlbums();
@@ -129,8 +159,14 @@ class MediaGalleryPicker extends Component
         ]);
     }
 
-    public function selectImage($mediaId)
+    public function selectImage($mediaId, $maxWidth = null, $maxHeight = null)
     {
+        if ($this->maxWidth === null && $maxWidth !== null) {
+            $this->maxWidth = (int) $maxWidth;
+        }
+        if ($this->maxHeight === null && $maxHeight !== null) {
+            $this->maxHeight = (int) $maxHeight;
+        }
         $media = collect($this->albumMedia)->firstWhere('id', $mediaId);
         
         if (!$media) {
@@ -142,9 +178,10 @@ class MediaGalleryPicker extends Component
             $this->imageToCrop = $media;
             $this->initializeCropArea($media);
             $this->showCropModal = true;
+            $this->show = false; // Hide gallery while cropping
         } else {
             // Select directly
-            $this->dispatch('imageSelected', url: $media['url']);
+            $this->dispatch('image-selected', id: $this->statePath, url: $media['url']);
             $this->close();
         }
     }
@@ -176,6 +213,12 @@ class MediaGalleryPicker extends Component
             'width' => $targetWidth,
             'height' => $targetHeight,
         ];
+        
+        \Log::info('Initialized crop area', [
+            'media_dimensions' => ['width' => $media['width'], 'height' => $media['height']],
+            'target_dimensions' => ['width' => $targetWidth, 'height' => $targetHeight],
+            'crop_area' => $this->cropArea,
+        ]);
     }
 
     public function confirmCrop()
@@ -192,29 +235,64 @@ class MediaGalleryPicker extends Component
                 return;
             }
 
-            // Create crop request
-            $request = request()->merge([
-                'x' => round($this->cropArea['x']),
-                'y' => round($this->cropArea['y']),
-                'width' => round($this->cropArea['width']),
-                'height' => round($this->cropArea['height']),
+            \Log::info('Starting crop', [
+                'media_id' => $media->id,
+                'crop_area' => $this->cropArea,
+                'user_id' => auth()->id(),
+                'wedding_id' => auth()->user()?->current_wedding_id,
             ]);
 
-            // Call the crop method
-            $controller = app(\App\Http\Controllers\MediaController::class);
-            $response = $controller->crop($request, (string)$media->id);
+            // Validate crop area
+            $cropData = [
+                'x' => (int) round($this->cropArea['x']),
+                'y' => (int) round($this->cropArea['y']),
+                'width' => (int) round($this->cropArea['width']),
+                'height' => (int) round($this->cropArea['height']),
+            ];
 
+            // Call the crop method directly with proper request
+            $controller = app(\App\Http\Controllers\MediaController::class);
+            
+            // Create a proper request with the crop data
+            $cropRequest = Request::create(
+                route('media.crop', ['id' => $media->id]),
+                'POST',
+                $cropData
+            );
+            
+            // Set the user on the request
+            $cropRequest->setUserResolver(function () {
+                return auth()->user();
+            });
+
+            $response = $controller->crop($cropRequest, (string)$media->id);
             $responseData = $response->getData(true);
             
+            \Log::info('Crop response', [
+                'success' => $responseData['success'] ?? false,
+                'message' => $responseData['message'] ?? 'No message',
+                'has_url' => isset($responseData['data']['url']),
+            ]);
+            
             if (isset($responseData['data']['url'])) {
-                $this->dispatch('imageSelected', url: $responseData['data']['url']);
+                $this->dispatch('image-selected', id: $this->statePath, url: $responseData['data']['url']);
                 $this->close();
+                
+                session()->flash('success', 'Imagem cortada com sucesso!');
             } else {
-                session()->flash('error', 'Erro ao processar imagem');
+                $errorMessage = $responseData['message'] ?? 'Erro ao processar imagem';
+                session()->flash('error', $errorMessage);
+                $this->cancelCrop();
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Log::error('Crop error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'media_id' => $this->imageToCrop['id'] ?? null,
+            ]);
+            
             session()->flash('error', 'Erro ao processar imagem: ' . $e->getMessage());
-            \Log::error('Crop error:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            $this->cancelCrop();
         }
     }
 
@@ -222,6 +300,7 @@ class MediaGalleryPicker extends Component
     {
         $this->showCropModal = false;
         $this->imageToCrop = null;
+        $this->show = true; // Re-open gallery
     }
 
     public function render()

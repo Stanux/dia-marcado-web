@@ -47,7 +47,7 @@ class CreateMedia extends CreateRecord
                 // Generate UUID filename
                 $extension = pathinfo($filePath, PATHINFO_EXTENSION);
                 $newFilename = Str::uuid()->toString() . '.' . $extension;
-                $newPath = 'media/' . $wedding->id . '/' . $newFilename;
+                $newPath = 'sites/' . $wedding->id . '/media/' . $newFilename;
                 
                 // Move file to final location
                 $disk->move($filePath, $newPath);

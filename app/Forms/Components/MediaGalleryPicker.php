@@ -3,6 +3,7 @@
 namespace App\Forms\Components;
 
 use Filament\Forms\Components\Field;
+use Closure;
 
 /**
  * Custom Filament field for selecting images from the media gallery with crop support.
@@ -17,6 +18,7 @@ class MediaGalleryPicker extends Field
     protected ?int $imageMaxWidth = null;
     protected ?int $imageMaxHeight = null;
     protected string $buttonLabel = 'Selecionar da Galeria';
+    protected string|Closure|null $defaultImageUrl = null;
 
     /**
      * Set maximum width for the image
@@ -46,6 +48,15 @@ class MediaGalleryPicker extends Field
     }
 
     /**
+     * Set default image URL for preview when no custom image is selected
+     */
+    public function defaultImageUrl(string|Closure|null $url): static
+    {
+        $this->defaultImageUrl = $url;
+        return $this;
+    }
+
+    /**
      * Get maximum width
      */
     public function getImageMaxWidth(): ?int
@@ -67,5 +78,13 @@ class MediaGalleryPicker extends Field
     public function getButtonLabel(): string
     {
         return $this->buttonLabel;
+    }
+
+    /**
+     * Get default image URL
+     */
+    public function getDefaultImageUrl(): ?string
+    {
+        return $this->evaluate($this->defaultImageUrl);
     }
 }

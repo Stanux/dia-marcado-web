@@ -6,13 +6,19 @@
     <div 
         x-data="{
             state: $wire.entangle('{{ $statePath }}'),
+            defaultImage: @js($getDefaultImageUrl()),
             maxWidth: {{ $getImageMaxWidth() ?? 'null' }},
             maxHeight: {{ $getImageMaxHeight() ?? 'null' }},
+            get previewUrl() {
+                return this.state || this.defaultImage;
+            },
             
             openGallery() {
-                Livewire.dispatch('openMediaGallery', { 
+                Livewire.dispatch('openMediaGallery:{{ $statePath }}', { 
                     maxWidth: this.maxWidth, 
-                    maxHeight: this.maxHeight 
+                    maxHeight: this.maxHeight,
+                    max_width: this.maxWidth,
+                    max_height: this.maxHeight
                 });
             },
             
@@ -20,7 +26,7 @@
                 this.state = null;
             }
         }"
-        @image-selected.window="state = $event.detail.url"
+        @image-selected.window="if ($event.detail.id === '{{ $statePath }}') state = $event.detail.url"
         class="media-gallery-picker"
     >
         <!-- Button to open gallery -->
@@ -41,23 +47,24 @@
         </button>
 
         <!-- Preview -->
-        <template x-if="state">
+        <template x-if="previewUrl">
             <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                 <div class="flex items-center gap-3">
                     <img 
-                        :src="state" 
+                        :src="previewUrl" 
                         alt="Preview" 
                         class="w-20 h-20 object-cover rounded border border-gray-300 dark:border-gray-600"
                     />
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Imagem selecionada</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="state"></p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100" x-text="state ? 'Imagem selecionada' : 'Imagem padrão'"></p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="previewUrl"></p>
                     </div>
                     <button
                         type="button"
                         @click="removeImage()"
                         class="p-2 text-red-400 hover:text-red-600 transition-colors"
                         title="Remover"
+                        x-show="state"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -66,6 +73,12 @@
                 </div>
             </div>
         </template>
+        
+        <livewire:media-gallery-picker
+            :state-path="$statePath"
+            :max-width="$getImageMaxWidth()"
+            :max-height="$getImageMaxHeight()"
+            :key="$statePath . '-picker-' . ($getImageMaxWidth() ?? 'null') . 'x' . ($getImageMaxHeight() ?? 'null')"
+        />
     </div>
 </x-dynamic-component>
-

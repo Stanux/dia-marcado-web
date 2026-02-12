@@ -490,23 +490,47 @@ class MediaController extends Controller
         }
 
         try {
-            // Get the image from storage
+            // Get the image from storage (support local, remote, and public paths)
+            $image = null;
+            $targetDisk = $media->disk;
             $imagePath = Storage::disk($media->disk)->path($media->path);
-            
-            if (!file_exists($imagePath)) {
-                return response()->json([
-                    'error' => 'File Not Found',
-                    'message' => 'Arquivo de imagem não encontrado.',
-                ], 404);
-            }
-
-            // Create image resource based on mime type
-            $image = match ($media->mime_type) {
-                'image/jpeg', 'image/jpg' => imagecreatefromjpeg($imagePath),
-                'image/png' => imagecreatefrompng($imagePath),
-                'image/gif' => imagecreatefromgif($imagePath),
-                default => null,
+            $createImageFromPath = function (string $path) use ($media) {
+                return match ($media->mime_type) {
+                    'image/jpeg', 'image/jpg' => imagecreatefromjpeg($path),
+                    'image/png' => imagecreatefrompng($path),
+                    'image/gif' => imagecreatefromgif($path),
+                    default => null,
+                };
             };
+
+            if (file_exists($imagePath)) {
+                $image = $createImageFromPath($imagePath);
+            } elseif (Storage::disk($media->disk)->exists($media->path)) {
+                $contents = Storage::disk($media->disk)->get($media->path);
+                $image = imagecreatefromstring($contents);
+            } else {
+                $publicCandidates = [];
+                if (str_starts_with($media->path, 'storage/')) {
+                    $publicCandidates[] = public_path($media->path);
+                } else {
+                    $publicCandidates[] = public_path('storage/' . $media->path);
+                }
+
+                foreach ($publicCandidates as $publicPath) {
+                    if (file_exists($publicPath)) {
+                        $image = $createImageFromPath($publicPath);
+                        $targetDisk = 'public';
+                        break;
+                    }
+                }
+
+                if (!$image) {
+                    return response()->json([
+                        'error' => 'File Not Found',
+                        'message' => 'Arquivo de imagem não encontrado.',
+                    ], 404);
+                }
+            }
 
             if (!$image) {
                 return response()->json([
@@ -563,9 +587,13 @@ class MediaController extends Controller
                 ], 500);
             }
 
+            if (Storage::disk('public')->exists($media->path)) {
+                $targetDisk = 'public';
+            }
+
             // Upload to storage
             $fileContents = file_get_contents($tempPath);
-            Storage::disk($media->disk)->put($newPath, $fileContents);
+            Storage::disk($targetDisk)->put($newPath, $fileContents);
             @unlink($tempPath);
 
             // Create new media record
@@ -576,9 +604,9 @@ class MediaController extends Controller
                 'filename' => $newFilename,
                 'original_name' => $media->original_name . ' (cortada)',
                 'path' => $newPath,
-                'disk' => $media->disk,
+                'disk' => $targetDisk,
                 'mime_type' => $media->mime_type,
-                'size' => filesize(Storage::disk($media->disk)->path($newPath)),
+                'size' => Storage::disk($targetDisk)->size($newPath),
                 'width' => $validated['width'],
                 'height' => $validated['height'],
                 'alt' => $media->alt,
