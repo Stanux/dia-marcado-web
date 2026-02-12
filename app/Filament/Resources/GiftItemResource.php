@@ -41,79 +41,53 @@ class GiftItemResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Informações do Presente')
                     ->schema([
-                        Forms\Components\TextInput::make('name')
-                            ->label('Nome')
-                            ->required()
-                            ->maxLength(255)
-                            ->helperText('Nome do presente'),
+                        Forms\Components\Grid::make(4)
+                            ->schema([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nome')
+                                    ->required()
+                                    ->maxLength(255),
+                                
+                                Forms\Components\TextInput::make('quantity_available')
+                                    ->label('Quantidade')
+                                    ->required()
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->default(1),
 
-                        Forms\Components\Textarea::make('description')
-                            ->label('Descrição')
-                            ->rows(3)
-                            ->maxLength(1000)
-                            ->helperText('Descrição detalhada do presente'),
+                                Forms\Components\TextInput::make('price')
+                                    ->label('Preço')
+                                    ->required()
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->step(0.01)
+                                    ->prefix('R$')
+                                    ->dehydrateStateUsing(fn ($state) => $state ? (int) ($state * 100) : null)
+                                    ->formatStateUsing(fn ($state) => $state ? $state / 100 : null),
 
-                        MediaGalleryPicker::make('photo_url')
-                            ->label('Foto do Presente')
-                            ->imageMaxWidth(800)
-                            ->imageMaxHeight(800)
-                            ->buttonLabel('Selecionar da Galeria (máx. 800×800px)')
-                            ->helperText('Escolha uma imagem da galeria. Imagens maiores serão ajustadas automaticamente.'),
+                                Forms\Components\Toggle::make('is_enabled')
+                                    ->label('Habilitado')
+                                    ->default(true)
+                                    ->inline(false),
+                            ]),
 
-                        Forms\Components\TextInput::make('price')
-                            ->label('Preço (R$)')
-                            ->required()
-                            ->numeric()
-                            ->minValue(1)
-                            ->step(0.01)
-                            ->prefix('R$')
-                            ->helperText('Preço mínimo: R$ 1,00')
-                            ->dehydrateStateUsing(fn ($state) => $state ? (int) ($state * 100) : null)
-                            ->formatStateUsing(fn ($state) => $state ? $state / 100 : null),
+                        Forms\Components\Grid::make(1)
+                            ->schema([
+                                Forms\Components\Textarea::make('description')
+                                    ->label('Descrição')
+                                    ->rows(3)
+                                    ->maxLength(1000),
 
-                        Forms\Components\TextInput::make('quantity_available')
-                            ->label('Quantidade Disponível')
-                            ->required()
-                            ->numeric()
-                            ->minValue(0)
-                            ->default(1)
-                            ->helperText('Quantidade disponível para compra'),
-
-                        Forms\Components\Toggle::make('is_enabled')
-                            ->label('Habilitado')
-                            ->default(true)
-                            ->helperText('Desabilite para ocultar o item da lista pública'),
-                    ])
-                    ->columns(2),
-
-                Forms\Components\Section::make('Valores Originais')
-                    ->description('Estes valores são preservados para permitir restauração')
-                    ->schema([
-                        Forms\Components\TextInput::make('original_name')
-                            ->label('Nome Original')
-                            ->disabled()
-                            ->dehydrated(false),
-
-                        Forms\Components\Textarea::make('original_description')
-                            ->label('Descrição Original')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->rows(2),
-
-                        Forms\Components\TextInput::make('original_price')
-                            ->label('Preço Original (R$)')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->formatStateUsing(fn ($state) => $state ? 'R$ ' . number_format($state / 100, 2, ',', '.') : '-'),
-
-                        Forms\Components\TextInput::make('original_quantity')
-                            ->label('Quantidade Original')
-                            ->disabled()
-                            ->dehydrated(false),
-                    ])
-                    ->columns(2)
-                    ->collapsible()
-                    ->collapsed(),
+                                MediaGalleryPicker::make('photo_url')
+                                    ->label('Foto do Presente')
+                                    ->imageMaxWidth(800)
+                                    ->imageMaxHeight(600)
+                                    ->defaultImageUrl(fn (?GiftItem $record): ?string => $record?->getDisplayPhotoUrl()
+                                        ? url($record->getDisplayPhotoUrl())
+                                        : null)
+                                    ->buttonLabel('Selecionar da Galeria'),
+                            ]),
+                    ]),
             ]);
     }
 
@@ -125,7 +99,10 @@ class GiftItemResource extends Resource
                     ->label('Foto')
                     ->width(60)
                     ->height(60)
-                    ->defaultImageUrl(url('/images/gift-placeholder.png')),
+                    ->getStateUsing(fn (GiftItem $record): ?string => $record->getDisplayPhotoUrl()
+                        ? url($record->getDisplayPhotoUrl())
+                        : null)
+                    ->defaultImageUrl(url('/images/gift-placeholder.svg')),
 
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nome')

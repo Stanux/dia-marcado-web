@@ -25,7 +25,8 @@ class GiftService
                     'wedding_id' => $weddingId,
                     'name' => $item['name'],
                     'description' => $item['description'],
-                    'photo_url' => $item['photo_url'],
+                    'default_image_key' => $item['default_image_key'],
+                    'photo_url' => null,
                     'price' => $item['price'],
                     'quantity_available' => $item['quantity'],
                     'quantity_sold' => 0,
@@ -52,77 +53,112 @@ class GiftService
     private function getDefaultCatalogItems(): array
     {
         return [
-            [
-                'name' => 'Jogo de Panelas',
-                'description' => 'Jogo de panelas antiaderente com 5 peças',
-                'photo_url' => '/images/gifts/panelas.jpg',
-                'price' => 25000, // R$ 250,00 em centavos
-                'quantity' => 1,
-            ],
-            [
-                'name' => 'Jogo de Cama',
-                'description' => 'Jogo de cama casal 100% algodão',
-                'photo_url' => '/images/gifts/jogo-cama.jpg',
-                'price' => 15000, // R$ 150,00
-                'quantity' => 2,
-            ],
-            [
-                'name' => 'Liquidificador',
-                'description' => 'Liquidificador potente 1000W',
-                'photo_url' => '/images/gifts/liquidificador.jpg',
-                'price' => 20000, // R$ 200,00
-                'quantity' => 1,
-            ],
-            [
-                'name' => 'Cafeteira Elétrica',
-                'description' => 'Cafeteira elétrica programável',
-                'photo_url' => '/images/gifts/cafeteira.jpg',
-                'price' => 18000, // R$ 180,00
-                'quantity' => 1,
-            ],
-            [
-                'name' => 'Jogo de Toalhas',
-                'description' => 'Jogo de toalhas de banho 100% algodão',
-                'photo_url' => '/images/gifts/toalhas.jpg',
-                'price' => 12000, // R$ 120,00
-                'quantity' => 3,
-            ],
-            [
-                'name' => 'Aparelho de Jantar',
-                'description' => 'Aparelho de jantar 20 peças em porcelana',
-                'photo_url' => '/images/gifts/aparelho-jantar.jpg',
-                'price' => 30000, // R$ 300,00
-                'quantity' => 1,
-            ],
-            [
-                'name' => 'Ferro de Passar',
-                'description' => 'Ferro de passar a vapor',
-                'photo_url' => '/images/gifts/ferro.jpg',
-                'price' => 15000, // R$ 150,00
-                'quantity' => 1,
-            ],
-            [
-                'name' => 'Aspirador de Pó',
-                'description' => 'Aspirador de pó portátil',
-                'photo_url' => '/images/gifts/aspirador.jpg',
-                'price' => 35000, // R$ 350,00
-                'quantity' => 1,
-            ],
-            [
-                'name' => 'Micro-ondas',
-                'description' => 'Micro-ondas 30 litros',
-                'photo_url' => '/images/gifts/microondas.jpg',
-                'price' => 40000, // R$ 400,00
-                'quantity' => 1,
-            ],
-            [
-                'name' => 'Jogo de Taças',
-                'description' => 'Jogo de taças de cristal 12 peças',
-                'photo_url' => '/images/gifts/tacas.jpg',
-                'price' => 10000, // R$ 100,00
-                'quantity' => 2,
-            ],
-        ];
+                    [
+                        'name' => 'Passagem Aérea da Lua de Mel',
+                        'description' => 'Ajude com as passagens para nossa lua de mel dos sonhos.',
+                        'default_image_key' => 'passagem-lua-mel.png',
+                        'price' => 200000, // R$ 2.000,00
+                        'quantity' => 1,
+                    ],
+                    [
+                        'name' => 'Noite no Hotel da Lua de Mel',
+                        'description' => 'Uma noite especial em nosso destino romântico.',
+                        'default_image_key' => 'noite-hotel.png',
+                        'price' => 300000, // R$ 3.000,00
+                        'quantity' => 1,
+                    ],
+                    [
+                        'name' => 'Jantar Romântico na Viagem',
+                        'description' => 'Um jantar inesquecível para celebrarmos o amor.',
+                        'default_image_key' => 'jantar-romantico.png',
+                        'price' => 15000, // R$ 150,00
+                        'quantity' => 5,
+                    ],
+                    [
+                        'name' => 'Drinks na Piscina do Resort',
+                        'description' => 'Brinde conosco na piscina durante a lua de mel.',
+                        'default_image_key' => 'drinks-piscina.png',
+                        'price' => 8000, // R$ 80,00
+                        'quantity' => 10,
+                    ],
+                    [
+                        'name' => 'Ensaio Fotográfico Pós-Casamento',
+                        'description' => 'Sessão especial para eternizar esse momento.',
+                        'default_image_key' => 'ensaio-fotografico.png',
+                        'price' => 250000, // R$ 2.500,00
+                        'quantity' => 1,
+                    ],
+                    [
+                        'name' => 'Vídeo Cinematográfico da Cerimônia',
+                        'description' => 'Ajude a registrar nosso grande dia em vídeo.',
+                        'default_image_key' => 'video-cerimonia.png',
+                        'price' => 350000, // R$ 3.500,00
+                        'quantity' => 1,
+                    ],
+                    [
+                        'name' => 'Sofá da Nova Casa',
+                        'description' => 'Contribua para o conforto da nossa sala.',
+                        'default_image_key' => 'sofa.png',
+                        'price' => 450000, // R$ 4.500,00
+                        'quantity' => 1,
+                    ],
+                    [
+                        'name' => 'Cama dos Sonhos',
+                        'description' => 'Nossa cama perfeita para começar essa nova fase.',
+                        'default_image_key' => 'cama.png',
+                        'price' => 800000, // R$ 8.000,00
+                        'quantity' => 1,
+                    ],
+                    [
+                        'name' => 'Cozinha Equipada',
+                        'description' => 'Ajude a montar nossa cozinha moderna.',
+                        'default_image_key' => 'cozinha.png',
+                        'price' => 120000, // R$ 1.200,00
+                        'quantity' => 3,
+                    ],
+                    [
+                        'name' => 'Entrada do Apartamento',
+                        'description' => 'Contribuição para realizarmos o sonho da casa própria.',
+                        'default_image_key' => 'entrada-apartamento.png',
+                        'price' => 1500000, // R$ 15.000,00
+                        'quantity' => 1,
+                    ],
+                    [
+                        'name' => 'Fundo Primeiro Ano de Casados',
+                        'description' => 'Ajude nas despesas e experiências do nosso primeiro ano juntos.',
+                        'default_image_key' => 'primeiro-ano.png',
+                        'price' => 50000, // R$ 500,00
+                        'quantity' => 10,
+                    ],
+                    [
+                        'name' => 'Noite de Jogos e Diversão',
+                        'description' => 'Um momento especial de diversão a dois.',
+                        'default_image_key' => 'noite-jogos.png',
+                        'price' => 12000, // R$ 120,00
+                        'quantity' => 5,
+                    ],
+                    [
+                        'name' => 'Aluguel de Carro na Lua de Mel',
+                        'description' => 'Para explorarmos nosso destino com liberdade.',
+                        'default_image_key' => 'aluguel-carro.png',
+                        'price' => 180000, // R$ 1.800,00
+                        'quantity' => 1,
+                    ],
+                    [
+                        'name' => 'Passeio de Balão',
+                        'description' => 'Uma experiência inesquecível nas alturas.',
+                        'default_image_key' => 'passeio-balao.png',
+                        'price' => 220000, // R$ 2.200,00
+                        'quantity' => 2,
+                    ],
+                    [
+                        'name' => 'Fundo Livre para Realizar Sonhos',
+                        'description' => 'Contribua com qualquer valor para realizarmos nossos sonhos.',
+                        'default_image_key' => 'fundo-livre.png',
+                        'price' => 10000, // R$ 100,00
+                        'quantity' => 20,
+                    ],
+                ];
     }
 
     /**

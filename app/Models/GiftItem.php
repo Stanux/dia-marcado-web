@@ -19,6 +19,7 @@ class GiftItem extends WeddingScopedModel
         'wedding_id',
         'name',
         'description',
+        'default_image_key',
         'photo_url',
         'price',
         'quantity_available',
@@ -105,7 +106,24 @@ class GiftItem extends WeddingScopedModel
         $this->description = $this->original_description;
         $this->price = $this->original_price;
         $this->quantity_available = $this->original_quantity;
+        $this->photo_url = null;
         $this->save();
+    }
+
+    /**
+     * Get the resolved image URL for display (custom overrides default).
+     */
+    public function getDisplayPhotoUrl(): ?string
+    {
+        if (!empty($this->photo_url)) {
+            return $this->photo_url;
+        }
+
+        if (!empty($this->default_image_key)) {
+            return '/images/gifts/' . ltrim($this->default_image_key, '/');
+        }
+
+        return null;
     }
 
     /**
