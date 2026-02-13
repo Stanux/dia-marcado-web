@@ -101,7 +101,7 @@ class SiteLayoutController extends Controller
             $site = $this->siteBuilder->create($wedding);
 
             return response()->json([
-                'data' => $this->formatSiteResponse($site),
+                'data' => $this->formatSiteResponse($site, includeContent: true),
                 'message' => 'Site criado com sucesso.',
             ], 201);
         } catch (\InvalidArgumentException $e) {

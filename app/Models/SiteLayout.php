@@ -34,34 +34,11 @@ class SiteLayout extends WeddingScopedModel
 
     /**
      * Resolve the route binding without the global scope.
-     * This allows the policy to handle authorization instead of the scope.
+     * Authorization is handled by middleware/policies.
      */
     public function resolveRouteBinding($value, $field = null)
     {
-        $user = auth()->user();
-        
-        // If no user or admin, use default behavior without scope
-        if (!$user || $user->isAdmin()) {
-            return $this->withoutGlobalScopes()
-                ->where($field ?? $this->getRouteKeyName(), $value)
-                ->first();
-        }
-        
-        // For regular users, find the site and verify access
-        $site = $this->withoutGlobalScopes()
-            ->where($field ?? $this->getRouteKeyName(), $value)
-            ->first();
-            
-        if (!$site) {
-            return null;
-        }
-        
-        // Verify user has access to the site's wedding
-        $hasAccess = $user->weddings()
-            ->where('wedding_id', $site->wedding_id)
-            ->exists();
-            
-        return $hasAccess ? $site : null;
+        return parent::resolveRouteBinding($value, $field);
     }
 
     /**

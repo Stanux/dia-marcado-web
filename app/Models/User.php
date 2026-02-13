@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -78,6 +79,14 @@ class User extends Authenticatable
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get guest profiles associated with this user.
+     */
+    public function guestProfiles(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Guest::class);
     }
 
     /**
@@ -192,7 +201,14 @@ class User extends Authenticatable
             ->first()
             ?->pivot;
 
-        return $pivot?->permissions ?? [];
+        $permissions = $pivot?->permissions ?? [];
+
+        if (is_string($permissions)) {
+            $decoded = json_decode($permissions, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($permissions) ? $permissions : [];
     }
 
     /**

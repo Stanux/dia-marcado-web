@@ -92,6 +92,14 @@ class AppServiceProvider extends ServiceProvider
 
         // Register policies
         Gate::policy(SiteLayout::class, SiteLayoutPolicy::class);
+        Gate::policy(\App\Models\GuestHousehold::class, \App\Policies\GuestHouseholdPolicy::class);
+        Gate::policy(\App\Models\Guest::class, \App\Policies\GuestPolicy::class);
+        Gate::policy(\App\Models\GuestEvent::class, \App\Policies\GuestEventPolicy::class);
+        Gate::policy(\App\Models\GuestRsvp::class, \App\Policies\GuestRsvpPolicy::class);
+        Gate::policy(\App\Models\GuestInvite::class, \App\Policies\GuestInvitePolicy::class);
+        Gate::policy(\App\Models\GuestCheckin::class, \App\Policies\GuestCheckinPolicy::class);
+        Gate::policy(\App\Models\GuestMessage::class, \App\Policies\GuestMessagePolicy::class);
+        Gate::policy(\App\Models\GuestAuditLog::class, \App\Policies\GuestAuditLogPolicy::class);
 
         // Register event listeners
         Event::listen(

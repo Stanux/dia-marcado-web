@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
  * Filament Resource for managing System Configurations.
  * 
  * Only accessible by Admin users.
- * Manages site.* configuration keys.
+ * Manages site.* and guests.* configuration keys.
  * 
  * @Requirements: 21.1, 21.5
  */
@@ -119,6 +119,9 @@ class SystemConfigResource extends Resource
                     ->label('Configurações de Site')
                     ->query(fn (Builder $query): Builder => $query->where('key', 'like', 'site.%'))
                     ->default(),
+                Tables\Filters\Filter::make('guest_configs')
+                    ->label('Configurações de Convidados')
+                    ->query(fn (Builder $query): Builder => $query->where('key', 'like', 'guests.%')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -132,7 +135,11 @@ class SystemConfigResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('key', 'like', 'site.%');
+            ->where(function (Builder $query): Builder {
+                return $query
+                    ->where('key', 'like', 'site.%')
+                    ->orWhere('key', 'like', 'guests.%');
+            });
     }
 
     public static function getRelations(): array

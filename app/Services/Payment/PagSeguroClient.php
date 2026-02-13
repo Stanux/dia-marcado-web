@@ -126,6 +126,18 @@ class PagSeguroClient
         }
     }
 
+    /**
+     * Backwards-compatible PIX charge creation (alias to createPixOrder).
+     *
+     * @param array $orderData
+     * @return array
+     * @throws PagSeguroException
+     */
+    public function createPixCharge(array $orderData): array
+    {
+        return $this->createPixOrder($orderData);
+    }
+
     private function fetchQrCodeBase64(?string $url): ?string
     {
         if (!$url) {

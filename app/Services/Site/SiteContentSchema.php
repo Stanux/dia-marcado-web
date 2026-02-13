@@ -76,6 +76,7 @@ class SiteContentSchema
             ],
             'title' => '',
             'subtitle' => '',
+            'showDate' => true,
             'navigation' => [],
             'actionButton' => [
                 'label' => '',

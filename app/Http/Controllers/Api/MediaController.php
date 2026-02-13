@@ -100,10 +100,10 @@ class MediaController extends Controller
             ], 422);
         }
 
-        return response()->json([
-            'data' => $this->formatMediaResponse($result->media),
-            'message' => 'Arquivo enviado com sucesso.',
-        ], 201);
+        return response()->json(
+            $this->formatMediaResponse($result->media),
+            201
+        );
     }
 
     /**

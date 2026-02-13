@@ -53,4 +53,15 @@ abstract class WeddingScopedModel extends Model
     {
         return $query->where('wedding_id', $weddingId);
     }
+
+    /**
+     * Resolve route binding without wedding scope to allow middleware/policies
+     * to handle authorization and context validation.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->newQueryWithoutScopes()
+            ->where($field ?? $this->getRouteKeyName(), $value)
+            ->first();
+    }
 }

@@ -102,19 +102,16 @@ class MediaController extends Controller
 
             // Return media data as JSON
             return response()->json([
-                'success' => true,
-                'media' => [
-                    'id' => $media->id,
-                    'album_id' => $media->album_id,
-                    'filename' => $media->original_name,
-                    'type' => str_starts_with($media->mime_type, 'image/') ? 'image' : 'video',
-                    'mime_type' => $media->mime_type,
-                    'size' => $media->size,
-                    'url' => $media->getUrl(),
-                    'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
-                    'created_at' => $media->created_at->toISOString(),
-                    'updated_at' => $media->updated_at->toISOString(),
-                ]
+                'id' => $media->id,
+                'album_id' => $media->album_id,
+                'filename' => $media->original_name,
+                'type' => str_starts_with($media->mime_type, 'image/') ? 'image' : 'video',
+                'mime_type' => $media->mime_type,
+                'size' => $media->size,
+                'url' => $media->getUrl(),
+                'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
+                'created_at' => $media->created_at->toISOString(),
+                'updated_at' => $media->updated_at->toISOString(),
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {

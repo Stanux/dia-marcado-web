@@ -78,6 +78,46 @@ class Wedding extends Model
     }
 
     /**
+     * Get guest households for this wedding.
+     */
+    public function guestHouseholds(): HasMany
+    {
+        return $this->hasMany(GuestHousehold::class);
+    }
+
+    /**
+     * Get guest records for this wedding.
+     */
+    public function guestList(): HasMany
+    {
+        return $this->hasMany(Guest::class);
+    }
+
+    /**
+     * Get RSVP events for this wedding.
+     */
+    public function guestEvents(): HasMany
+    {
+        return $this->hasMany(GuestEvent::class);
+    }
+
+    /**
+     * Get guest messages for this wedding.
+     */
+    public function guestMessages(): HasMany
+    {
+        return $this->hasMany(GuestMessage::class);
+    }
+
+    /**
+     * Get guest audit logs for this wedding.
+     */
+    public function guestAuditLogs(): HasMany
+    {
+        return $this->hasMany(GuestAuditLog::class);
+    }
+
+    /**
      * Get the tasks for this wedding.
      */
     public function tasks(): HasMany

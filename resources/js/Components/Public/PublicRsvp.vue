@@ -2,12 +2,10 @@
 /**
  * PublicRsvp Component
  * 
- * Renders the RSVP section (mockup).
- * Shows placeholder form until the Guest Confirmation module is implemented.
- * 
- * @Requirements: 12.1, 12.2, 12.3, 12.4
+ * Renders the RSVP section with real submission.
  */
-import { computed } from 'vue';
+import { computed, ref, reactive, watch } from 'vue';
+import axios from 'axios';
 
 const props = defineProps({
     content: {
@@ -18,30 +16,99 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    wedding: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
-// Computed properties
 const style = computed(() => props.content.style || {});
+const events = computed(() => (props.wedding?.guest_events || []).filter((event) => event.is_active));
+const selectedEventId = ref('');
+const token = ref('');
 
-// Mock form fields
-const mockFields = computed(() => props.content.mockFields || [
-    { label: 'Nome Completo', type: 'text', placeholder: 'Seu nome' },
-    { label: 'Email', type: 'email', placeholder: 'seu@email.com' },
-    { label: 'Confirmação', type: 'select', options: ['Confirmo presença', 'Não poderei comparecer'] },
-    { label: 'Número de Acompanhantes', type: 'number', placeholder: '0' },
-]);
+const isSubmitting = ref(false);
+const successMessage = ref('');
+const errorMessage = ref('');
+
+const form = reactive({
+    name: '',
+    email: '',
+    phone: '',
+    status: 'confirmed',
+    responses: {},
+});
+
+const selectedEvent = computed(() => events.value.find((event) => event.id === selectedEventId.value));
+const questions = computed(() => selectedEvent.value?.questions || []);
+
+const getQuestionKey = (question, index) => {
+    return question.key || question.id || `q_${index}`;
+};
+
+const submit = async () => {
+    successMessage.value = '';
+    errorMessage.value = '';
+
+    if (!form.name.trim()) {
+        errorMessage.value = 'Informe seu nome.';
+        return;
+    }
+
+    if (!selectedEventId.value) {
+        errorMessage.value = 'Selecione um evento.';
+        return;
+    }
+
+    isSubmitting.value = true;
+
+    try {
+        const payload = {
+            token: token.value || null,
+            event_id: selectedEventId.value,
+            status: form.status,
+            responses: form.responses,
+            guest: {
+                name: form.name,
+                email: form.email || null,
+                phone: form.phone || null,
+            },
+        };
+
+        await axios.post('/api/public/rsvp', payload);
+        successMessage.value = 'RSVP enviado com sucesso!';
+    } catch (err) {
+        errorMessage.value = err?.response?.data?.message || 'Erro ao enviar RSVP.';
+    } finally {
+        isSubmitting.value = false;
+    }
+};
+
+watch(
+    () => events.value,
+    (next) => {
+        if (!selectedEventId.value && next.length > 0) {
+            selectedEventId.value = next[0].id;
+        }
+    },
+    { immediate: true }
+);
+
+if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    token.value = params.get('token') || '';
+}
 </script>
 
 <template>
-    <section 
+    <section
         class="py-20 px-4"
         :style="{ backgroundColor: style.backgroundColor || '#f8f6f4' }"
         id="rsvp"
     >
         <div class="max-w-xl mx-auto">
-            <!-- Section Header -->
             <div class="text-center mb-10">
-                <h2 
+                <h2
                     class="text-3xl md:text-4xl font-bold mb-4"
                     :style="{ color: theme.primaryColor, fontFamily: theme.fontFamily }"
                 >
@@ -52,103 +119,128 @@ const mockFields = computed(() => props.content.mockFields || [
                 </p>
             </div>
 
-            <!-- Mock Form -->
             <div class="bg-white rounded-2xl shadow-xl p-8 md:p-10">
-                <form class="space-y-6" @submit.prevent>
-                    <div 
-                        v-for="(field, index) in mockFields"
-                        :key="index"
-                    >
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            {{ field.label }}
-                        </label>
-                        
-                        <!-- Text Input -->
+                <form class="space-y-6" @submit.prevent="submit">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome completo</label>
                         <input
-                            v-if="field.type === 'text'"
+                            v-model="form.name"
                             type="text"
-                            disabled
-                            class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 cursor-not-allowed text-gray-400"
-                            :placeholder="field.placeholder || ''"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                            placeholder="Seu nome"
                         />
-                        
-                        <!-- Email Input -->
-                        <input
-                            v-else-if="field.type === 'email'"
-                            type="email"
-                            disabled
-                            class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 cursor-not-allowed text-gray-400"
-                            :placeholder="field.placeholder || ''"
-                        />
-                        
-                        <!-- Select -->
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input
+                                v-model="form.email"
+                                type="email"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                                placeholder="seu@email.com"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
+                            <input
+                                v-model="form.phone"
+                                type="tel"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                                placeholder="(00) 00000-0000"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Evento</label>
                         <select
-                            v-else-if="field.type === 'select'"
-                            disabled
-                            class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 cursor-not-allowed text-gray-400"
+                            v-model="selectedEventId"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-lg"
                         >
-                            <option value="">Selecione uma opção</option>
-                            <option v-for="opt in (field.options || [])" :key="opt" :value="opt">
-                                {{ opt }}
+                            <option value="" disabled>Selecione um evento</option>
+                            <option v-for="event in events" :key="event.id" :value="event.id">
+                                {{ event.name }}
                             </option>
                         </select>
-                        
-                        <!-- Number Input -->
-                        <input
-                            v-else-if="field.type === 'number'"
-                            type="number"
-                            disabled
-                            min="0"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 cursor-not-allowed text-gray-400"
-                            :placeholder="field.placeholder || '0'"
-                        />
                     </div>
 
-                    <!-- Message Field -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Mensagem (opcional)
-                        </label>
-                        <textarea
-                            disabled
-                            rows="4"
-                            class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 cursor-not-allowed resize-none text-gray-400"
-                            placeholder="Deixe uma mensagem para os noivos..."
-                        ></textarea>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Confirmação</label>
+                        <select
+                            v-model="form.status"
+                            class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                        >
+                            <option value="confirmed">Confirmo presença</option>
+                            <option value="declined">Não poderei comparecer</option>
+                            <option value="maybe">Talvez</option>
+                        </select>
                     </div>
 
-                    <!-- Submit Button -->
+                    <div v-if="questions.length" class="space-y-4">
+                        <div v-for="(question, index) in questions" :key="index">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {{ question.label || question.title || 'Pergunta' }}
+                            </label>
+
+                            <input
+                                v-if="question.type === 'text'"
+                                v-model="form.responses[getQuestionKey(question, index)]"
+                                type="text"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                            />
+
+                            <textarea
+                                v-else-if="question.type === 'textarea'"
+                                v-model="form.responses[getQuestionKey(question, index)]"
+                                rows="4"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                            ></textarea>
+
+                            <select
+                                v-else-if="question.type === 'select'"
+                                v-model="form.responses[getQuestionKey(question, index)]"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                            >
+                                <option value="" disabled>Selecione uma opção</option>
+                                <option v-for="opt in (question.options || [])" :key="opt" :value="opt">
+                                    {{ opt }}
+                                </option>
+                            </select>
+
+                            <input
+                                v-else-if="question.type === 'number'"
+                                v-model.number="form.responses[getQuestionKey(question, index)]"
+                                type="number"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                            />
+
+                            <input
+                                v-else
+                                v-model="form.responses[getQuestionKey(question, index)]"
+                                type="text"
+                                class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                            />
+                        </div>
+                    </div>
+
                     <button
-                        type="button"
-                        disabled
-                        class="w-full px-6 py-4 text-white font-semibold rounded-lg cursor-not-allowed opacity-50"
-                        :style="{ backgroundColor: theme.primaryColor }"
+                        type="submit"
+                        :disabled="isSubmitting"
+                        class="w-full px-6 py-4 text-white font-semibold rounded-lg"
+                        :style="{ backgroundColor: theme.primaryColor, opacity: isSubmitting ? 0.7 : 1 }"
                     >
-                        Confirmar Presença
+                        {{ isSubmitting ? 'Enviando...' : 'Confirmar Presença' }}
                     </button>
                 </form>
 
-                <!-- Coming Soon Notice -->
-                <div class="mt-8 p-5 bg-amber-50 border border-amber-200 rounded-xl">
-                    <div class="flex items-start">
-                        <svg class="w-6 h-6 text-amber-500 mr-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div>
-                            <p class="text-sm text-amber-800 font-semibold">
-                                Formulário em desenvolvimento
-                            </p>
-                            <p class="text-sm text-amber-700 mt-1">
-                                Este é apenas um preview. O formulário funcional será habilitado quando o módulo de convidados estiver disponível.
-                            </p>
-                        </div>
-                    </div>
+                <div v-if="successMessage" class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+                    {{ successMessage }}
+                </div>
+                <div v-if="errorMessage" class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                    {{ errorMessage }}
                 </div>
             </div>
         </div>
     </section>
 </template>
-
-<style scoped>
-/* Form styling */
-</style>

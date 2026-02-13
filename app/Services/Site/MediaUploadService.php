@@ -92,9 +92,11 @@ class MediaUploadService implements MediaUploadServiceInterface
         $directory = 'sites/' . $site->wedding_id . '/media';
         $path = $directory . '/' . $filename;
 
-        // Store the file on public disk
-        Storage::disk('public')->putFileAs($directory, $file, $filename);
-        $fullPath = Storage::disk('public')->path($path);
+        $disk = config('filesystems.default', 'local');
+
+        // Store the file on configured disk
+        Storage::disk($disk)->putFileAs($directory, $file, $filename);
+        $fullPath = Storage::disk($disk)->path($path);
         
         // Ensure correct permissions for web server access
         @chmod($fullPath, 0644);
@@ -102,7 +104,7 @@ class MediaUploadService implements MediaUploadServiceInterface
 
         // Scan for malware
         if (!$this->scanForMalware($fullPath)) {
-            Storage::disk('local')->delete($path);
+            Storage::disk($disk)->delete($path);
             throw MediaUploadException::malwareDetected();
         }
 
@@ -140,7 +142,7 @@ class MediaUploadService implements MediaUploadServiceInterface
             'wedding_id' => $site->wedding_id,
             'original_name' => $file->getClientOriginalName(),
             'path' => $path,
-            'disk' => 'public',
+            'disk' => $disk,
             'size' => $actualSize,
             'mime_type' => $mimeType,
             'width' => $width,
@@ -344,6 +346,8 @@ class MediaUploadService implements MediaUploadServiceInterface
         $directory = $pathInfo['dirname'];
         $filename = $pathInfo['filename'];
         $extension = strtolower($pathInfo['extension'] ?? '');
+        $disk = config('filesystems.default', 'local');
+        $diskRoot = rtrim(Storage::disk($disk)->path(''), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
         // Get image info
         $imageInfo = @getimagesize($path);
@@ -364,13 +368,13 @@ class MediaUploadService implements MediaUploadServiceInterface
             // Generate WebP version
             $webpPath = $directory . '/' . $filename . '.webp';
             if ($this->saveAsWebp($image, $webpPath)) {
-                $variants['webp'] = str_replace(Storage::disk('public')->path(''), '', $webpPath);
+                $variants['webp'] = str_replace($diskRoot, '', $webpPath);
             }
 
             // Generate thumbnail (300x300)
             $thumbnailPath = $directory . '/' . $filename . '_thumb.' . $extension;
             if ($this->createThumbnail($image, $thumbnailPath, 300, 300, $mimeType)) {
-                $variants['thumbnail'] = str_replace(Storage::disk('public')->path(''), '', $thumbnailPath);
+                $variants['thumbnail'] = str_replace($diskRoot, '', $thumbnailPath);
             }
 
             // Generate 2x version if original is large enough (at least 600px in both dimensions)
@@ -380,8 +384,8 @@ class MediaUploadService implements MediaUploadServiceInterface
                 $halfHeight = (int) ($height / 2);
                 $onexPath = $directory . '/' . $filename . '_1x.' . $extension;
                 if ($this->createResized($image, $onexPath, $halfWidth, $halfHeight, $mimeType)) {
-                    $variants['1x'] = str_replace(Storage::disk('public')->path(''), '', $onexPath);
-                    $variants['2x'] = str_replace(Storage::disk('public')->path(''), '', $path);
+                    $variants['1x'] = str_replace($diskRoot, '', $onexPath);
+                    $variants['2x'] = str_replace($diskRoot, '', $path);
                 }
             }
 

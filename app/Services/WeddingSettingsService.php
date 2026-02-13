@@ -54,6 +54,10 @@ class WeddingSettingsService implements WeddingSettingsServiceInterface
             $settings['venue_phone'] = $data['venue_phone'];
         }
 
+        if (array_key_exists('rsvp_access', $data)) {
+            $settings['rsvp_access'] = $data['rsvp_access'] ?? 'open';
+        }
+
         $updateData['settings'] = $settings;
 
         $wedding->update($updateData);

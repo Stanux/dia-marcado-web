@@ -45,12 +45,16 @@ class CheckModulePermission
 
         $weddingId = session('filament_wedding_id') ?? $user->current_wedding_id;
 
+        if (!$weddingId && $module === 'app' && $user->role === 'guest') {
+            return $next($request);
+        }
+
         if (!$weddingId) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'error' => 'Bad Request',
-                    'message' => 'Selecione um casamento primeiro.',
-                ], 400);
+                    'error' => 'Unauthorized',
+                    'message' => 'Wedding context required',
+                ], 401);
             }
             return redirect()->route('filament.admin.pages.dashboard')
                 ->with('error', 'Selecione um casamento primeiro.');
@@ -61,9 +65,9 @@ class CheckModulePermission
         if (!$wedding) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'error' => 'Not Found',
-                    'message' => 'Casamento não encontrado.',
-                ], 404);
+                    'error' => 'Unauthorized',
+                    'message' => 'Invalid wedding',
+                ], 401);
             }
             return redirect()->route('filament.admin.pages.dashboard')
                 ->with('error', 'Casamento não encontrado.');
@@ -74,7 +78,7 @@ class CheckModulePermission
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'Forbidden',
-                    'message' => 'Você não tem permissão para acessar este módulo.',
+                    'message' => "Access to module '{$module}' is not allowed",
                 ], 403);
             }
             return redirect()->route('filament.admin.pages.dashboard')

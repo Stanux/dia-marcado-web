@@ -112,6 +112,7 @@ const enabledSections = computed(() => {
             v-if="isSectionEnabled('rsvp')"
             :content="getSectionContent('rsvp')"
             :theme="theme"
+            :wedding="wedding"
         />
 
         <!-- Photo Gallery Section -->

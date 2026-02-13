@@ -20,7 +20,7 @@ Marque o que entra na **primeira versão**:
 
 ## 2) Regras de Acesso
 - [x] **Padrão aberto** (qualquer convidado pode responder)
-- [ ] **Padrão restrito** (apenas convidados cadastrados)
+- [x] **Padrão restrito** (apenas convidados cadastrados)
 - [x] Restrição configurável por casamento
 
 ## 3) Convites
@@ -32,7 +32,7 @@ Marque o que entra na **primeira versão**:
 - [x] E-mail (ativo já no MVP)
 - [x] WhatsApp (ativo já no MVP)
 - [x] SMS (ativo já no MVP)
-- [ ] Apenas preparado, ativação futura
+- [x] Apenas preparado, ativação futura
 
 ## 5) Check-in
 - [x] QR obrigatório

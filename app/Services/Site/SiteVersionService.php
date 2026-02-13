@@ -71,8 +71,10 @@ class SiteVersionService implements SiteVersionServiceInterface
      * @param SiteVersion $version The version to restore from
      * @return SiteLayout The updated site layout
      */
-    public function restore(SiteLayout $site, SiteVersion $version, User $user): SiteLayout
+    public function restore(SiteLayout $site, SiteVersion $version, ?User $user = null): SiteLayout
     {
+        $user = $user ?? auth()->user();
+
         // Copy version content to draft
         $site->draft_content = $version->content;
         $site->save();
@@ -82,7 +84,7 @@ class SiteVersionService implements SiteVersionServiceInterface
         
         SiteVersion::create([
             'site_layout_id' => $site->id,
-            'user_id' => $user->id,
+            'user_id' => $user?->id,
             'content' => $version->content,
             'summary' => "Restaurado da versão de {$formattedDate}",
             'is_published' => false,

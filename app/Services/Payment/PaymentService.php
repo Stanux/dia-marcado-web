@@ -328,7 +328,7 @@ class PaymentService
             }
 
             // Create PIX order in PagSeguro
-            $response = $this->pagSeguroClient->createPixOrder($orderData);
+            $response = $this->pagSeguroClient->createPixCharge($orderData);
 
             // Update transaction with PagSeguro response including QR code
             $transaction->update([

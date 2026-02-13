@@ -114,8 +114,8 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         // Load wedding data for placeholders
         $wedding = $siteLayout->wedding;
         
-        // Load gift registry config for the wedding
-        $wedding->load('giftRegistryConfig');
+        // Load gift registry config and guest events for the wedding
+        $wedding->load(['giftRegistryConfig', 'guestEvents']);
         
         return Inertia::render('Sites/Editor', [
             'site' => $siteData,

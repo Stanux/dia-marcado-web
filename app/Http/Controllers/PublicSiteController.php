@@ -69,8 +69,11 @@ class PublicSiteController extends Controller
         // Load the wedding for placeholder replacement
         $wedding = $site->wedding;
         
-        // Load gift registry config for the wedding
-        $wedding->load('giftRegistryConfig');
+        // Load gift registry config and guest events for the wedding (public access)
+        $wedding->load([
+            'giftRegistryConfig' => fn ($query) => $query->withoutGlobalScopes(),
+            'guestEvents' => fn ($query) => $query->withoutGlobalScopes(),
+        ]);
 
         // Apply placeholders to published content
         $content = $this->placeholderService->replaceInArray(
@@ -78,11 +81,15 @@ class PublicSiteController extends Controller
             $wedding
         );
 
+        $siteData = $site->makeHidden(['draft_content', 'published_content'])->toArray();
+
         // Use Inertia to render with Vue components (same as preview)
         return inertia('Public/Site', [
-            'site' => $site,
+            'site' => $siteData,
             'content' => $content,
             'wedding' => $wedding,
+        ])->withViewData([
+            'pageTitle' => $content['meta']['title'] ?? null,
         ]);
     }
 

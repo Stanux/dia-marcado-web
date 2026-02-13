@@ -116,30 +116,6 @@ class SiteBuilderService implements SiteBuilderServiceInterface
      */
     public function publish(SiteLayout $site, User $user): SiteLayout
     {
-        // Auto-fill meta.title if empty
-        $draftContent = $site->draft_content;
-        if (empty(trim($draftContent['meta']['title'] ?? ''))) {
-            $wedding = $site->wedding;
-            
-            // Set title with couple names and date using placeholders
-            if ($wedding->wedding_date) {
-                $draftContent['meta']['title'] = 'Casamento de {primeiro_nome_noivo} & {primeiro_nome_noiva} em {data_curta}';
-            } else {
-                $draftContent['meta']['title'] = 'Casamento de {primeiro_nome_noivo} & {primeiro_nome_noiva}';
-            }
-            
-            // Also set description if empty
-            if (empty(trim($draftContent['meta']['description'] ?? ''))) {
-                if ($wedding->wedding_date) {
-                    $draftContent['meta']['description'] = "Casamento de {noivo} e {noiva} - {data}";
-                } else {
-                    $draftContent['meta']['description'] = "Casamento de {noivo} e {noiva}";
-                }
-            }
-            
-            $site->draft_content = $draftContent;
-        }
-        
         // Validate content before publishing
         $errors = SiteContentSchema::validate($site->draft_content);
         

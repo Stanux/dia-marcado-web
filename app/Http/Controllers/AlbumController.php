@@ -228,19 +228,15 @@ class AlbumController extends Controller
 
             // Return JSON response
             return response()->json([
-                'success' => true,
-                'message' => 'Álbum criado com sucesso!',
-                'album' => [
-                    'id' => $album->id,
-                    'name' => $album->name,
-                    'type' => $album->albumType?->slug ?? 'uso_site',
-                    'description' => $album->description,
-                    'media_count' => 0,
-                    'media' => [],
-                    'created_at' => $album->created_at->toISOString(),
-                    'updated_at' => $album->updated_at->toISOString(),
-                ]
-            ]);
+                'id' => $album->id,
+                'name' => $album->name,
+                'type' => $album->albumType?->slug ?? 'uso_site',
+                'description' => $album->description,
+                'media_count' => 0,
+                'media' => [],
+                'created_at' => $album->created_at->toISOString(),
+                'updated_at' => $album->updated_at->toISOString(),
+            ], 201);
 
         } catch (ValidationException $e) {
             return response()->json([

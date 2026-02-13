@@ -4,6 +4,13 @@ use App\Http\Controllers\Api\Admin\SystemConfigController;
 use App\Http\Controllers\Api\AlbumController;
 use App\Http\Controllers\Api\DevPaymentController;
 use App\Http\Controllers\Api\GiftController;
+use App\Http\Controllers\Api\GuestCheckinController;
+use App\Http\Controllers\Api\GuestController;
+use App\Http\Controllers\Api\GuestEventController;
+use App\Http\Controllers\Api\GuestHouseholdController;
+use App\Http\Controllers\Api\GuestInviteController;
+use App\Http\Controllers\Api\GuestMessageController;
+use App\Http\Controllers\Api\GuestRsvpController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\QuotaController;
 use App\Http\Controllers\Api\SiteLayoutController;
@@ -28,7 +35,7 @@ if (app()->environment('local')) {
     Route::post('/dev/transactions/{internalId}/confirm', [DevPaymentController::class, 'confirm']);
 }
 
-Route::middleware(['auth:web'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
     // User info (no wedding context required)
     Route::get('/user', function (Request $request) {
         return $request->user();
@@ -64,9 +71,40 @@ Route::middleware(['auth:web'])->group(function () {
 
         // Guests module
         Route::middleware(['permission:guests'])->prefix('guests')->group(function () {
-            Route::get('/', function () {
-                return response()->json(['message' => 'Guests endpoint']);
-            });
+            // Guests
+            Route::get('/', [GuestController::class, 'index']);
+            Route::post('/', [GuestController::class, 'store']);
+            Route::get('/{guest}', [GuestController::class, 'show']);
+            Route::put('/{guest}', [GuestController::class, 'update']);
+            Route::delete('/{guest}', [GuestController::class, 'destroy']);
+
+            // Households
+            Route::get('/households', [GuestHouseholdController::class, 'index']);
+            Route::post('/households', [GuestHouseholdController::class, 'store']);
+            Route::get('/households/{household}', [GuestHouseholdController::class, 'show']);
+            Route::put('/households/{household}', [GuestHouseholdController::class, 'update']);
+            Route::delete('/households/{household}', [GuestHouseholdController::class, 'destroy']);
+
+            // Events
+            Route::get('/events', [GuestEventController::class, 'index']);
+            Route::post('/events', [GuestEventController::class, 'store']);
+            Route::get('/events/{event}', [GuestEventController::class, 'show']);
+            Route::put('/events/{event}', [GuestEventController::class, 'update']);
+            Route::delete('/events/{event}', [GuestEventController::class, 'destroy']);
+
+            // Invites
+            Route::post('/households/{household}/invites', [GuestInviteController::class, 'store']);
+            Route::post('/invites/{invite}/reissue', [GuestInviteController::class, 'reissue']);
+
+            // RSVP (authenticated)
+            Route::post('/rsvp', [GuestRsvpController::class, 'store']);
+
+            // Check-in
+            Route::post('/checkins', [GuestCheckinController::class, 'store']);
+
+            // Messages (drafts/templates)
+            Route::get('/messages', [GuestMessageController::class, 'index']);
+            Route::post('/messages', [GuestMessageController::class, 'store']);
         });
 
         // Finance module
@@ -170,3 +208,6 @@ Route::middleware(['auth:web'])->group(function () {
         Route::put('/config/{key}', [SystemConfigController::class, 'update']);
     });
 });
+
+// Public RSVP endpoint (open mode / token-based)
+Route::post('/public/rsvp', [GuestRsvpController::class, 'publicStore']);
