@@ -126,6 +126,22 @@ class Wedding extends Model
     }
 
     /**
+     * Get the planning records for this wedding.
+     */
+    public function plans(): HasMany
+    {
+        return $this->hasMany(WeddingPlan::class);
+    }
+
+    /**
+     * Get the vendors associated with this wedding.
+     */
+    public function weddingVendors(): HasMany
+    {
+        return $this->hasMany(WeddingVendor::class);
+    }
+
+    /**
      * Get the site layout for this wedding.
      */
     public function siteLayout(): HasOne

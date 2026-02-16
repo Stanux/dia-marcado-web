@@ -11,6 +11,12 @@ services:
       - php
     networks:
       - wedding-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   php:
     build:
@@ -36,6 +42,83 @@ services:
       - redis
     networks:
       - wedding-network
+    healthcheck:
+      test: ["CMD-SHELL", "pidof php-fpm >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: wedding-scheduler
+    command: >
+      sh -c "echo '* * * * * cd /var/www/html && php artisan schedule:run --no-interaction >> /var/www/html/storage/logs/scheduler.log 2>&1' > /etc/crontabs/root && exec crond -f -l 2"
+    user: root
+    volumes:
+      - ./:/var/www/html
+    environment:
+      - APP_ENV=local
+      - LOG_CHANNEL=daily
+      - QUEUE_CONNECTION=redis
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=wedding_saas
+      - DB_USERNAME=wedding
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - php
+      - postgres
+      - redis
+    networks:
+      - wedding-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "tr '\\0' ' ' < /proc/1/cmdline | grep -q 'crond'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: wedding-queue
+    command: >
+      sh -c "exec php artisan queue:work --sleep=3 --tries=3 --timeout=90"
+    volumes:
+      - ./:/var/www/html
+    environment:
+      - APP_ENV=local
+      - LOG_CHANNEL=daily
+      - QUEUE_CONNECTION=redis
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=wedding_saas
+      - DB_USERNAME=wedding
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - php
+      - postgres
+      - redis
+    networks:
+      - wedding-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "tr '\\0' ' ' < /proc/1/cmdline | grep -q 'queue:work'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   postgres:
     image: postgres:16-alpine
@@ -50,6 +133,12 @@ services:
       - "5432:5432"
     networks:
       - wedding-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
@@ -60,6 +149,12 @@ services:
       - redis-data:/data
     networks:
       - wedding-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   mailpit:
     image: axllent/mailpit
@@ -69,6 +164,12 @@ services:
       - "1025:1025"
     networks:
       - wedding-network
+    healthcheck:
+      test: ["CMD-SHELL", "pidof mailpit >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   postgres-data:

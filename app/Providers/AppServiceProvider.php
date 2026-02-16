@@ -29,8 +29,12 @@ use App\Events\SitePublished;
 use App\Listeners\ClearOnboardingSession;
 use App\Listeners\SendSitePublishedNotification;
 use App\Models\SiteLayout;
+use App\Models\Task;
+use App\Models\TaskBudget;
 use App\Models\Wedding;
 use App\Observers\WeddingObserver;
+use App\Observers\TaskBudgetObserver;
+use App\Observers\TaskObserver;
 use App\Policies\SiteLayoutPolicy;
 use App\Services\PermissionService;
 use App\Services\Site\AccessTokenService;
@@ -89,6 +93,8 @@ class AppServiceProvider extends ServiceProvider
         
         // Register model observers
         Wedding::observe(WeddingObserver::class);
+        Task::observe(TaskObserver::class);
+        TaskBudget::observe(TaskBudgetObserver::class);
 
         // Register policies
         Gate::policy(SiteLayout::class, SiteLayoutPolicy::class);

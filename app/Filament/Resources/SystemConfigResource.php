@@ -119,6 +119,9 @@ class SystemConfigResource extends Resource
                     ->label('Configurações de Site')
                     ->query(fn (Builder $query): Builder => $query->where('key', 'like', 'site.%'))
                     ->default(),
+                Tables\Filters\Filter::make('planning_configs')
+                    ->label('Configurações de Planejamento')
+                    ->query(fn (Builder $query): Builder => $query->where('key', 'like', 'planning.%')),
                 Tables\Filters\Filter::make('guest_configs')
                     ->label('Configurações de Convidados')
                     ->query(fn (Builder $query): Builder => $query->where('key', 'like', 'guests.%')),
@@ -138,6 +141,7 @@ class SystemConfigResource extends Resource
             ->where(function (Builder $query): Builder {
                 return $query
                     ->where('key', 'like', 'site.%')
+                    ->orWhere('key', 'like', 'planning.%')
                     ->orWhere('key', 'like', 'guests.%');
             });
     }

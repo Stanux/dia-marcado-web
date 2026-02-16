@@ -5,14 +5,54 @@ use App\Http\Controllers\Auth\FilamentLoginController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MediaScreenController;
+use App\Http\Controllers\Planning\PlanExportController;
 use App\Http\Controllers\PublicSiteController;
 use App\Models\SiteLayout;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
 });
+
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'time' => now()->toIso8601String(),
+        'app' => config('app.name'),
+        'env' => app()->environment(),
+    ]);
+})->name('health');
+
+Route::get('/ready', function () {
+    $checks = [
+        'db' => 'ok',
+        'redis' => 'ok',
+    ];
+    $status = 200;
+
+    try {
+        DB::connection()->select('select 1');
+    } catch (\Throwable $e) {
+        $checks['db'] = 'error';
+        $status = 503;
+    }
+
+    try {
+        Redis::connection()->ping();
+    } catch (\Throwable $e) {
+        $checks['redis'] = 'error';
+        $status = 503;
+    }
+
+    return response()->json([
+        'status' => $status === 200 ? 'ok' : 'degraded',
+        'checks' => $checks,
+        'time' => now()->toIso8601String(),
+    ], $status);
+})->name('ready');
 
 // Partner invite routes (public)
 Route::prefix('convite')->group(function () {
@@ -143,6 +183,11 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         ]);
     })->name('sites.templates');
 });
+
+// Planning export (Filament context)
+Route::middleware(['auth', \App\Http\Middleware\FilamentWeddingScope::class])
+    ->get('/admin/planejamentos/{plan}/export', PlanExportController::class)
+    ->name('planning.export');
 
 require __DIR__.'/auth.php';
 

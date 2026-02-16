@@ -26,6 +26,16 @@ class SystemConfigSeeder extends Seeder
                 'description' => 'Maximum storage per wedding in bytes (500MB)',
             ],
             [
+                'key' => 'planning.max_file_size',
+                'value' => json_encode(26214400), // 25MB in bytes
+                'description' => 'Maximum file size for planning attachments in bytes (25MB)',
+            ],
+            [
+                'key' => 'planning.max_storage_per_wedding',
+                'value' => json_encode(524288000), // 500MB in bytes
+                'description' => 'Maximum storage per wedding for planning attachments in bytes (500MB)',
+            ],
+            [
                 'key' => 'site.performance_threshold',
                 'value' => json_encode(5242880), // 5MB in bytes
                 'description' => 'Performance alert threshold in bytes (5MB)',

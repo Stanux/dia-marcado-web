@@ -1,0 +1,39 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('wedding_vendors', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->uuid('wedding_id');
+            $table->uuid('vendor_id');
+            $table->string('name');
+            $table->string('document');
+            $table->string('phone')->nullable();
+            $table->string('email')->nullable();
+            $table->string('website')->nullable();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('wedding_id')->references('id')->on('weddings')->onDelete('cascade');
+            $table->foreign('vendor_id')->references('id')->on('vendors');
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+
+            $table->unique(['wedding_id', 'vendor_id']);
+            $table->index('document');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('wedding_vendors');
+    }
+};
