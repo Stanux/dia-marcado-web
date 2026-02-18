@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Properties;
 
+use App\Models\PartnerInvite;
 use App\Models\User;
 use App\Models\Wedding;
 use App\Services\Site\PlaceholderService;
@@ -150,6 +151,32 @@ class PlaceholderPropertyTest extends TestCase
             $this->assertEquals($parts[0], $parts[1], "Iteration $i: Single person should appear as both noivo and noiva");
             $this->assertEquals($parts[0], $parts[2], "Iteration $i: Single person should appear in noivos");
         }
+    }
+
+    /**
+     * @test
+     */
+    public function pending_partner_invite_name_is_used_for_noiva_placeholder_when_partner_not_linked(): void
+    {
+        $wedding = Wedding::factory()->create();
+
+        $user = User::factory()->create(['name' => 'Vinicius Augusto']);
+        $wedding->users()->attach($user->id, ['role' => 'couple', 'permissions' => []]);
+
+        PartnerInvite::create([
+            'wedding_id' => $wedding->id,
+            'inviter_id' => $user->id,
+            'email' => 'noiva@example.com',
+            'name' => 'Lilian Souza',
+            'status' => 'pending',
+            'token' => 'token-teste-placeholder-noiva',
+            'expires_at' => now()->addDays(5),
+        ]);
+
+        $content = '{noivo} | {noiva} | {primeiro_nome_noivo} | {primeiro_nome_noiva}';
+        $result = $this->service->replacePlaceholders($content, $wedding);
+
+        $this->assertEquals('Vinicius Augusto | Lilian Souza | Vinicius | Lilian', $result);
     }
 
     /**

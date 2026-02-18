@@ -6,6 +6,9 @@ use App\Contracts\Site\AccessTokenServiceInterface;
 use App\Contracts\Site\PlaceholderServiceInterface;
 use App\Http\Requests\Site\AuthenticateSiteRequest;
 use App\Models\SiteLayout;
+use App\Services\Guests\RsvpSubmissionException;
+use App\Services\Guests\InviteValidationService;
+use App\Services\Site\SiteContentSchema;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Session;
@@ -27,6 +30,7 @@ class PublicSiteController extends Controller
     public function __construct(
         private readonly AccessTokenServiceInterface $accessTokenService,
         private readonly PlaceholderServiceInterface $placeholderService,
+        private readonly InviteValidationService $inviteValidationService,
     ) {}
 
     /**
@@ -38,7 +42,7 @@ class PublicSiteController extends Controller
      * @param string $slug The site slug
      * @return Response|\Illuminate\View\View
      */
-    public function show(string $slug)
+    public function show(Request $request, string $slug)
     {
         // Find site by slug (without wedding scope since this is public)
         $site = SiteLayout::withoutGlobalScopes()
@@ -50,13 +54,16 @@ class PublicSiteController extends Controller
             abort(404);
         }
 
-        // Site not published
-        if (!$site->is_published || $site->published_content === null) {
+        $publishedSite = $site->is_published && $site->published_content !== null;
+        $inviteToken = $request->query('token');
+        $inviteTokenState = $this->resolveInviteTokenState($inviteToken, (string) $site->wedding_id);
+
+        if (!$publishedSite && !in_array($inviteTokenState, ['valid', 'limit_reached'], true)) {
             abort(404);
         }
 
         // Check if site requires authentication
-        if ($site->access_token !== null) {
+        if ($publishedSite && $site->access_token !== null) {
             // Check if user is already authenticated for this site
             if (!$this->isAuthenticated($site)) {
                 return view('public.site-password', [
@@ -75,9 +82,13 @@ class PublicSiteController extends Controller
             'guestEvents' => fn ($query) => $query->withoutGlobalScopes(),
         ]);
 
+        $rawContent = $publishedSite
+            ? (array) $site->published_content
+            : $this->buildRsvpOnlyContent($site);
+
         // Apply placeholders to published content
         $content = $this->placeholderService->replaceInArray(
-            $site->published_content,
+            $rawContent,
             $wedding
         );
 
@@ -88,9 +99,65 @@ class PublicSiteController extends Controller
             'site' => $siteData,
             'content' => $content,
             'wedding' => $wedding,
+            'inviteTokenState' => $inviteTokenState,
         ])->withViewData([
             'pageTitle' => $content['meta']['title'] ?? null,
         ]);
+    }
+
+    private function resolveInviteTokenState(?string $token, string $weddingId): string
+    {
+        if (!$token) {
+            return 'missing';
+        }
+
+        try {
+            $this->inviteValidationService->resolveForWedding($token, $weddingId);
+
+            return 'valid';
+        } catch (RsvpSubmissionException $exception) {
+            if ($exception->statusCode() === 409) {
+                return 'limit_reached';
+            }
+
+            return 'invalid';
+        } catch (\Throwable) {
+            return 'invalid';
+        }
+    }
+
+    private function buildRsvpOnlyContent(SiteLayout $site): array
+    {
+        $content = SiteContentSchema::getDefaultContent();
+
+        foreach ($content['sections'] as $sectionKey => $section) {
+            $content['sections'][$sectionKey]['enabled'] = false;
+        }
+
+        $sourceContent = is_array($site->draft_content)
+            ? $site->draft_content
+            : (is_array($site->published_content) ? $site->published_content : []);
+
+        $sourceRsvp = $sourceContent['sections']['rsvp'] ?? [];
+        if (!is_array($sourceRsvp)) {
+            $sourceRsvp = [];
+        }
+
+        $content['sections']['rsvp'] = array_replace_recursive(
+            $content['sections']['rsvp'],
+            $sourceRsvp
+        );
+        $content['sections']['rsvp']['enabled'] = true;
+
+        if (isset($sourceContent['theme']) && is_array($sourceContent['theme'])) {
+            $content['theme'] = array_replace($content['theme'], $sourceContent['theme']);
+        }
+
+        $weddingTitle = $site->wedding?->title ?: 'Casamento';
+        $content['meta']['title'] = 'RSVP - ' . $weddingTitle;
+        $content['meta']['description'] = 'Confirmação de presença do convite.';
+
+        return $content;
     }
 
     /**

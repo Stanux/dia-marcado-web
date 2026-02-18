@@ -4,6 +4,7 @@ namespace Tests\Feature\Properties;
 
 use App\Contracts\OnboardingServiceInterface;
 use App\Contracts\PartnerInviteServiceInterface;
+use App\Models\GuestEvent;
 use App\Contracts\Site\SiteBuilderServiceInterface;
 use App\Models\SiteLayout;
 use App\Models\User;
@@ -62,6 +63,7 @@ class OnboardingServicePropertyTest extends TestCase
 
             $data = [
                 'wedding_date' => now()->addMonths(rand(1, 24))->format('Y-m-d'),
+                'wedding_time' => sprintf('%02d:%02d', rand(8, 22), rand(0, 1) * 30),
                 'plan' => rand(0, 1) ? 'basic' : 'premium',
                 'venue_name' => "Venue {$i}",
                 'venue_city' => "City {$i}",
@@ -96,6 +98,31 @@ class OnboardingServicePropertyTest extends TestCase
                 "SiteLayout should be created for wedding (iteration $i)"
             );
 
+            // Verify default RSVP event was created with onboarding datetime
+            $event = GuestEvent::withoutGlobalScopes()
+                ->where('wedding_id', $wedding->id)
+                ->where('slug', 'casamento')
+                ->first();
+            $this->assertNotNull(
+                $event,
+                "Default RSVP event should be created for wedding (iteration $i)"
+            );
+            $this->assertSame(
+                'Casamento',
+                $event->name,
+                "Default RSVP event name should be Casamento (iteration $i)"
+            );
+            $this->assertSame(
+                $data['wedding_date'],
+                $event->event_at?->format('Y-m-d'),
+                "Default RSVP event date should match onboarding date (iteration $i)"
+            );
+            $this->assertSame(
+                $data['wedding_time'],
+                $event->event_at?->format('H:i'),
+                "Default RSVP event time should match onboarding time (iteration $i)"
+            );
+
             // Verify onboarding is marked complete
             $this->assertTrue(
                 $user->hasCompletedOnboarding(),
@@ -119,6 +146,7 @@ class OnboardingServicePropertyTest extends TestCase
 
             $data = [
                 'wedding_date' => now()->addMonths(rand(1, 24))->format('Y-m-d'),
+                'wedding_time' => '18:00',
                 'plan' => 'basic',
                 'partner_name' => "Partner {$i}",
                 'partner_email' => "partner-{$i}-" . uniqid() . "@example.com",
@@ -153,6 +181,7 @@ class OnboardingServicePropertyTest extends TestCase
 
             $data = [
                 'wedding_date' => now()->addMonths(rand(1, 24))->format('Y-m-d'),
+                'wedding_time' => '18:00',
                 'plan' => 'basic',
                 'partner_name' => "Partner {$i}",
                 'partner_email' => "partner-{$i}-" . uniqid() . "@example.com",
@@ -190,6 +219,7 @@ class OnboardingServicePropertyTest extends TestCase
 
             $data = [
                 'wedding_date' => now()->addMonths(rand(1, 24))->format('Y-m-d'),
+                'wedding_time' => '18:00',
                 'plan' => 'basic',
                 // No partner data
             ];
@@ -221,6 +251,7 @@ class OnboardingServicePropertyTest extends TestCase
             // Test with partner
             $dataWithPartner = [
                 'wedding_date' => now()->addMonths(6)->format('Y-m-d'),
+                'wedding_time' => '18:00',
                 'plan' => 'basic',
                 'partner_name' => "Partner Name {$i}",
                 'partner_email' => "partner-{$i}-" . uniqid() . "@example.com",
@@ -244,6 +275,7 @@ class OnboardingServicePropertyTest extends TestCase
             ]);
             $dataWithoutPartner = [
                 'wedding_date' => now()->addMonths(6)->format('Y-m-d'),
+                'wedding_time' => '18:00',
                 'plan' => 'basic',
             ];
 

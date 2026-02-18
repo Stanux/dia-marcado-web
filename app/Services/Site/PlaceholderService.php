@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Site;
 
 use App\Contracts\Site\PlaceholderServiceInterface;
+use App\Models\PartnerInvite;
 use App\Models\Wedding;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -79,6 +80,8 @@ class PlaceholderService implements PlaceholderServiceInterface
             '{primeiro_nome_noivo}' => 'Primeiro nome do primeiro membro do casal',
             '{primeiro_nome_noiva}' => 'Primeiro nome do segundo membro do casal',
             '{noivos}' => 'Todos os nomes do casal separados por " e "',
+            '{data_extenso}' => 'Data do casamento em formato extenso (ex: "15 de Março de 2025")',
+            '{data_simples}' => 'Data do casamento em formato simples (ex: "15/03/2025")',
             '{data}' => 'Data do casamento formatada (ex: "15 de Março de 2025")',
             '{data_curta}' => 'Data do casamento curta (ex: "15/03/2025")',
             '{local}' => 'Nome do local do evento',
@@ -97,6 +100,16 @@ class PlaceholderService implements PlaceholderServiceInterface
     private function buildReplacements(Wedding $wedding): array
     {
         $coupleNames = $this->getCoupleNames($wedding);
+
+        // If the partner is not linked yet, use the latest valid pending invite name
+        // so placeholders can already render the noiva name after onboarding/settings.
+        if ($coupleNames->count() < 2) {
+            $pendingPartnerName = $this->getPendingPartnerInviteName($wedding);
+
+            if ($pendingPartnerName !== '') {
+                $coupleNames->push($pendingPartnerName);
+            }
+        }
         
         return [
             '{noivo}' => $this->getNoivo($coupleNames),
@@ -104,6 +117,8 @@ class PlaceholderService implements PlaceholderServiceInterface
             '{primeiro_nome_noivo}' => $this->getFirstName($this->getNoivo($coupleNames)),
             '{primeiro_nome_noiva}' => $this->getFirstName($this->getNoiva($coupleNames)),
             '{noivos}' => $this->getNoivos($coupleNames),
+            '{data_extenso}' => $this->formatDateLong($wedding->wedding_date),
+            '{data_simples}' => $this->formatDateShort($wedding->wedding_date),
             '{data}' => $this->formatDateLong($wedding->wedding_date),
             '{data_curta}' => $this->formatDateShort($wedding->wedding_date),
             '{local}' => $wedding->venue ?? '',
@@ -111,6 +126,24 @@ class PlaceholderService implements PlaceholderServiceInterface
             '{estado}' => $wedding->state ?? '',
             '{cidade_estado}' => $this->formatCidadeEstado($wedding->city, $wedding->state),
         ];
+    }
+
+    /**
+     * Get pending partner name from the latest valid invite.
+     */
+    private function getPendingPartnerInviteName(Wedding $wedding): string
+    {
+        $name = PartnerInvite::query()
+            ->where('wedding_id', $wedding->id)
+            ->valid()
+            ->latest('created_at')
+            ->value('name');
+
+        if (!is_string($name)) {
+            return '';
+        }
+
+        return trim($name);
     }
 
     /**

@@ -59,8 +59,9 @@ class GuestInviteNotificationService
 
         try {
             if ($channel === 'email') {
-                Notification::route('mail', $recipient['contact'])
-                    ->notify(new GuestInviteNotification($invite, $link, $recipient['name'] ?? null));
+                // Use sendNow so invite delivery does not depend on queue worker availability.
+                $notifiable = Notification::route('mail', $recipient['contact']);
+                Notification::sendNow($notifiable, new GuestInviteNotification($invite, $link, $recipient['name'] ?? null));
             } elseif ($channel === 'whatsapp') {
                 $this->sendViaWebhook('guests.whatsapp_webhook_url', $recipient['contact'], $messageText, $invite, $link);
             } elseif ($channel === 'sms') {

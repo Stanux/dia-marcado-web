@@ -53,6 +53,15 @@
             </div>
 
             <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <x-filament::button
+                    tag="a"
+                    color="gray"
+                    icon="heroicon-o-arrow-left"
+                    href="{{ \App\Filament\Resources\WeddingPlanResource::getUrl('index') }}"
+                >
+                    Voltar para Planejamentos
+                </x-filament::button>
+
                 <div>
                     <label class="text-sm font-medium text-gray-700">Planejamento</label>
                     @if ($plans->isNotEmpty())

@@ -27,6 +27,70 @@ const props = defineProps({
 
 const page = usePage();
 
+const SECTION_ANCHORS_BY_KEY = {
+    hero: 'hero',
+    saveTheDate: 'save-the-date',
+    giftRegistry: 'gift-registry',
+    rsvp: 'rsvp',
+    photoGallery: 'photo-gallery',
+};
+
+const LEGACY_ANCHOR_ALIASES = {
+    'lista-presentes': 'gift-registry',
+    'confirmar-presenca': 'rsvp',
+    galeria: 'photo-gallery',
+};
+
+const normalizeTarget = (rawTarget) => {
+    if (typeof rawTarget !== 'string') {
+        return '';
+    }
+
+    const target = rawTarget.trim();
+
+    if (!target) {
+        return '';
+    }
+
+    if (!target.startsWith('#')) {
+        return target;
+    }
+
+    const rawAnchorId = target.slice(1);
+    if (!rawAnchorId) {
+        return '';
+    }
+
+    const normalizedAnchorId = LEGACY_ANCHOR_ALIASES[rawAnchorId] || rawAnchorId;
+    return `#${normalizedAnchorId}`;
+};
+
+const resolveTarget = (item = {}) => {
+    const targetFromConfig = normalizeTarget(item.target);
+    if (targetFromConfig) {
+        return targetFromConfig;
+    }
+
+    if (item.sectionKey && SECTION_ANCHORS_BY_KEY[item.sectionKey]) {
+        return `#${SECTION_ANCHORS_BY_KEY[item.sectionKey]}`;
+    }
+
+    return '';
+};
+
+const resolveType = (item = {}, target = '') => {
+    const explicitType = typeof item.type === 'string' ? item.type.trim().toLowerCase() : '';
+    if (explicitType === 'anchor' || explicitType === 'url') {
+        return explicitType;
+    }
+
+    if (target.startsWith('#')) {
+        return 'anchor';
+    }
+
+    return '';
+};
+
 // Computed properties
 const logo = computed(() => props.content.logo || { type: 'image', url: '', alt: '' });
 const navigation = computed(() => {
@@ -34,19 +98,39 @@ const navigation = computed(() => {
     const items = props.content.navigation || [];
     if (!items.length) return [];
     
-    return items.filter(item => {
-        // Always show if showInMenu is false (hidden items)
-        if (!item.showInMenu) return false;
-        
-        // Check if target section is enabled
-        if (item.sectionKey && props.enabledSections) {
-            return props.enabledSections[item.sectionKey] === true;
-        }
-        
-        return true;
-    });
+    return items
+        .filter(item => {
+            // Always show if showInMenu is false (hidden items)
+            if (!item.showInMenu) return false;
+
+            // Check if target section is enabled
+            if (item.sectionKey && props.enabledSections) {
+                return props.enabledSections[item.sectionKey] === true;
+            }
+
+            return true;
+        })
+        .map(item => {
+            const target = resolveTarget(item);
+
+            return {
+                ...item,
+                target,
+                type: resolveType(item, target),
+            };
+        })
+        .filter(item => item.target);
 });
-const actionButton = computed(() => props.content.actionButton || { label: '', target: '', style: 'primary' });
+const actionButton = computed(() => {
+    const button = props.content.actionButton || { label: '', target: '', style: 'primary' };
+    const target = resolveTarget(button);
+
+    return {
+        ...button,
+        target,
+        type: resolveType(button, target),
+    };
+});
 const style = computed(() => props.content.style || {});
 const titleTypography = computed(() => props.content.titleTypography || {});
 const subtitleTypography = computed(() => props.content.subtitleTypography || {});
@@ -66,20 +150,23 @@ const replacePlaceholders = (text) => {
     if (wedding.wedding_date) {
         const date = new Date(wedding.wedding_date);
         
-        // {data} = formato longo: "15 de Março de 2025"
+        // {data_extenso} = formato longo: "15 de Março de 2025"
         const monthNames = [
             'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
             'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
         ];
         const longDate = `${date.getDate()} de ${monthNames[date.getMonth()]} de ${date.getFullYear()}`;
         
-        // {data_curta} = formato curto: "15/03/2025"
+        // {data_simples} = formato curto: "15/03/2025"
         const shortDate = date.toLocaleDateString('pt-BR', { 
             day: '2-digit', 
             month: '2-digit', 
             year: 'numeric' 
         });
         
+        result = result.replace(/{data_extenso}/g, longDate);
+        result = result.replace(/{data_simples}/g, shortDate);
+        // Compatibilidade retroativa
         result = result.replace(/{data}/g, longDate);
         result = result.replace(/{data_curta}/g, shortDate);
     }
@@ -157,15 +244,23 @@ const buttonClasses = computed(() => {
 
 // Navigate to target
 const navigateTo = (target, type) => {
-    if (type === 'anchor' && target.startsWith('#')) {
-        const element = document.querySelector(target);
+    const normalizedTarget = normalizeTarget(target);
+    if (!normalizedTarget) {
+        isMobileMenuOpen.value = false;
+        return;
+    }
+
+    const resolvedType = type || resolveType({}, normalizedTarget);
+
+    if (resolvedType === 'anchor' && normalizedTarget.startsWith('#')) {
+        const element = document.querySelector(normalizedTarget);
         if (element) {
             element.scrollIntoView({ behavior: 'smooth' });
         }
-    } else if (type === 'url') {
-        window.open(target, '_blank');
+    } else if (resolvedType === 'url') {
+        window.open(normalizedTarget, '_blank');
     } else {
-        window.location.href = target;
+        window.location.href = normalizedTarget;
     }
     isMobileMenuOpen.value = false;
 };
@@ -268,7 +363,7 @@ const navigateTo = (target, type) => {
                             : actionButton.style === 'secondary'
                                 ? { borderColor: theme.primaryColor, color: theme.primaryColor }
                                 : { color: theme.primaryColor }"
-                        @click.prevent="navigateTo(actionButton.target, actionButton.type || 'anchor')"
+                        @click.prevent="navigateTo(actionButton.target, actionButton.type)"
                     >
                         <span v-if="actionButton.icon" class="mr-2">{{ actionButton.icon }}</span>
                         {{ actionButton.label }}
@@ -323,7 +418,7 @@ const navigateTo = (target, type) => {
                         :href="actionButton.target || '#'"
                         class="block px-4 py-3 text-center rounded-md font-medium mt-4"
                         :style="{ backgroundColor: theme.primaryColor, color: 'white' }"
-                        @click.prevent="navigateTo(actionButton.target, actionButton.type || 'anchor')"
+                        @click.prevent="navigateTo(actionButton.target, actionButton.type)"
                     >
                         {{ actionButton.label }}
                     </a>

@@ -479,6 +479,8 @@ class MediaController extends Controller
             'y' => 'required|integer|min:0',
             'width' => 'required|integer|min:1',
             'height' => 'required|integer|min:1',
+            'output_width' => 'nullable|integer|min:1',
+            'output_height' => 'nullable|integer|min:1',
         ]);
 
         // Verify it's an image
@@ -539,8 +541,35 @@ class MediaController extends Controller
                 ], 400);
             }
 
+            $sourceWidth = imagesx($image);
+            $sourceHeight = imagesy($image);
+
+            if (
+                ($validated['x'] + $validated['width']) > $sourceWidth ||
+                ($validated['y'] + $validated['height']) > $sourceHeight
+            ) {
+                imagedestroy($image);
+
+                return response()->json([
+                    'error' => 'Invalid Crop Area',
+                    'message' => 'Área de recorte inválida para o tamanho da imagem.',
+                ], 422);
+            }
+
+            $outputWidth = (int) ($validated['output_width'] ?? $validated['width']);
+            $outputHeight = (int) ($validated['output_height'] ?? $validated['height']);
+
+            if ($outputWidth > $validated['width'] || $outputHeight > $validated['height']) {
+                imagedestroy($image);
+
+                return response()->json([
+                    'error' => 'Invalid Output Size',
+                    'message' => 'O redimensionamento de saída deve ser menor ou igual à área de recorte.',
+                ], 422);
+            }
+
             // Create cropped image
-            $croppedImage = imagecreatetruecolor($validated['width'], $validated['height']);
+            $croppedImage = imagecreatetruecolor($outputWidth, $outputHeight);
             
             // Preserve transparency for PNG
             if ($media->mime_type === 'image/png') {
@@ -548,14 +577,16 @@ class MediaController extends Controller
                 imagesavealpha($croppedImage, true);
             }
 
-            // Copy and crop
-            imagecopy(
+            // Copy, crop and optionally downscale output
+            imagecopyresampled(
                 $croppedImage,
                 $image,
                 0,
                 0,
                 $validated['x'],
                 $validated['y'],
+                $outputWidth,
+                $outputHeight,
                 $validated['width'],
                 $validated['height']
             );
@@ -596,25 +627,31 @@ class MediaController extends Controller
             Storage::disk($targetDisk)->put($newPath, $fileContents);
             @unlink($tempPath);
 
+            $croppedDisplayName = $this->generateUniqueCroppedMediaName($media, $outputWidth, $outputHeight);
+
             // Create new media record
             $newMedia = SiteMedia::create([
                 'wedding_id' => $wedding->id,
                 'album_id' => $media->album_id,
                 'site_layout_id' => $media->site_layout_id,
                 'filename' => $newFilename,
-                'original_name' => $media->original_name . ' (cortada)',
+                'original_name' => $croppedDisplayName,
                 'path' => $newPath,
                 'disk' => $targetDisk,
                 'mime_type' => $media->mime_type,
                 'size' => Storage::disk($targetDisk)->size($newPath),
-                'width' => $validated['width'],
-                'height' => $validated['height'],
+                'width' => $outputWidth,
+                'height' => $outputHeight,
                 'alt' => $media->alt,
                 'variants' => [],
                 'status' => 'completed',
                 'metadata' => array_merge($media->metadata ?? [], [
                     'cropped_from' => $media->id,
                     'crop_coordinates' => $validated,
+                    'output_dimensions' => [
+                        'width' => $outputWidth,
+                        'height' => $outputHeight,
+                    ],
                 ]),
             ]);
 
@@ -642,5 +679,62 @@ class MediaController extends Controller
                 'message' => 'Erro ao cortar imagem: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function sanitizeBaseName(string $name): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', $name) ?? '');
+        if ($value === '') {
+            return '';
+        }
+
+        $value = pathinfo($value, PATHINFO_FILENAME) ?: $value;
+        $value = preg_replace('/[\/\\\\:*?"<>|]+/u', '', $value) ?? '';
+        $value = trim($value, ". \t\n\r\0\x0B");
+
+        return $value;
+    }
+
+    private function resolveMediaExtension(SiteMedia $media): string
+    {
+        $fromOriginalName = pathinfo((string) $media->original_name, PATHINFO_EXTENSION);
+        if (is_string($fromOriginalName) && $fromOriginalName !== '') {
+            return mb_strtolower($fromOriginalName);
+        }
+
+        $fromPath = pathinfo((string) $media->path, PATHINFO_EXTENSION);
+        return is_string($fromPath) ? mb_strtolower($fromPath) : '';
+    }
+
+    private function generateUniqueCroppedMediaName(SiteMedia $media, int $width, int $height): string
+    {
+        $sourceBase = $this->sanitizeBaseName(
+            (string) pathinfo((string) $media->original_name, PATHINFO_FILENAME)
+        );
+
+        if ($sourceBase === '') {
+            $sourceBase = 'imagem';
+        }
+
+        $baseWithSize = "{$sourceBase}_{$width}x{$height}";
+        $extension = $this->resolveMediaExtension($media);
+        $index = 1;
+
+        do {
+            $candidateBase = "{$baseWithSize}_{$index}";
+            $candidate = $extension !== '' ? "{$candidateBase}.{$extension}" : $candidateBase;
+
+            $exists = SiteMedia::query()
+                ->where('wedding_id', $media->wedding_id)
+                ->where('album_id', $media->album_id)
+                ->whereRaw('LOWER(original_name) = ?', [mb_strtolower($candidate)])
+                ->exists();
+
+            if (!$exists) {
+                return $candidate;
+            }
+
+            $index++;
+        } while (true);
     }
 }

@@ -2,16 +2,13 @@
 
 namespace App\Filament\Resources\WeddingPlanResource\RelationManagers;
 
-use App\Models\TaskCategory;
-use App\Models\User;
-use Filament\Forms;
-use Filament\Forms\Get;
-use Filament\Forms\Form;
+use App\Filament\Resources\TaskResource;
+use App\Models\Task;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class TasksRelationManager extends RelationManager
 {
@@ -19,147 +16,54 @@ class TasksRelationManager extends RelationManager
 
     protected static ?string $title = 'Tarefas';
 
-    public function form(Form $form): Form
-    {
-        return $form
-            ->schema([
-                Forms\Components\TextInput::make('title')
-                    ->label('Título')
-                    ->required()
-                    ->maxLength(255),
+    protected static string $view = 'filament.resources.wedding-plan-resource.relation-managers.tasks-relation-manager';
 
-                Forms\Components\Textarea::make('description')
-                    ->label('Descrição')
-                    ->rows(3)
-                    ->maxLength(65535),
-
-                Forms\Components\Select::make('task_category_id')
-                    ->label('Categoria')
-                    ->options(TaskCategory::orderBy('sort')->pluck('name', 'id'))
-                    ->searchable(),
-
-                Forms\Components\Select::make('status')
-                    ->label('Status')
-                    ->options([
-                        'pending' => 'Pendente',
-                        'in_progress' => 'Em Andamento',
-                        'completed' => 'Concluída',
-                        'cancelled' => 'Cancelada',
-                    ])
-                    ->default('pending')
-                    ->required(),
-
-                Forms\Components\DatePicker::make('start_date')
-                    ->label('Data de Início')
-                    ->native(false)
-                    ->displayFormat('d/m/Y')
-                    ->required()
-                    ->beforeOrEqual('due_date'),
-
-                Forms\Components\DatePicker::make('due_date')
-                    ->label('Data Limite')
-                    ->native(false)
-                    ->displayFormat('d/m/Y')
-                    ->required()
-                    ->afterOrEqual('start_date'),
-
-                Forms\Components\Select::make('priority')
-                    ->label('Prioridade')
-                    ->options([
-                        'low' => 'Baixa',
-                        'medium' => 'Média',
-                        'high' => 'Alta',
-                    ])
-                    ->default('medium')
-                    ->required(),
-
-                Forms\Components\Select::make('assigned_to')
-                    ->label('Responsável')
-                    ->options(function () {
-                        $weddingId = $this->getOwnerRecord()?->wedding_id;
-
-                        if (!$weddingId) {
-                            return [];
-                        }
-
-                        return User::whereHas('weddings', function (Builder $query) use ($weddingId) {
-                            $query->where('wedding_id', $weddingId)
-                                ->whereIn('wedding_user.role', ['couple', 'organizer']);
-                        })->pluck('name', 'id');
-                    })
-                    ->searchable()
-                    ->nullable(),
-
-                Forms\Components\TextInput::make('estimated_value')
-                    ->label('Valor Estimado')
-                    ->numeric()
-                    ->minValue(0)
-                    ->prefix('R$'),
-
-                Forms\Components\TextInput::make('actual_value')
-                    ->label('Valor Real')
-                    ->numeric()
-                    ->minValue(0)
-                    ->prefix('R$')
-                    ->visible(fn (Get $get) => $get('status') === 'completed')
-                    ->required(fn (Get $get) => $get('status') === 'completed'),
-
-                Forms\Components\DatePicker::make('executed_at')
-                    ->label('Data de Execução')
-                    ->native(false)
-                    ->displayFormat('d/m/Y')
-                    ->visible(fn (Get $get) => $get('status') === 'completed')
-                    ->required(fn (Get $get) => $get('status') === 'completed'),
-            ])
-            ->columns(2);
-    }
+    public bool $isTimelineView = false;
 
     public function table(Table $table): Table
     {
         return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('title')
-                    ->label('Título')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('effective_status')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'overdue' => 'danger',
-                        'pending' => 'warning',
-                        'in_progress' => 'info',
-                        'completed' => 'success',
-                        'cancelled' => 'gray',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'overdue' => 'Atrasada',
-                        'pending' => 'Pendente',
-                        'in_progress' => 'Em Andamento',
-                        'completed' => 'Concluída',
-                        'cancelled' => 'Cancelada',
-                        default => $state,
-                    }),
-                Tables\Columns\TextColumn::make('due_date')
-                    ->label('Data Limite')
-                    ->date('d/m/Y')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('assignedUser.name')
-                    ->label('Responsável')
-                    ->placeholder('Não atribuído'),
-            ])
-            ->headerActions([
-                Tables\Actions\CreateAction::make(),
-            ])
+            ->columns(TaskResource::taskTableColumns(includePlanColumn: false))
+            ->filters(TaskResource::taskTableFilters(
+                resolveWeddingId: fn (): ?string => $this->getOwnerRecord()?->wedding_id,
+            ))
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('edit_full')
+                    ->label('Editar')
+                    ->icon('heroicon-o-pencil-square')
+                    ->url(fn (Model $record): string => TaskResource::getUrl('edit', [
+                        'record' => $record,
+                        'return_to_plan' => $this->getOwnerRecord()?->getKey(),
+                    ]))
+                    ->visible(fn (Model $record): bool => $this->canEdit($record)),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('due_date', 'asc');
+    }
+
+    public function showTimelineView(): void
+    {
+        $this->isTimelineView = true;
+    }
+
+    public function showTableView(): void
+    {
+        $this->isTimelineView = false;
+    }
+
+    public function getTimelineTasks(): Collection
+    {
+        return Task::query()
+            ->where('wedding_plan_id', $this->getOwnerRecord()->getKey())
+            ->with('category')
+            ->orderBy('start_date')
+            ->orderBy('due_date')
+            ->get();
     }
 
     public function canCreate(): bool

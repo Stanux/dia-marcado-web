@@ -12,8 +12,11 @@ class ListTasks extends ListRecords
 
     protected function getHeaderActions(): array
     {
+        $planId = request()->query('plan');
+
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->url(fn (): string => TaskResource::getUrl('create', ['plan' => $planId])),
         ];
     }
 }

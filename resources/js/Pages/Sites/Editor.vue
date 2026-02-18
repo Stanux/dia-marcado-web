@@ -27,6 +27,10 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    logoInitials: {
+        type: Array,
+        default: () => ['', ''],
+    },
 });
 
 const page = usePage();
@@ -450,6 +454,7 @@ onUnmounted(() => {
                         :section-type="activeSection"
                         :content="currentSectionContent"
                         :enabled-sections="enabledSections"
+                        :logo-initials="props.logoInitials"
                         @change="handleSectionUpdate"
                         class="flex-1 min-h-0 overflow-hidden"
                     />

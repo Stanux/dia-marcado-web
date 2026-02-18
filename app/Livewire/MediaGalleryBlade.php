@@ -48,6 +48,10 @@ class MediaGalleryBlade extends Component
     
     // Grid size
     public string $gridSize = 'medium';
+
+    // Rename mode
+    public bool $isRenameMode = false;
+    public array $renameNames = [];
     
     // Upload state
     public $uploadFiles = [];
@@ -151,6 +155,7 @@ class MediaGalleryBlade extends Component
     public function selectAlbum(string $albumId): void
     {
         $this->selectedAlbumId = $albumId;
+        $this->cancelRenameMode();
         $this->clearSelection();
     }
 
@@ -321,6 +326,7 @@ class MediaGalleryBlade extends Component
     public function clearSelection(): void
     {
         $this->selectedMediaIds = [];
+        $this->cancelRenameMode();
     }
 
     public function isMediaSelected(string $mediaId): bool
@@ -377,6 +383,78 @@ class MediaGalleryBlade extends Component
             $this->showMoveModal = true;
             $this->dispatch('open-modal', id: 'move-media-modal');
         }
+    }
+
+    public function openRenameMode(): void
+    {
+        if (count($this->selectedMediaIds) === 0) {
+            return;
+        }
+
+        $this->renameNames = [];
+
+        $mediaItems = SiteMedia::query()
+            ->whereIn('id', $this->selectedMediaIds)
+            ->get(['id', 'original_name']);
+
+        foreach ($mediaItems as $media) {
+            $this->renameNames[$media->id] = pathinfo((string) $media->original_name, PATHINFO_FILENAME);
+        }
+
+        $this->isRenameMode = true;
+    }
+
+    public function cancelRenameMode(): void
+    {
+        $this->isRenameMode = false;
+        $this->renameNames = [];
+    }
+
+    public function saveRenamedMedia(): void
+    {
+        if (!$this->isRenameMode || count($this->selectedMediaIds) === 0) {
+            return;
+        }
+
+        $renamedCount = 0;
+
+        foreach ($this->selectedMediaIds as $mediaId) {
+            $typedName = trim((string) ($this->renameNames[$mediaId] ?? ''));
+            if ($typedName === '') {
+                continue;
+            }
+
+            $media = SiteMedia::query()->find($mediaId);
+            if (!$media) {
+                continue;
+            }
+
+            $baseName = $this->sanitizeBaseName($typedName);
+            if ($baseName === '') {
+                continue;
+            }
+
+            $extension = $this->resolveMediaExtension($media);
+            $finalName = $this->generateUniqueMediaName($media, $baseName, $extension);
+
+            if ($finalName === $media->original_name) {
+                continue;
+            }
+
+            $media->update([
+                'original_name' => $finalName,
+            ]);
+
+            $renamedCount++;
+        }
+
+        $this->cancelRenameMode();
+        $this->clearSelection();
+
+        Notification::make()
+            ->title($renamedCount > 0 ? "{$renamedCount} mídia(s) renomeada(s) com sucesso!" : 'Nenhuma mídia foi renomeada.')
+            ->success()
+            ->send();
     }
 
     public function closeMoveModal(): void
@@ -477,6 +555,54 @@ class MediaGalleryBlade extends Component
     {
         $this->albumName = '';
         $this->albumType = 'uso_site';
+    }
+
+    private function sanitizeBaseName(string $name): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', $name) ?? '');
+        if ($value === '') {
+            return '';
+        }
+
+        $value = pathinfo($value, PATHINFO_FILENAME) ?: $value;
+        $value = preg_replace('/[\/\\\\:*?"<>|]+/u', '', $value) ?? '';
+        $value = trim($value, ". \t\n\r\0\x0B");
+
+        return $value;
+    }
+
+    private function resolveMediaExtension(SiteMedia $media): string
+    {
+        $fromOriginalName = pathinfo((string) $media->original_name, PATHINFO_EXTENSION);
+        if (is_string($fromOriginalName) && $fromOriginalName !== '') {
+            return mb_strtolower($fromOriginalName);
+        }
+
+        $fromPath = pathinfo((string) $media->path, PATHINFO_EXTENSION);
+        return is_string($fromPath) ? mb_strtolower($fromPath) : '';
+    }
+
+    private function generateUniqueMediaName(SiteMedia $media, string $baseName, string $extension): string
+    {
+        $index = 0;
+
+        do {
+            $candidateBase = $index === 0 ? $baseName : "{$baseName}_{$index}";
+            $candidate = $extension !== '' ? "{$candidateBase}.{$extension}" : $candidateBase;
+
+            $exists = SiteMedia::query()
+                ->where('wedding_id', $media->wedding_id)
+                ->where('album_id', $media->album_id)
+                ->where('id', '!=', $media->id)
+                ->whereRaw('LOWER(original_name) = ?', [mb_strtolower($candidate)])
+                ->exists();
+
+            if (!$exists) {
+                return $candidate;
+            }
+
+            $index++;
+        } while (true);
     }
 
     public function render(): View

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Pages\PlanningDashboard;
 use App\Filament\Resources\WeddingPlanResource\Pages;
 use App\Filament\Resources\WeddingPlanResource\RelationManagers\TasksRelationManager;
 use App\Models\WeddingPlan;
@@ -84,6 +85,12 @@ class WeddingPlanResource extends WeddingScopedResource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
+                Tables\Actions\Action::make('dashboard')
+                    ->label('Dashboard')
+                    ->icon('heroicon-o-chart-bar-square')
+                    ->color('gray')
+                    ->url(fn (WeddingPlan $record): string => PlanningDashboard::getUrl(['plan' => $record->getKey()]))
+                    ->visible(fn (): bool => PlanningDashboard::canAccess()),
                 Tables\Actions\EditAction::make()
                     ->disabled(fn (WeddingPlan $record): bool => $record->isArchived() && !auth()->user()?->isAdmin()),
                 Tables\Actions\Action::make('archive')

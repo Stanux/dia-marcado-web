@@ -4,7 +4,7 @@
 
         <div class="mt-6">
             <x-filament::button type="submit" size="lg">
-                Salvar Plano
+                Salvar Assinatura
             </x-filament::button>
         </div>
     </x-filament-panels::form>

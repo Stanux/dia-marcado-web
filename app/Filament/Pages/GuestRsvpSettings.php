@@ -2,6 +2,12 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\GuestEventResource;
+use App\Filament\Resources\GuestHouseholdResource;
+use App\Filament\Resources\GuestResource;
+use App\Models\Guest;
+use App\Models\GuestEvent;
+use App\Models\GuestHousehold;
 use App\Models\Wedding;
 use App\Services\PermissionService;
 use Filament\Forms\Components\Radio;
@@ -31,6 +37,7 @@ class GuestRsvpSettings extends Page implements HasForms
     protected static ?int $navigationSort = 5;
 
     public ?array $data = [];
+    private ?array $overviewMetrics = null;
 
     public function mount(): void
     {
@@ -121,6 +128,72 @@ class GuestRsvpSettings extends Page implements HasForms
 
             report($e);
         }
+    }
+
+    public function getOverviewMetrics(): array
+    {
+        if ($this->overviewMetrics !== null) {
+            return $this->overviewMetrics;
+        }
+
+        $wedding = $this->getWedding();
+
+        if (!$wedding) {
+            return $this->overviewMetrics = [
+                'households' => 0,
+                'guests' => 0,
+                'events_total' => 0,
+                'events_active' => 0,
+                'events_with_questions' => 0,
+                'questions_total' => 0,
+            ];
+        }
+
+        $events = GuestEvent::withoutGlobalScopes()
+            ->where('wedding_id', $wedding->id)
+            ->get(['is_active', 'questions']);
+
+        return $this->overviewMetrics = [
+            'households' => GuestHousehold::withoutGlobalScopes()
+                ->where('wedding_id', $wedding->id)
+                ->count(),
+            'guests' => Guest::withoutGlobalScopes()
+                ->where('wedding_id', $wedding->id)
+                ->count(),
+            'events_total' => $events->count(),
+            'events_active' => $events->where('is_active', true)->count(),
+            'events_with_questions' => $events
+                ->filter(fn (GuestEvent $event): bool => is_array($event->questions) && count($event->questions) > 0)
+                ->count(),
+            'questions_total' => $events
+                ->sum(fn (GuestEvent $event): int => is_array($event->questions) ? count($event->questions) : 0),
+        ];
+    }
+
+    public function getQuickLinks(): array
+    {
+        return [
+            [
+                'label' => 'Eventos RSVP',
+                'description' => 'Crie eventos e configure perguntas personalizadas.',
+                'url' => GuestEventResource::getUrl('index'),
+            ],
+            [
+                'label' => 'Núcleos',
+                'description' => 'Organize famílias e grupos de convidados.',
+                'url' => GuestHouseholdResource::getUrl('index'),
+            ],
+            [
+                'label' => 'Convidados',
+                'description' => 'Cadastre convidados e acompanhe status.',
+                'url' => GuestResource::getUrl('index'),
+            ],
+            [
+                'label' => 'Dashboard RSVP',
+                'description' => 'Monitore respostas, alertas e incidentes.',
+                'url' => GuestOperationsDashboard::getUrl(),
+            ],
+        ];
     }
 
     public static function canAccess(): bool

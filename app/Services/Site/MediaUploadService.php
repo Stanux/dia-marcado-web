@@ -92,7 +92,8 @@ class MediaUploadService implements MediaUploadServiceInterface
         $directory = 'sites/' . $site->wedding_id . '/media';
         $path = $directory . '/' . $filename;
 
-        $disk = config('filesystems.default', 'local');
+        // Site media must be publicly accessible in the editor/public site.
+        $disk = 'public';
 
         // Store the file on configured disk
         Storage::disk($disk)->putFileAs($directory, $file, $filename);
@@ -346,7 +347,7 @@ class MediaUploadService implements MediaUploadServiceInterface
         $directory = $pathInfo['dirname'];
         $filename = $pathInfo['filename'];
         $extension = strtolower($pathInfo['extension'] ?? '');
-        $disk = config('filesystems.default', 'local');
+        $disk = $this->resolveDiskByAbsolutePath($path);
         $diskRoot = rtrim(Storage::disk($disk)->path(''), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
         // Get image info
@@ -627,6 +628,23 @@ class MediaUploadService implements MediaUploadServiceInterface
         }
         
         return $result;
+    }
+
+    /**
+     * Resolve which filesystem disk owns the absolute path.
+     */
+    private function resolveDiskByAbsolutePath(string $absolutePath): string
+    {
+        $normalizedPath = str_replace('\\', '/', $absolutePath);
+
+        foreach (['public', 'local'] as $disk) {
+            $root = str_replace('\\', '/', rtrim(Storage::disk($disk)->path(''), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR);
+            if (str_starts_with($normalizedPath, $root)) {
+                return $disk;
+            }
+        }
+
+        return 'public';
     }
 
     /**

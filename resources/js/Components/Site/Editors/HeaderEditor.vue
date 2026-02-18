@@ -21,6 +21,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    logoInitials: {
+        type: Array,
+        default: () => ['', ''],
+    },
 });
 
 /**
@@ -55,6 +59,43 @@ const emit = defineEmits(['change']);
 
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
+
+const sanitizeInitial = (value) => {
+    if (!value || typeof value !== 'string') return '';
+    return value.trim().charAt(0).toUpperCase();
+};
+
+const getDefaultLogoInitials = () => {
+    const [first = '', second = ''] = props.logoInitials || [];
+    return [sanitizeInitial(first), sanitizeInitial(second)];
+};
+
+const applyDefaultLogoInitialsIfEmpty = () => {
+    if (!localContent.value.logo?.text) {
+        return;
+    }
+
+    if (!Array.isArray(localContent.value.logo.text.initials)) {
+        localContent.value.logo.text.initials = ['', ''];
+    }
+
+    const currentInitial1 = sanitizeInitial(localContent.value.logo.text.initials[0] || '');
+    const currentInitial2 = sanitizeInitial(localContent.value.logo.text.initials[1] || '');
+
+    // Never override initials that were already manually filled.
+    if (currentInitial1 || currentInitial2) {
+        localContent.value.logo.text.initials = [currentInitial1, currentInitial2];
+        return;
+    }
+
+    const [defaultInitial1, defaultInitial2] = getDefaultLogoInitials();
+
+    if (!defaultInitial1 && !defaultInitial2) {
+        return;
+    }
+
+    localContent.value.logo.text.initials = [defaultInitial1, defaultInitial2];
+};
 
 // Initialize typography for existing logo text if missing
 if (localContent.value.logo?.type === 'text' && localContent.value.logo.text && !localContent.value.logo.text.typography) {
@@ -140,23 +181,36 @@ const updateStyle = (field, value) => {
 /**
  * Initialize navigation from sections if not exists
  */
+const buildNavigationItem = (section) => ({
+    sectionKey: section.key,
+    label: section.label,
+    target: `#${SECTION_IDS[section.key]}`,
+    type: 'anchor',
+    showInMenu: false,
+});
+
 const initializeNavigation = () => {
     if (!localContent.value.navigation || !Array.isArray(localContent.value.navigation)) {
-        localContent.value.navigation = navigableSections.value.map(section => ({
-            sectionKey: section.key,
-            label: section.label,
-            showInMenu: false,
-        }));
+        localContent.value.navigation = navigableSections.value.map(section => buildNavigationItem(section));
     } else {
+        // Normalize existing items that were created before target/type fields existed
+        localContent.value.navigation = localContent.value.navigation.map(item => {
+            if (!item?.sectionKey) {
+                return item;
+            }
+
+            return {
+                ...item,
+                target: item.target || `#${SECTION_IDS[item.sectionKey] || ''}`,
+                type: item.type || 'anchor',
+            };
+        });
+
         // Ensure all sections are present
         navigableSections.value.forEach(section => {
             const exists = localContent.value.navigation.find(nav => nav.sectionKey === section.key);
             if (!exists) {
-                localContent.value.navigation.push({
-                    sectionKey: section.key,
-                    label: section.label,
-                    showInMenu: false,
-                });
+                localContent.value.navigation.push(buildNavigationItem(section));
             }
         });
     }
@@ -183,6 +237,8 @@ const getNavigationItem = (sectionKey) => {
     return localContent.value.navigation?.find(nav => nav.sectionKey === sectionKey) || {
         sectionKey: sectionKey,
         label: SECTION_LABELS[sectionKey] || '',
+        target: `#${SECTION_IDS[sectionKey] || ''}`,
+        type: 'anchor',
         showInMenu: false,
     };
 };
@@ -249,6 +305,8 @@ const updateLogoType = (type) => {
                 fontUnderline: false,
             };
         }
+
+        applyDefaultLogoInitialsIfEmpty();
     } else if (type === 'image') {
         // Manter url e alt existentes, apenas garantir que existam
         if (!localContent.value.logo.url) {
@@ -287,7 +345,7 @@ const updateLogoText = (field, value) => {
     
     if (field === 'initial1' || field === 'initial2') {
         const index = field === 'initial1' ? 0 : 1;
-        localContent.value.logo.text.initials[index] = value;
+        localContent.value.logo.text.initials[index] = sanitizeInitial(value);
     } else {
         localContent.value.logo.text[field] = value;
     }
@@ -595,13 +653,19 @@ const style = computed(() => localContent.value.style || {});
                             + {primeiro_nome_noiva}
                         </button>
                         <button
-                            @click="insertTag('{data}')"
+                            @click="insertTag('{data_extenso}')"
                             class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
                         >
-                            + {data}
+                            + {data_extenso}
+                        </button>
+                        <button
+                            @click="insertTag('{data_simples}')"
+                            class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                        >
+                            + {data_simples}
                         </button>
                     </div>
-                    <p class="text-xs text-gray-500">Use {noivo}, {noiva}, {primeiro_nome_noivo}, {primeiro_nome_noiva}, {data} para placeholders</p>
+                    <p class="text-xs text-gray-500">Use {noivo}, {noiva}, {primeiro_nome_noivo}, {primeiro_nome_noiva}, {data_extenso}, {data_simples} para placeholders</p>
                 </div>
             </div>
 

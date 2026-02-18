@@ -31,6 +31,7 @@ class OnboardingSessionPropertyTest extends TestCase
     {
         $testData = [
             'wedding_date' => '2026-06-15',
+            'wedding_time' => '18:30',
             'partner_name' => 'Maria Silva',
             'partner_email' => 'maria@example.com',
             'venue_name' => 'Espaço Jardim',
@@ -49,6 +50,7 @@ class OnboardingSessionPropertyTest extends TestCase
         $savedData = Onboarding::getFromSession();
         
         $this->assertEquals($testData['wedding_date'], $savedData['wedding_date']);
+        $this->assertEquals($testData['wedding_time'], $savedData['wedding_time']);
         $this->assertEquals($testData['partner_name'], $savedData['partner_name']);
         $this->assertEquals($testData['partner_email'], $savedData['partner_email']);
         $this->assertEquals($testData['venue_name'], $savedData['venue_name']);
@@ -66,6 +68,7 @@ class OnboardingSessionPropertyTest extends TestCase
         // Simular preenchimento apenas do step 1
         $step1Data = [
             'wedding_date' => '2026-12-25',
+            'wedding_time' => '17:00',
             'partner_name' => '',
             'partner_email' => '',
         ];
@@ -84,6 +87,7 @@ class OnboardingSessionPropertyTest extends TestCase
         $savedData = Onboarding::getFromSession();
         
         $this->assertEquals('2026-12-25', $savedData['wedding_date']);
+        $this->assertEquals('17:00', $savedData['wedding_time']);
         $this->assertEquals('Fazenda Bela Vista', $savedData['venue_name']);
         $this->assertEquals('Campinas', $savedData['venue_city']);
     }

@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Filament\Resources\TaskResource;
+use App\Filament\Resources\WeddingPlanResource;
 use App\Models\Task;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -33,14 +33,14 @@ class TaskDeadlineNotification extends Notification implements ShouldQueue
         };
 
         $dueDate = $this->task->due_date?->format('d/m/Y');
-        $taskUrl = TaskResource::getUrl('edit', ['record' => $this->task]);
+        $taskUrl = WeddingPlanResource::getUrl('edit', ['record' => $this->task->wedding_plan_id]);
 
         return (new MailMessage)
             ->subject($subject)
             ->greeting('Olá!')
             ->line('Tarefa: ' . $this->task->title)
             ->line('Data limite: ' . ($dueDate ?? '—'))
-            ->action('Ver tarefa', $taskUrl);
+            ->action('Abrir planejamento', $taskUrl);
     }
 
     public function toArray(object $notifiable): array

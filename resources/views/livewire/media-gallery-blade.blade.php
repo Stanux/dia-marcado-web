@@ -187,22 +187,49 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <x-filament::button
-                                    wire:click="openMoveModal"
-                                    color="gray"
-                                    icon="heroicon-m-folder-arrow-down"
-                                    class="!bg-gray-100 dark:!bg-white/10 !border-none !text-gray-900 dark:!text-white active:scale-95 transition-transform"
-                                >
-                                    Mover
-                                </x-filament::button>
-                                <x-filament::button
-                                    wire:click="openDeleteMediaModal"
-                                    color="danger"
-                                    icon="heroicon-m-trash"
-                                    class="shadow-xl active:scale-95 transition-transform"
-                                >
-                                    Excluir
-                                </x-filament::button>
+                                @if($isRenameMode)
+                                    <x-filament::button
+                                        wire:click="saveRenamedMedia"
+                                        color="success"
+                                        icon="heroicon-m-check"
+                                        class="shadow-xl active:scale-95 transition-transform"
+                                    >
+                                        Salvar
+                                    </x-filament::button>
+                                    <x-filament::button
+                                        wire:click="cancelRenameMode"
+                                        color="gray"
+                                        icon="heroicon-m-x-mark"
+                                        class="!bg-gray-100 dark:!bg-white/10 !border-none !text-gray-900 dark:!text-white active:scale-95 transition-transform"
+                                    >
+                                        Cancelar
+                                    </x-filament::button>
+                                @else
+                                    <x-filament::button
+                                        wire:click="openRenameMode"
+                                        color="primary"
+                                        icon="heroicon-m-pencil-square"
+                                        class="shadow-xl active:scale-95 transition-transform"
+                                    >
+                                        Editar
+                                    </x-filament::button>
+                                    <x-filament::button
+                                        wire:click="openMoveModal"
+                                        color="gray"
+                                        icon="heroicon-m-folder-arrow-down"
+                                        class="!bg-gray-100 dark:!bg-white/10 !border-none !text-gray-900 dark:!text-white active:scale-95 transition-transform"
+                                    >
+                                        Mover
+                                    </x-filament::button>
+                                    <x-filament::button
+                                        wire:click="openDeleteMediaModal"
+                                        color="danger"
+                                        icon="heroicon-m-trash"
+                                        class="shadow-xl active:scale-95 transition-transform"
+                                    >
+                                        Excluir
+                                    </x-filament::button>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -211,31 +238,43 @@
                     @if(count($this->selectedAlbum['media']) > 0)
                         <div class="grid gap-4 {{ $gridSize === 'small' ? 'grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10' : ($gridSize === 'medium' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4')}}">
                             @foreach($this->selectedAlbum['media'] as $media)
-                                <div
-                                    wire:key="{{ $media['id'] }}"
-                                    class="relative group rounded-3xl overflow-hidden bg-gray-100 dark:bg-white/5 cursor-pointer border-4 transition-all duration-300 {{ in_array($media['id'], $selectedMediaIds) ? 'border-primary-500 scale-95 shadow-2xl' : 'border-transparent hover:border-black/5 dark:hover:border-white/10' }}"
-                                    style="aspect-ratio: {{ $gridSize === 'large' ? '3/4' : '1/1' }};"
-                                    wire:click="toggleMediaSelection('{{ $media['id'] }}')"
-                                >
-                                    @if($media['type'] === 'image')
-                                        <img src="{{ $media['thumbnail_url'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
-                                    @else
-                                        <div class="w-full h-full flex items-center justify-center bg-gray-200">
-                                            <x-filament::icon icon="heroicon-o-play" class="w-12 h-12 text-gray-400" />
+                                <div wire:key="{{ $media['id'] }}" class="space-y-2">
+                                    <div
+                                        class="relative group rounded-3xl overflow-hidden bg-gray-100 dark:bg-white/5 cursor-pointer border-4 transition-all duration-300 {{ in_array($media['id'], $selectedMediaIds) ? 'border-primary-500 scale-95 shadow-2xl' : 'border-transparent hover:border-black/5 dark:hover:border-white/10' }}"
+                                        style="aspect-ratio: {{ $gridSize === 'large' ? '3/4' : '1/1' }};"
+                                        wire:click="toggleMediaSelection('{{ $media['id'] }}')"
+                                    >
+                                        @if($media['type'] === 'image')
+                                            <img src="{{ $media['thumbnail_url'] }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                                        @else
+                                            <div class="w-full h-full flex items-center justify-center bg-gray-200">
+                                                <x-filament::icon icon="heroicon-o-play" class="w-12 h-12 text-gray-400" />
+                                            </div>
+                                        @endif
+
+                                        <div class="absolute inset-0 bg-black/5 hover:bg-black/0 transition-colors"></div>
+                                        
+                                        <div class="absolute z-10" style="top: 1rem; right: 1rem; left: auto;">
+                                            <div class="w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow-lg {{ in_array($media['id'], $selectedMediaIds) ? 'bg-primary-500 text-white' : 'bg-black/20 text-transparent' }}">
+                                                <x-filament::icon icon="heroicon-m-check" class="w-4 h-4" />
+                                            </div>
+                                        </div>
+
+                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 translate-y-full group-hover:translate-y-0 transition-transform">
+                                            <p class="text-[10px] text-white font-black truncate">{{ $media['filename'] }}</p>
+                                        </div>
+                                    </div>
+
+                                    @if($isRenameMode && in_array($media['id'], $selectedMediaIds))
+                                        <div class="px-1" wire:click.stop>
+                                            <x-filament::input
+                                                type="text"
+                                                wire:model.defer="renameNames.{{ $media['id'] }}"
+                                                placeholder="Novo nome"
+                                                class="w-full !text-sm"
+                                            />
                                         </div>
                                     @endif
-
-                                    <div class="absolute inset-0 bg-black/5 hover:bg-black/0 transition-colors"></div>
-                                    
-                                    <div class="absolute z-10" style="top: 1rem; right: 1rem; left: auto;">
-                                        <div class="w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow-lg {{ in_array($media['id'], $selectedMediaIds) ? 'bg-primary-500 text-white' : 'bg-black/20 text-transparent' }}">
-                                            <x-filament::icon icon="heroicon-m-check" class="w-4 h-4" />
-                                        </div>
-                                    </div>
-
-                                    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 translate-y-full group-hover:translate-y-0 transition-transform">
-                                        <p class="text-[10px] text-white font-black truncate">{{ $media['filename'] }}</p>
-                                    </div>
                                 </div>
                             @endforeach
                         </div>

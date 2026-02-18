@@ -47,4 +47,9 @@ class GuestHousehold extends WeddingScopedModel
     {
         return $this->hasMany(Guest::class, 'household_id');
     }
+
+    public function invites(): HasMany
+    {
+        return $this->hasMany(GuestInvite::class, 'household_id');
+    }
 }

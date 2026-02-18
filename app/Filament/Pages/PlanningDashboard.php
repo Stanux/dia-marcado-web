@@ -11,6 +11,8 @@ use App\Services\PermissionService;
 
 class PlanningDashboard extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar-square';
 
     protected static ?string $navigationLabel = 'Dashboard Planejamento';
@@ -29,7 +31,16 @@ class PlanningDashboard extends Page
 
     public function mount(): void
     {
-        $this->planId = $this->planId ?: $this->getPlans()->first()?->id;
+        $plans = $this->getPlans();
+        $requestedPlanId = request()->query('plan');
+
+        if ($requestedPlanId && $plans->contains('id', $requestedPlanId)) {
+            $this->planId = $requestedPlanId;
+
+            return;
+        }
+
+        $this->planId = $this->planId ?: $plans->first()?->id;
     }
 
     public function getPlans(): Collection

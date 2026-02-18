@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Site;
 
+use App\Models\Guest;
+use App\Models\GuestHousehold;
+use App\Models\GuestInvite;
 use App\Models\SiteLayout;
 use App\Models\Wedding;
 use App\Services\Site\AccessTokenService;
@@ -79,6 +82,132 @@ class PublicAccessTest extends TestCase
 
         // Assert
         $response->assertStatus(404);
+    }
+
+    /**
+     * @test
+     */
+    public function unpublished_site_with_valid_invite_token_is_accessible_in_rsvp_mode(): void
+    {
+        // Arrange
+        $wedding = Wedding::factory()->create(['title' => 'Casamento Convite']);
+
+        $draftContent = SiteContentSchema::getDefaultContent();
+        $draftContent['sections']['rsvp']['enabled'] = true;
+        $draftContent['sections']['rsvp']['title'] = 'RSVP Convite';
+
+        $site = SiteLayout::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'slug' => 'invite-rsvp-site',
+            'draft_content' => $draftContent,
+            'published_content' => null,
+            'is_published' => false,
+        ]);
+
+        $household = GuestHousehold::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'name' => 'Família Teste',
+        ]);
+
+        $guest = Guest::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'household_id' => $household->id,
+            'name' => 'Convidado Teste',
+            'email' => 'convidado@example.com',
+        ]);
+
+        $invite = GuestInvite::create([
+            'household_id' => $household->id,
+            'guest_id' => $guest->id,
+            'token' => GuestInvite::generateToken(),
+            'channel' => 'email',
+            'status' => 'sent',
+        ]);
+
+        // Act
+        $response = $this->get("/site/{$site->slug}?token={$invite->token}");
+
+        // Assert
+        $response->assertStatus(200);
+        $response->assertSee('RSVP Convite');
+        $response->assertInertia(fn ($page) =>
+            $page->component('Public/Site')
+                ->where('inviteTokenState', 'valid')
+        );
+    }
+
+    /**
+     * @test
+     */
+    public function unpublished_site_with_invalid_invite_token_still_returns_404(): void
+    {
+        // Arrange
+        $wedding = Wedding::factory()->create();
+
+        $site = SiteLayout::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'slug' => 'invite-rsvp-invalid',
+            'draft_content' => SiteContentSchema::getDefaultContent(),
+            'is_published' => false,
+        ]);
+
+        // Act
+        $response = $this->get("/site/{$site->slug}?token=token-invalido");
+
+        // Assert
+        $response->assertStatus(404);
+    }
+
+    /**
+     * @test
+     */
+    public function unpublished_site_with_exhausted_invite_token_is_accessible_and_flags_limit_reached(): void
+    {
+        // Arrange
+        $wedding = Wedding::factory()->create();
+
+        $draftContent = SiteContentSchema::getDefaultContent();
+        $draftContent['sections']['rsvp']['enabled'] = true;
+
+        $site = SiteLayout::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'slug' => 'invite-rsvp-limit',
+            'draft_content' => $draftContent,
+            'is_published' => false,
+        ]);
+
+        $household = GuestHousehold::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'name' => 'Família Limite',
+        ]);
+
+        $guest = Guest::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'household_id' => $household->id,
+            'name' => 'Convidado Limite',
+            'email' => 'convidado-limite@example.com',
+        ]);
+
+        $invite = GuestInvite::create([
+            'household_id' => $household->id,
+            'guest_id' => $guest->id,
+            'token' => GuestInvite::generateToken(),
+            'channel' => 'email',
+            'status' => 'opened',
+            'uses_count' => 1,
+            'max_uses' => 1,
+            'used_at' => now(),
+        ]);
+
+        // Act
+        $response = $this->get("/site/{$site->slug}?token={$invite->token}");
+
+        // Assert
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) =>
+            $page->component('Public/Site')
+                ->where('inviteTokenState', 'limit_reached')
+        );
     }
 
     /**

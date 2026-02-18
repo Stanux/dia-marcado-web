@@ -176,10 +176,10 @@ export function useAlbums(initialAlbums: Album[]): UseAlbumsReturn {
     isLoading.value = true;
     
     try {
-      const response = await axios.get('/admin/albums');
+      const response = await axios.get('/admin/albums/list');
       
-      if (response.data.albums) {
-        const updatedAlbums = response.data.albums as Album[];
+      const updatedAlbums = (response.data.data || response.data.albums || []) as Album[];
+      if (Array.isArray(updatedAlbums)) {
         albums.value = updatedAlbums;
         
         // Update selected album if it still exists
@@ -190,7 +190,7 @@ export function useAlbums(initialAlbums: Album[]): UseAlbumsReturn {
           selectedAlbum.value = updatedSelected || null;
         }
       } else {
-        throw new Error('Failed to refresh albums: No albums returned');
+        throw new Error('Failed to refresh albums: Invalid response');
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to refresh albums';

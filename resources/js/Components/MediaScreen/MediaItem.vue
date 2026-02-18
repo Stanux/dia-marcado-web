@@ -4,15 +4,15 @@
     :class="{ 'selected': isSelected }"
     @click="handleItemClick"
   >
-    <!-- Checkbox for selection -->
-    <MediaItemCheckbox
-      :is-selected="isSelected"
-      :is-selection-mode="isSelectionMode"
-      @toggle="handleToggleSelection"
-    />
-
-    <!-- Thumbnail rendering based on media type -->
     <div class="media-thumbnail-container">
+      <!-- Checkbox for selection -->
+      <MediaItemCheckbox
+        :is-selected="isSelected"
+        :is-selection-mode="isSelectionMode"
+        @toggle="handleToggleSelection"
+      />
+
+      <!-- Thumbnail rendering based on media type -->
       <img 
         v-if="media.type === 'image'"
         :src="media.thumbnail_url"
@@ -26,55 +26,107 @@
         class="media-thumbnail"
         preload="metadata"
       />
+
+      <!-- Action buttons with hover state -->
+      <div v-if="!isSelectionMode" class="media-actions">
+        <button 
+          class="action-btn edit-btn"
+          type="button"
+          aria-label="Editar mídia"
+          @click.stop="handleEditClick"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke-width="1.5" 
+            stroke="currentColor" 
+            class="btn-icon"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+          </svg>
+          Editar
+        </button>
+
+        <button 
+          class="action-btn move-btn"
+          type="button"
+          aria-label="Mover mídia"
+          @click.stop="handleMoveClick"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke-width="1.5" 
+            stroke="currentColor" 
+            class="btn-icon"
+          >
+            <path 
+              stroke-linecap="round" 
+              stroke-linejoin="round" 
+              d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" 
+            />
+          </svg>
+          Mover
+        </button>
+
+        <button 
+          class="action-btn delete-btn"
+          type="button"
+          aria-label="Excluir mídia"
+          @click.stop="handleDeleteClick"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke-width="1.5" 
+            stroke="currentColor" 
+            class="btn-icon"
+          >
+            <path 
+              stroke-linecap="round" 
+              stroke-linejoin="round" 
+              d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" 
+            />
+          </svg>
+          Excluir
+        </button>
+      </div>
     </div>
 
-    <!-- Action buttons with hover state -->
-    <div v-if="!isSelectionMode" class="media-actions">
-      <button 
-        class="action-btn move-btn"
-        type="button"
-        aria-label="Mover mídia"
-        @click.stop="handleMoveClick"
-      >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke-width="1.5" 
-          stroke="currentColor" 
-          class="btn-icon"
-        >
-          <path 
-            stroke-linecap="round" 
-            stroke-linejoin="round" 
-            d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" 
-          />
-        </svg>
-        Mover
-      </button>
+    <div v-if="isEditing && !isSelectionMode" class="rename-panel" @click.stop>
+      <input
+        v-model="renameValue"
+        type="text"
+        class="rename-input"
+        placeholder="Novo nome"
+        :disabled="isRenaming"
+        @keydown.enter.prevent="handleSaveRename"
+        @keydown.esc.prevent="handleCancelEdit"
+      />
 
-      <button 
-        class="action-btn delete-btn"
-        type="button"
-        aria-label="Excluir mídia"
-        @click.stop="handleDeleteClick"
-      >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke-width="1.5" 
-          stroke="currentColor" 
-          class="btn-icon"
+      <div class="rename-actions">
+        <button
+          type="button"
+          class="rename-btn rename-cancel-btn"
+          :disabled="isRenaming"
+          @click.stop="handleCancelEdit"
         >
-          <path 
-            stroke-linecap="round" 
-            stroke-linejoin="round" 
-            d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" 
-          />
-        </svg>
-        Excluir
-      </button>
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="rename-btn rename-save-btn"
+          :disabled="isRenaming"
+          @click.stop="handleSaveRename"
+        >
+          {{ isRenaming ? 'Salvando...' : 'Salvar' }}
+        </button>
+      </div>
+
+      <p v-if="renameError" class="rename-error">{{ renameError }}</p>
     </div>
 
     <!-- Confirmation Dialog -->
@@ -91,7 +143,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
+import axios from 'axios';
 import ConfirmDialog from './ConfirmDialog.vue';
 import MediaItemCheckbox from './MediaItemCheckbox.vue';
 import type { MediaItemProps, MediaItemEvents } from '@/types/media-screen';
@@ -129,6 +182,35 @@ const emit = defineEmits<MediaItemEvents>();
  * Local state to control confirmation dialog visibility
  */
 const showConfirmDialog = ref(false);
+const isEditing = ref(false);
+const isRenaming = ref(false);
+const renameValue = ref('');
+const renameError = ref('');
+
+const getNameWithoutExtension = (filename: string): string => {
+  const value = (filename ?? '').trim();
+  if (!value) {
+    return '';
+  }
+
+  const extension = value.includes('.') ? value.split('.').pop() ?? '' : '';
+  if (!extension || !value.toLowerCase().endsWith(`.${extension.toLowerCase()}`)) {
+    return value;
+  }
+
+  const nameWithoutExt = value.slice(0, -(extension.length + 1)).trim();
+  return nameWithoutExt || value;
+};
+
+watch(
+  () => props.media.filename,
+  (filename) => {
+    if (!isEditing.value) {
+      renameValue.value = getNameWithoutExtension(filename);
+    }
+  },
+  { immediate: true }
+);
 
 /**
  * Handle item click - toggle selection in selection mode
@@ -154,10 +236,67 @@ function handleMoveClick(): void {
 }
 
 /**
+ * Handle edit button click
+ */
+function handleEditClick(): void {
+  renameError.value = '';
+  renameValue.value = getNameWithoutExtension(props.media.filename);
+  isEditing.value = true;
+}
+
+/**
+ * Cancel edit mode
+ */
+function handleCancelEdit(): void {
+  if (isRenaming.value) {
+    return;
+  }
+
+  renameError.value = '';
+  renameValue.value = getNameWithoutExtension(props.media.filename);
+  isEditing.value = false;
+}
+
+/**
+ * Save media rename
+ */
+async function handleSaveRename(): Promise<void> {
+  const sanitizedName = renameValue.value.trim();
+
+  if (!sanitizedName) {
+    renameError.value = 'Informe um nome válido.';
+    return;
+  }
+
+  isRenaming.value = true;
+  renameError.value = '';
+
+  try {
+    const response = await axios.patch(`/admin/media/${props.media.id}/rename`, {
+      name: sanitizedName
+    });
+
+    const updatedFilename = response.data?.data?.filename || props.media.filename;
+    renameValue.value = getNameWithoutExtension(updatedFilename);
+    isEditing.value = false;
+
+    emit('renamed', props.media.id, updatedFilename);
+  } catch (error: any) {
+    renameError.value = error?.response?.data?.message || 'Erro ao renomear mídia.';
+  } finally {
+    isRenaming.value = false;
+  }
+}
+
+/**
  * Handle delete button click
  * Opens the confirmation dialog instead of immediately emitting delete event
  */
 function handleDeleteClick(): void {
+  if (isRenaming.value) {
+    return;
+  }
+
   showConfirmDialog.value = true;
 }
 
@@ -182,11 +321,12 @@ function handleCancelDelete(): void {
 <style scoped>
 .media-item {
   position: relative;
+  display: flex;
+  flex-direction: column;
   border-radius: 0.75rem;
   overflow: hidden;
   background-color: #f3f4f6;
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-  aspect-ratio: 1 / 1;
   cursor: pointer;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
@@ -220,8 +360,9 @@ function handleCancelDelete(): void {
 
 /* Thumbnail container - maintains aspect ratio */
 .media-thumbnail-container {
+  position: relative;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -255,7 +396,7 @@ function handleCancelDelete(): void {
   pointer-events: none;
 }
 
-.media-item:hover .media-actions {
+.media-thumbnail-container:hover .media-actions {
   opacity: 1;
   background-color: rgba(0, 0, 0, 0.5);
   pointer-events: auto;
@@ -295,6 +436,20 @@ function handleCancelDelete(): void {
   height: 1rem;
 }
 
+/* Edit button */
+.edit-btn {
+  background-color: #6b7280;
+  color: white;
+}
+
+.edit-btn:hover {
+  background-color: #4b5563;
+}
+
+.edit-btn:active {
+  background-color: #374151;
+}
+
 /* Move button */
 .move-btn {
   background-color: #3b82f6;
@@ -323,6 +478,67 @@ function handleCancelDelete(): void {
   background-color: #b91c1c;
 }
 
+/* Rename panel */
+.rename-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  background-color: #ffffff;
+  border-top: 1px solid #e5e7eb;
+}
+
+.rename-input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+}
+
+.rename-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.rename-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.rename-btn {
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.375rem 0.625rem;
+  cursor: pointer;
+}
+
+.rename-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rename-cancel-btn {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.rename-save-btn {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.rename-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
 /* Responsive adjustments for smaller screens */
 @media (max-width: 640px) {
   .action-btn {
@@ -333,6 +549,10 @@ function handleCancelDelete(): void {
   .btn-icon {
     width: 0.875rem;
     height: 0.875rem;
+  }
+
+  .rename-panel {
+    padding: 0.5rem;
   }
 }
 </style>

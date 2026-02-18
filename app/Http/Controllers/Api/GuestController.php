@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Guest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class GuestController extends Controller
 {
@@ -46,10 +47,14 @@ class GuestController extends Controller
             'is_child' => 'nullable|boolean',
             'category' => 'nullable|string|max:50',
             'side' => 'nullable|string|max:20',
-            'status' => 'nullable|string|max:20',
+            'status' => ['nullable', 'string', 'max:20', Rule::in(Guest::validationStatuses())],
             'tags' => 'nullable|array',
             'notes' => 'nullable|string',
         ]);
+
+        if (array_key_exists('status', $validated)) {
+            $validated['status'] = Guest::normalizeStatus($validated['status']) ?? Guest::STATUS_PENDING;
+        }
 
         if (!empty($validated['household_id'])) {
             $household = \App\Models\GuestHousehold::find($validated['household_id']);
@@ -87,10 +92,14 @@ class GuestController extends Controller
             'is_child' => 'nullable|boolean',
             'category' => 'nullable|string|max:50',
             'side' => 'nullable|string|max:20',
-            'status' => 'nullable|string|max:20',
+            'status' => ['nullable', 'string', 'max:20', Rule::in(Guest::validationStatuses())],
             'tags' => 'nullable|array',
             'notes' => 'nullable|string',
         ]);
+
+        if (array_key_exists('status', $validated)) {
+            $validated['status'] = Guest::normalizeStatus($validated['status']) ?? Guest::STATUS_PENDING;
+        }
 
         if (!empty($validated['household_id'])) {
             $household = \App\Models\GuestHousehold::find($validated['household_id']);

@@ -1,7 +1,9 @@
 <x-filament::page>
-    @php($plans = $this->getPlans())
-    @php($tasks = $this->getTimelineTasks())
-    @php($canCreatePlan = \App\Filament\Resources\WeddingPlanResource::canCreate())
+    @php
+        $plans = $this->getPlans();
+        $tasks = $this->getTimelineTasks();
+        $canCreatePlan = \App\Filament\Resources\WeddingPlanResource::canCreate();
+    @endphp
 
     <div class="space-y-6">
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -36,14 +38,17 @@
             </div>
         </div>
 
-        <div class="relative">
-            <div class="absolute left-4 top-0 h-full w-px bg-gray-200"></div>
+        <div class="relative pl-6">
+            <div class="absolute left-12 top-0 h-full w-px bg-gray-200"></div>
 
             <div class="space-y-6">
                 @forelse ($tasks as $task)
-                    <div class="relative flex gap-4">
-                        <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-xs font-semibold text-white">
-                            {{ $task->start_date?->format('d/m') ?? '--' }}
+                    <div class="relative flex items-center gap-4">
+                        <div
+                            class="relative z-10 flex shrink-0 items-center justify-center rounded-full border-2 border-primary-700 bg-primary-600 text-white shadow-sm ring-2 ring-white"
+                            style="width: 3.4rem; height: 3.4rem; min-width: 3.4rem; min-height: 3.4rem;"
+                        >
+                            <span style="white-space: nowrap; padding: 0 0.3rem; letter-spacing: 0; font-size: 7px; font-weight: 600; line-height: 1;">{{ $task->start_date?->format('d/m') ?? '--' }}</span>
                         </div>
                         <div class="flex-1 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div class="flex items-center justify-between">
@@ -60,6 +65,24 @@
                                     'cancelled' => 'Cancelada',
                                     default => $task->effective_status,
                                 };
+
+                                $statusColor = match ($task->effective_status) {
+                                    'overdue' => '#dc2626',
+                                    'pending' => '#d97706',
+                                    'in_progress' => '#0284c7',
+                                    'completed' => '#059669',
+                                    'cancelled' => '#475569',
+                                    default => '#64748b',
+                                };
+
+                                $statusBg = match ($task->effective_status) {
+                                    'overdue' => '#fef2f2',
+                                    'pending' => '#fffbeb',
+                                    'in_progress' => '#f0f9ff',
+                                    'completed' => '#ecfdf5',
+                                    'cancelled' => '#f8fafc',
+                                    default => '#f8fafc',
+                                };
                             @endphp
                             @php
                                 $priorityLabel = match ($task->priority) {
@@ -67,12 +90,41 @@
                                     'high' => 'Alta',
                                     default => 'Média',
                                 };
+
+                                $priorityColor = match ($task->priority) {
+                                    'low' => '#059669',
+                                    'high' => '#dc2626',
+                                    default => '#d97706',
+                                };
+
+                                $priorityBg = match ($task->priority) {
+                                    'low' => '#ecfdf5',
+                                    'high' => '#fef2f2',
+                                    default => '#fffbeb',
+                                };
                             @endphp
-                            <div class="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
-                                <span>Status: {{ $statusLabel }}</span>
-                                <span>Prioridade: {{ $priorityLabel }}</span>
+                            <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                                <span
+                                    class="inline-flex items-center rounded-full border px-2.5 py-1 font-semibold"
+                                    style="color: {{ $statusColor }}; border-color: {{ $statusColor }}; background-color: {{ $statusBg }};"
+                                >
+                                    Status: {{ $statusLabel }}
+                                </span>
+
+                                <span
+                                    class="inline-flex items-center rounded-full border px-2.5 py-1 font-semibold"
+                                    style="color: {{ $priorityColor }}; border-color: {{ $priorityColor }}; background-color: {{ $priorityBg }};"
+                                >
+                                    Prioridade: {{ $priorityLabel }}
+                                </span>
+
                                 @if ($task->category)
-                                    <span>Categoria: {{ $task->category->name }}</span>
+                                    <span
+                                        class="inline-flex items-center rounded-full border px-2.5 py-1 font-semibold"
+                                        style="color: #7c3aed; border-color: #7c3aed; background-color: #f5f3ff;"
+                                    >
+                                        Categoria: {{ $task->category->name }}
+                                    </span>
                                 @endif
                             </div>
                         </div>

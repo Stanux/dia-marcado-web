@@ -133,6 +133,7 @@ export interface AlbumContentEvents {
   'media-uploaded': (media: Media[]) => void;
   'media-deleted': (mediaId: string) => void;
   'media-moved': (mediaIds: string[], targetAlbumId: string) => void;
+  'media-renamed': (mediaId: string, filename: string) => void;
 }
 
 export interface UploadAreaEvents {
@@ -145,12 +146,14 @@ export interface MediaGalleryEvents {
   'delete-media': (mediaId: string) => void;
   'toggle-selection': (mediaId: string) => void;
   'move-media': (mediaId: string) => void;
+  'media-renamed': (mediaId: string, filename: string) => void;
 }
 
 export interface MediaItemEvents {
   'delete': (mediaId: string) => void;
   'toggle-selection': (mediaId: string) => void;
   'move': (mediaId: string) => void;
+  'renamed': (mediaId: string, filename: string) => void;
 }
 
 export interface ConfirmDialogEvents {

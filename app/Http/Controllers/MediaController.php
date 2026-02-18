@@ -222,6 +222,86 @@ class MediaController extends Controller
     }
 
     /**
+     * Rename a media file display name.
+     *
+     * Keeps the original extension and ensures unique names inside the album.
+     */
+    public function rename(Request $request, string $id): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:180',
+            ]);
+
+            $user = $request->user();
+            $weddingId = $user->current_wedding_id;
+
+            if (!$weddingId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nenhum casamento selecionado.',
+                ], 400);
+            }
+
+            $media = SiteMedia::where('id', $id)
+                ->where('wedding_id', $weddingId)
+                ->firstOrFail();
+
+            $baseName = $this->sanitizeBaseName($validated['name']);
+            if ($baseName === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Informe um nome válido para a mídia.',
+                ], 422);
+            }
+
+            $extension = $this->resolveMediaExtension($media);
+            $finalName = $this->generateUniqueMediaName($media, $baseName, $extension);
+
+            $media->original_name = $finalName;
+            $media->save();
+
+            Log::info('Media renamed', [
+                'media_id' => $media->id,
+                'album_id' => $media->album_id,
+                'wedding_id' => $weddingId,
+                'new_name' => $finalName,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mídia renomeada com sucesso.',
+                'data' => [
+                    'id' => $media->id,
+                    'filename' => $media->original_name,
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro de validação.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mídia não encontrada.',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error renaming media', [
+                'media_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao renomear mídia. Tente novamente.',
+            ], 500);
+        }
+    }
+
+    /**
      * Batch move media to another album.
      * 
      * POST /admin/media/batch-move
@@ -329,6 +409,8 @@ class MediaController extends Controller
                 'y' => 'required|integer|min:0',
                 'width' => 'required|integer|min:1',
                 'height' => 'required|integer|min:1',
+                'output_width' => 'nullable|integer|min:1',
+                'output_height' => 'nullable|integer|min:1',
             ]);
 
             $user = $request->user();
@@ -403,8 +485,35 @@ class MediaController extends Controller
                 ], 400);
             }
 
+            $sourceWidth = imagesx($image);
+            $sourceHeight = imagesy($image);
+
+            if (
+                ($validated['x'] + $validated['width']) > $sourceWidth ||
+                ($validated['y'] + $validated['height']) > $sourceHeight
+            ) {
+                imagedestroy($image);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Área de recorte inválida para o tamanho da imagem.',
+                ], 422);
+            }
+
+            $outputWidth = (int) ($validated['output_width'] ?? $validated['width']);
+            $outputHeight = (int) ($validated['output_height'] ?? $validated['height']);
+
+            if ($outputWidth > $validated['width'] || $outputHeight > $validated['height']) {
+                imagedestroy($image);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'O redimensionamento de saída deve ser menor ou igual à área de recorte.',
+                ], 422);
+            }
+
             // Create cropped image
-            $croppedImage = imagecreatetruecolor($validated['width'], $validated['height']);
+            $croppedImage = imagecreatetruecolor($outputWidth, $outputHeight);
             
             // Preserve transparency for PNG
             if ($media->mime_type === 'image/png') {
@@ -412,14 +521,16 @@ class MediaController extends Controller
                 imagesavealpha($croppedImage, true);
             }
 
-            // Copy and crop
-            imagecopy(
+            // Copy, crop and optionally downscale output
+            imagecopyresampled(
                 $croppedImage,
                 $image,
                 0,
                 0,
                 $validated['x'],
                 $validated['y'],
+                $outputWidth,
+                $outputHeight,
                 $validated['width'],
                 $validated['height']
             );
@@ -460,24 +571,30 @@ class MediaController extends Controller
             Storage::disk($targetDisk)->put($newPath, $fileContents);
             @unlink($tempPath);
 
+            $croppedDisplayName = $this->generateUniqueCroppedMediaName($media, $outputWidth, $outputHeight);
+
             // Create new media record
             $newMedia = SiteMedia::create([
                 'wedding_id' => $weddingId,
                 'album_id' => $media->album_id,
                 'site_layout_id' => $media->site_layout_id,
                 'filename' => $newFilename,
-                'original_name' => $media->original_name . ' (cortada)',
+                'original_name' => $croppedDisplayName,
                 'path' => $newPath,
                 'disk' => $targetDisk,
                 'mime_type' => $media->mime_type,
                 'size' => Storage::disk($targetDisk)->size($newPath),
-                'width' => $validated['width'],
-                'height' => $validated['height'],
+                'width' => $outputWidth,
+                'height' => $outputHeight,
                 'alt' => $media->alt,
                 'variants' => [],
                 'metadata' => array_merge($media->metadata ?? [], [
                     'cropped_from' => $media->id,
                     'crop_coordinates' => $validated,
+                    'output_dimensions' => [
+                        'width' => $outputWidth,
+                        'height' => $outputHeight,
+                    ],
                 ]),
             ]);
 
@@ -530,5 +647,85 @@ class MediaController extends Controller
                 'message' => 'Erro ao cortar imagem. Tente novamente.'
             ], 500);
         }
+    }
+
+    private function sanitizeBaseName(string $name): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', $name) ?? '');
+        if ($value === '') {
+            return '';
+        }
+
+        $value = pathinfo($value, PATHINFO_FILENAME) ?: $value;
+        $value = preg_replace('/[\/\\\\:*?"<>|]+/u', '', $value) ?? '';
+        $value = trim($value, ". \t\n\r\0\x0B");
+
+        return $value;
+    }
+
+    private function resolveMediaExtension(SiteMedia $media): string
+    {
+        $fromOriginalName = pathinfo((string) $media->original_name, PATHINFO_EXTENSION);
+        if (is_string($fromOriginalName) && $fromOriginalName !== '') {
+            return mb_strtolower($fromOriginalName);
+        }
+
+        $fromPath = pathinfo((string) $media->path, PATHINFO_EXTENSION);
+        return is_string($fromPath) ? mb_strtolower($fromPath) : '';
+    }
+
+    private function generateUniqueMediaName(SiteMedia $media, string $baseName, string $extension): string
+    {
+        $index = 0;
+
+        do {
+            $candidateBase = $index === 0 ? $baseName : "{$baseName}_{$index}";
+            $candidate = $extension !== '' ? "{$candidateBase}.{$extension}" : $candidateBase;
+
+            $exists = SiteMedia::query()
+                ->where('wedding_id', $media->wedding_id)
+                ->where('album_id', $media->album_id)
+                ->where('id', '!=', $media->id)
+                ->whereRaw('LOWER(original_name) = ?', [mb_strtolower($candidate)])
+                ->exists();
+
+            if (!$exists) {
+                return $candidate;
+            }
+
+            $index++;
+        } while (true);
+    }
+
+    private function generateUniqueCroppedMediaName(SiteMedia $media, int $width, int $height): string
+    {
+        $sourceBase = $this->sanitizeBaseName(
+            (string) pathinfo((string) $media->original_name, PATHINFO_FILENAME)
+        );
+
+        if ($sourceBase === '') {
+            $sourceBase = 'imagem';
+        }
+
+        $baseWithSize = "{$sourceBase}_{$width}x{$height}";
+        $extension = $this->resolveMediaExtension($media);
+        $index = 1;
+
+        do {
+            $candidateBase = "{$baseWithSize}_{$index}";
+            $candidate = $extension !== '' ? "{$candidateBase}.{$extension}" : $candidateBase;
+
+            $exists = SiteMedia::query()
+                ->where('wedding_id', $media->wedding_id)
+                ->where('album_id', $media->album_id)
+                ->whereRaw('LOWER(original_name) = ?', [mb_strtolower($candidate)])
+                ->exists();
+
+            if (!$exists) {
+                return $candidate;
+            }
+
+            $index++;
+        } while (true);
     }
 }

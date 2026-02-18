@@ -3,7 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Forms\Components\WeddingDatePicker;
-use Filament\Forms\Components\DatePicker;
+use App\Forms\Components\WeddingTimePicker;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
@@ -18,13 +18,14 @@ use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
 
 /**
  * Onboarding page for new users to configure their wedding.
  * 
  * This is a 4-step wizard that collects:
- * 1. Wedding date
+ * 1. Wedding date and time
  * 2. Couple data (partner info)
  * 3. Venue information
  * 4. Plan selection
@@ -67,6 +68,7 @@ class Onboarding extends Page implements HasForms
         $this->form->fill(array_merge([
             'creator_name' => $user?->name,
             'creator_email' => $user?->email,
+            'wedding_time' => '18:00',
             'plan' => 'basic',
         ], $sessionData));
     }
@@ -123,24 +125,21 @@ class Onboarding extends Page implements HasForms
         return $form
             ->schema([
                 Wizard::make([
-                    Step::make('Data do Casamento')
+                    Step::make('Dia Marcado')
+                        ->label(fn (): string => $this->getWeddingStepLabel())
                         ->icon('heroicon-o-calendar')
-                        ->description('Quando será o grande dia?')
                         ->schema($this->getWeddingDateSchema()),
 
                     Step::make('Dados do Casal')
                         ->icon('heroicon-o-heart')
-                        ->description('Informações sobre você e seu(sua) parceiro(a)')
                         ->schema($this->getCoupleDataSchema()),
 
                     Step::make('Local do Evento')
                         ->icon('heroicon-o-map-pin')
-                        ->description('Onde será realizado o casamento')
                         ->schema($this->getVenueDataSchema()),
 
                     Step::make('Escolha do Plano')
                         ->icon('heroicon-o-star')
-                        ->description('Selecione o plano ideal para você')
                         ->schema($this->getPlanSchema()),
                 ])
                 ->skippable(false)
@@ -161,46 +160,98 @@ class Onboarding extends Page implements HasForms
     protected function getWeddingDateSchema(): array
     {
         return [
-            Section::make('💍 Dia Marcado')
-                ->description('Escolha a data do seu casamento')
-                ->extraAttributes([
-                    'class' => 'wedding-date-section',
-                    'style' => 'background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%); border: 2px solid #f9a8d4; border-radius: 1rem;',
-                ])
+            Grid::make([
+                'default' => 1,
+                'lg' => 12,
+            ])
                 ->schema([
                     WeddingDatePicker::make('wedding_date')
-                        ->label('')
-                        ->columnSpanFull(),
+                        ->label('Data do casamento')
+                        ->hiddenLabel()
+                        ->required()
+                        ->columnSpan([
+                            'default' => 1,
+                            'lg' => 8,
+                        ]),
+                    WeddingTimePicker::make('wedding_time')
+                        ->label('Horário do casamento')
+                        ->hiddenLabel()
+                        ->required()
+                        ->rule('date_format:H:i')
+                        ->default('18:00')
+                        ->columnSpan([
+                            'default' => 1,
+                            'lg' => 4,
+                        ]),
                 ]),
         ];
+    }
+
+    protected function getWeddingStepLabel(): string
+    {
+        $date = data_get($this->data, 'wedding_date');
+        $time = data_get($this->data, 'wedding_time');
+
+        if (! is_string($date) || blank($date)) {
+            return 'Dia Marcado';
+        }
+
+        if (! is_string($time) || blank($time)) {
+            return 'Dia Marcado';
+        }
+
+        if (! preg_match('/^\d{2}:\d{2}/', $time)) {
+            return 'Dia Marcado';
+        }
+
+        try {
+            $formattedDate = Carbon::createFromFormat('Y-m-d', $date)->format('d/m/Y');
+        } catch (\Throwable) {
+            return 'Dia Marcado';
+        }
+
+        return "{$formattedDate} às " . substr($time, 0, 5);
     }
 
     protected function getCoupleDataSchema(): array
     {
         return [
-            Section::make('Informar Dados do Casal')
-                ->description('Seus dados e do(a) parceiro(a)')
+            Section::make()
                 ->schema([
-                    Grid::make(4)
+                    Grid::make([
+                        'default' => 1,
+                        'lg' => 5,
+                    ])
                         ->schema([
                             TextInput::make('creator_name')
-                                ->label('Seu Nome')
+                                ->label('Nome')
                                 ->disabled()
                                 ->dehydrated(false),
 
                             TextInput::make('creator_email')
-                                ->label('Seu E-mail')
+                                ->label('E-mail')
                                 ->disabled()
                                 ->dehydrated(false),
 
+                            Placeholder::make('couple_ampersand')
+                                ->label('')
+                                ->content(new HtmlString('
+                                    <div class="text-center text-2xl font-semibold text-gray-400 dark:text-gray-500">
+                                        &amp;
+                                    </div>
+                                '))
+                                ->extraAttributes([
+                                    'class' => 'py-2 lg:self-center',
+                                ]),
+
                             TextInput::make('partner_name')
-                                ->label('Nome do(a) Parceiro(a)')
+                                ->label('Nome')
                                 ->placeholder('Nome completo')
                                 ->maxLength(255)
                                 ->requiredWith('partner_email'),
 
                             TextInput::make('partner_email')
-                                ->label('E-mail do(a) Parceiro(a)')
+                                ->label('E-mail')
                                 ->placeholder('email@exemplo.com')
                                 ->email()
                                 ->maxLength(255)
@@ -227,13 +278,12 @@ class Onboarding extends Page implements HasForms
     protected function getVenueDataSchema(): array
     {
         return [
-            Section::make('Informações do Local')
-                ->description('Todos os campos são opcionais')
+            Section::make()
                 ->schema([
                     Grid::make(3)
                         ->schema([
                             TextInput::make('venue_name')
-                                ->label('Nome do Local')
+                                ->label('Nome de Identificação')
                                 ->placeholder('Ex: Espaço Jardim das Flores')
                                 ->maxLength(255),
 
@@ -302,8 +352,7 @@ class Onboarding extends Page implements HasForms
     protected function getPlanSchema(): array
     {
         return [
-            Section::make('Escolha seu Plano')
-                ->description('Selecione o plano que melhor atende suas necessidades')
+            Section::make()
                 ->schema([
                     Radio::make('plan')
                         ->label('')

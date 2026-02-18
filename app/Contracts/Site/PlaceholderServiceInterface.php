@@ -15,6 +15,8 @@ use App\Models\Wedding;
  * Supported placeholders:
  * - {noivo} / {noiva} → couple member names
  * - {noivos} → all couple names separated by " e "
+ * - {data_extenso} → formatted wedding date (e.g., "15 de Março de 2025")
+ * - {data_simples} → short date format (e.g., "15/03/2025")
  * - {data} → formatted wedding date (e.g., "15 de Março de 2025")
  * - {data_curta} → short date format (e.g., "15/03/2025")
  * - {local} → venue name

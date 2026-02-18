@@ -4,15 +4,16 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\GuestHouseholdResource\Pages;
 use App\Filament\Resources\GuestHouseholdResource\RelationManagers\GuestsRelationManager;
+use App\Filament\Resources\GuestHouseholdResource\RelationManagers\InvitesRelationManager;
+use App\Models\Guest;
 use App\Models\GuestHousehold;
-use App\Models\GuestInvite;
 use App\Services\GuestInviteNotificationService;
+use App\Services\Guests\InviteManagementService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
 
 class GuestHouseholdResource extends WeddingScopedResource
 {
@@ -134,6 +135,12 @@ class GuestHouseholdResource extends WeddingScopedResource
                     ->counts('guests')
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('invites_count')
+                    ->label('Convites')
+                    ->counts('invites')
+                    ->sortable()
+                    ->toggleable(),
+
                 Tables\Columns\IconColumn::make('plus_one_allowed')
                     ->label('Plus One')
                     ->boolean(),
@@ -165,6 +172,16 @@ class GuestHouseholdResource extends WeddingScopedResource
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
                     ->form([
+                        Forms\Components\Select::make('guest_id')
+                            ->label('Convidado específico (opcional)')
+                            ->options(fn (GuestHousehold $record): array => Guest::query()
+                                ->where('wedding_id', $record->wedding_id)
+                                ->where('household_id', $record->id)
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->searchable()
+                            ->native(false),
                         Forms\Components\Select::make('channel')
                             ->label('Canal')
                             ->options([
@@ -180,20 +197,28 @@ class GuestHouseholdResource extends WeddingScopedResource
                             ->minValue(1)
                             ->maxValue(365)
                             ->helperText('Deixe em branco para não expirar.'),
+                        Forms\Components\TextInput::make('max_uses')
+                            ->label('Máximo de usos')
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(1000)
+                            ->helperText('Deixe em branco para uso ilimitado.'),
                     ])
                     ->action(function (GuestHousehold $record, array $data) {
-                        $expiresAt = !empty($data['expires_in_days'])
-                            ? now()->addDays((int) $data['expires_in_days'])
-                            : null;
-
-                        $invite = GuestInvite::create([
-                            'household_id' => $record->id,
-                            'created_by' => auth()->id(),
-                            'token' => Str::random(48),
-                            'channel' => $data['channel'] ?? 'email',
-                            'status' => 'sent',
-                            'expires_at' => $expiresAt,
-                        ]);
+                        try {
+                            $invite = app(InviteManagementService::class)->createForHousehold(
+                                household: $record,
+                                data: $data,
+                                actorId: auth()->id(),
+                            );
+                        } catch (\InvalidArgumentException $exception) {
+                            Notification::make()
+                                ->title('Erro ao gerar convite')
+                                ->danger()
+                                ->body($exception->getMessage())
+                                ->send();
+                            return;
+                        }
 
                         $siteSlug = $record->wedding?->siteLayout?->slug;
                         $link = $siteSlug ? url('/site/' . $siteSlug . '?token=' . $invite->token) : null;
@@ -229,6 +254,7 @@ class GuestHouseholdResource extends WeddingScopedResource
     {
         return [
             GuestsRelationManager::class,
+            InvitesRelationManager::class,
         ];
     }
 

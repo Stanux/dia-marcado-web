@@ -45,8 +45,12 @@ use App\Services\Site\SiteBuilderService;
 use App\Services\Site\SiteValidatorService;
 use App\Services\Site\SiteVersionService;
 use App\Services\Site\SlugGeneratorService;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -88,6 +92,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('filament-login', function (Request $request): array {
+            $email = Str::lower((string) $request->input('email'));
+            $identifier = $email !== '' ? $email : 'guest';
+
+            return [
+                Limit::perMinute(5)->by($identifier.'|'.$request->ip()),
+                Limit::perMinute(20)->by((string) $request->ip()),
+            ];
+        });
+
         // Register Livewire components
         \Livewire\Livewire::component('media-gallery-picker', \App\Livewire\MediaGalleryPicker::class);
         

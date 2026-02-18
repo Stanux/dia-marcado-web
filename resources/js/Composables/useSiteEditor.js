@@ -16,9 +16,9 @@ import axios from 'axios';
 export const SECTION_IDS = {
     hero: 'hero',
     saveTheDate: 'save-the-date',
-    giftRegistry: 'lista-presentes',
-    rsvp: 'confirmar-presenca',
-    photoGallery: 'galeria',
+    giftRegistry: 'gift-registry',
+    rsvp: 'rsvp',
+    photoGallery: 'photo-gallery',
 };
 
 /**

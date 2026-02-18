@@ -30,6 +30,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    inviteTokenState: {
+        type: String,
+        default: null,
+    },
 });
 
 // Extract sections from content
@@ -104,6 +108,7 @@ const enabledSections = computed(() => {
             :content="getSectionContent('rsvp')"
             :theme="theme"
             :wedding="wedding"
+            :invite-token-state="inviteTokenState"
         />
 
         <!-- Photo Gallery Section -->

@@ -29,6 +29,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    logoInitials: {
+        type: Array,
+        default: () => ['', ''],
+    },
 });
 
 const emit = defineEmits(['change']);
@@ -149,6 +153,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                 :is="currentEditor"
                 :content="localContent"
                 :enabled-sections="enabledSections"
+                :logo-initials="logoInitials"
                 @change="handleChange"
                 class="flex-1 min-h-0"
             />

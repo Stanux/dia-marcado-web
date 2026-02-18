@@ -152,6 +152,7 @@ const navigateTo = (target) => {
 
 <template>
     <section 
+        id="hero"
         class="relative min-h-[500px] md:min-h-[700px] flex items-center justify-center"
         :class="layoutClasses"
     >

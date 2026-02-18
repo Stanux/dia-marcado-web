@@ -74,9 +74,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
             // Guests
             Route::get('/', [GuestController::class, 'index']);
             Route::post('/', [GuestController::class, 'store']);
-            Route::get('/{guest}', [GuestController::class, 'show']);
-            Route::put('/{guest}', [GuestController::class, 'update']);
-            Route::delete('/{guest}', [GuestController::class, 'destroy']);
 
             // Households
             Route::get('/households', [GuestHouseholdController::class, 'index']);
@@ -89,22 +86,35 @@ Route::middleware(['auth:sanctum'])->group(function () {
             Route::get('/events', [GuestEventController::class, 'index']);
             Route::post('/events', [GuestEventController::class, 'store']);
             Route::get('/events/{event}', [GuestEventController::class, 'show']);
+            Route::get('/events/{event}/history', [GuestEventController::class, 'history']);
             Route::put('/events/{event}', [GuestEventController::class, 'update']);
             Route::delete('/events/{event}', [GuestEventController::class, 'destroy']);
 
             // Invites
             Route::post('/households/{household}/invites', [GuestInviteController::class, 'store']);
+            Route::post('/invites/bulk-reissue', [GuestInviteController::class, 'bulkReissue']);
+            Route::post('/invites/bulk-revoke', [GuestInviteController::class, 'bulkRevoke']);
+            Route::get('/invites/{invite}/timeline', [GuestInviteController::class, 'timeline']);
             Route::post('/invites/{invite}/reissue', [GuestInviteController::class, 'reissue']);
+            Route::post('/invites/{invite}/revoke', [GuestInviteController::class, 'revoke']);
 
             // RSVP (authenticated)
             Route::post('/rsvp', [GuestRsvpController::class, 'store']);
 
             // Check-in
+            Route::get('/checkins', [GuestCheckinController::class, 'index']);
+            Route::get('/checkins/qr/{guest}', [GuestCheckinController::class, 'qrPayload']);
+            Route::post('/checkins/scan', [GuestCheckinController::class, 'scan']);
             Route::post('/checkins', [GuestCheckinController::class, 'store']);
 
             // Messages (drafts/templates)
             Route::get('/messages', [GuestMessageController::class, 'index']);
             Route::post('/messages', [GuestMessageController::class, 'store']);
+
+            // Guest detail
+            Route::get('/{guest}', [GuestController::class, 'show']);
+            Route::put('/{guest}', [GuestController::class, 'update']);
+            Route::delete('/{guest}', [GuestController::class, 'destroy']);
         });
 
         // Finance module

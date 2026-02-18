@@ -83,6 +83,13 @@ class SiteMedia extends WeddingScopedModel
      */
     public function getUrl(): string
     {
+        if ($this->disk === 'local') {
+            $mirroredPublicUrl = $this->mirrorLocalPathToPublicUrl($this->path);
+            if ($mirroredPublicUrl !== null) {
+                return $mirroredPublicUrl;
+            }
+        }
+
         return Storage::disk($this->disk)->url($this->path);
     }
 
@@ -100,6 +107,55 @@ class SiteMedia extends WeddingScopedModel
             return null;
         }
 
-        return Storage::disk($this->disk)->url($variants[$variant]);
+        $variantPath = $variants[$variant];
+
+        if (!is_string($variantPath) || $variantPath === '') {
+            return null;
+        }
+
+        if ($this->disk === 'local') {
+            $mirroredPublicUrl = $this->mirrorLocalPathToPublicUrl($variantPath);
+            if ($mirroredPublicUrl !== null) {
+                return $mirroredPublicUrl;
+            }
+        }
+
+        if (!Storage::disk($this->disk)->exists($variantPath)) {
+            return null;
+        }
+
+        return Storage::disk($this->disk)->url($variantPath);
+    }
+
+    /**
+     * Backward compatibility: old media was saved on local/private disk.
+     * Copy it to public disk on-demand so /storage URL works.
+     */
+    private function mirrorLocalPathToPublicUrl(string $path): ?string
+    {
+        if ($path === '') {
+            return null;
+        }
+
+        try {
+            if (Storage::disk('public')->exists($path)) {
+                return Storage::disk('public')->url($path);
+            }
+
+            if (!Storage::disk('local')->exists($path)) {
+                return null;
+            }
+
+            $contents = Storage::disk('local')->get($path);
+            Storage::disk('public')->put($path, $contents);
+
+            if (Storage::disk('public')->exists($path)) {
+                return Storage::disk('public')->url($path);
+            }
+        } catch (\Throwable $exception) {
+            return null;
+        }
+
+        return null;
     }
 }

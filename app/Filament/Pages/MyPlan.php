@@ -24,15 +24,17 @@ class MyPlan extends Page implements HasForms
 
     protected static string $view = 'filament.pages.my-plan';
 
-    protected static ?string $navigationLabel = 'Meu Plano';
+    protected static ?string $navigationLabel = 'Assinatura';
 
-    protected static ?string $title = 'Meu Plano';
+    protected static ?string $title = 'Assinatura';
 
     protected static ?string $slug = 'my-plan';
 
     protected static ?string $navigationGroup = 'CASAMENTO';
 
     protected static ?int $navigationSort = 8;
+
+    protected static bool $shouldRegisterNavigation = false;
 
     public ?array $data = [];
 
@@ -72,18 +74,18 @@ class MyPlan extends Page implements HasForms
 
     protected function getPlanSection(): Section
     {
-        return Section::make('Plano')
-            ->description('Selecione o plano que melhor atende suas necessidades')
+        return Section::make('Assinatura')
+            ->description('Selecione a assinatura que melhor atende suas necessidades')
             ->schema([
                 Radio::make('plan')
                     ->label('')
                     ->options([
-                        'basic' => 'Plano Básico',
-                        'premium' => 'Plano Premium',
+                        'basic' => 'Assinatura Básica',
+                        'premium' => 'Assinatura Premium',
                     ])
                     ->descriptions([
                         'basic' => 'Acesso a todas as funcionalidades essenciais para planejar seu casamento.',
-                        'premium' => 'Todas as funcionalidades do plano básico + recursos exclusivos (em breve).',
+                        'premium' => 'Todas as funcionalidades da assinatura básica + recursos exclusivos (em breve).',
                     ])
                     ->default('basic')
                     ->required()
@@ -93,8 +95,8 @@ class MyPlan extends Page implements HasForms
                     ->label('')
                     ->content(new HtmlString('
                         <div class="text-sm text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mt-4">
-                            <strong>Nota:</strong> Atualmente ambos os planos oferecem as mesmas funcionalidades. 
-                            Recursos exclusivos do plano Premium serão liberados em breve.
+                            <strong>Nota:</strong> Atualmente ambas as assinaturas oferecem as mesmas funcionalidades. 
+                            Recursos exclusivos da assinatura Premium serão liberados em breve.
                         </div>
                     ')),
             ]);
@@ -121,15 +123,15 @@ class MyPlan extends Page implements HasForms
             $wedding->save();
 
             Notification::make()
-                ->title('Plano atualizado!')
-                ->body('Seu plano foi atualizado com sucesso.')
+                ->title('Assinatura atualizada!')
+                ->body('Sua assinatura foi atualizada com sucesso.')
                 ->success()
                 ->send();
 
         } catch (\Exception $e) {
             Notification::make()
                 ->title('Erro ao salvar')
-                ->body('Ocorreu um erro ao atualizar o plano. Tente novamente.')
+                ->body('Ocorreu um erro ao atualizar a assinatura. Tente novamente.')
                 ->danger()
                 ->send();
 

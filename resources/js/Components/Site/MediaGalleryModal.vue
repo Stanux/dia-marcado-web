@@ -5,7 +5,7 @@
  * Modal para selecionar imagens da galeria com suporte a crop
  * quando a imagem excede as dimensões máximas permitidas.
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -25,6 +25,14 @@ const props = defineProps({
         type: String,
         default: 'Selecionar Imagem da Galeria',
     },
+    mediaType: {
+        type: String,
+        default: 'image', // image | video | all
+    },
+    allowCrop: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['close', 'select']);
@@ -35,28 +43,185 @@ const selectedAlbum = ref(null);
 const albumMedia = ref([]);
 const loading = ref(false);
 const error = ref(null);
+const uploadInput = ref(null);
+const uploading = ref(false);
+const uploadProgress = ref(0);
+const uploadError = ref(null);
 
 // Crop state
 const showCropModal = ref(false);
 const imageToCrop = ref(null);
 const cropArea = ref({ x: 0, y: 0, width: 0, height: 0 });
+const outputScale = ref(100);
 const isDragging = ref(false);
 const dragStart = ref({ x: 0, y: 0 });
 const cropImage = ref(null);
 const cropWrapper = ref(null);
 const imageScale = ref({ x: 1, y: 1 });
+const baseImageDisplaySize = ref({ width: 0, height: 0 });
+const currentImageDisplaySize = ref({ width: 0, height: 0 });
 
-/**
- * Quando a imagem de crop carregar, calcular a escala
- */
+const isVideoSelection = computed(() => props.mediaType === 'video');
+const isAllMediaSelection = computed(() => props.mediaType === 'all');
+
+const filteredAlbumMedia = computed(() => {
+    if (isAllMediaSelection.value) {
+        return albumMedia.value;
+    }
+
+    if (isVideoSelection.value) {
+        return albumMedia.value.filter((media) => media.type === 'video');
+    }
+
+    return albumMedia.value.filter((media) => media.type === 'image');
+});
+
+const uploadAccept = computed(() => {
+    if (isVideoSelection.value) {
+        return 'video/mp4,video/quicktime';
+    }
+
+    if (isAllMediaSelection.value) {
+        return 'image/jpeg,image/jpg,image/png,image/gif,video/mp4,video/quicktime';
+    }
+
+    return 'image/jpeg,image/jpg,image/png,image/gif';
+});
+
+const emptyAlbumMessage = computed(() => {
+    if (isVideoSelection.value) {
+        return 'Nenhum vídeo neste álbum';
+    }
+
+    if (isAllMediaSelection.value) {
+        return 'Nenhuma mídia neste álbum';
+    }
+
+    return 'Nenhuma imagem neste álbum';
+});
+
+const uploadButtonLabel = computed(() => {
+    if (uploading.value) {
+        return 'Enviando...';
+    }
+
+    if (isVideoSelection.value) {
+        return 'Enviar vídeo';
+    }
+
+    return 'Enviar imagem';
+});
+
+const uploadHintText = computed(() => {
+    if (isVideoSelection.value) {
+        return 'Formatos aceitos: MP4 e QuickTime (até 100MB).';
+    }
+
+    if (isAllMediaSelection.value) {
+        return 'Formatos aceitos: JPEG, PNG, GIF, MP4 e QuickTime (até 100MB).';
+    }
+
+    return 'Formatos aceitos: JPEG, JPG, PNG e GIF (até 100MB).';
+});
+
+const cropFrameDimensions = computed(() => {
+    if (!imageToCrop.value) {
+        return {
+            width: Math.max(1, props.maxWidth || 1),
+            height: Math.max(1, props.maxHeight || 1),
+        };
+    }
+
+    return {
+        width: Math.max(1, Math.min(props.maxWidth || imageToCrop.value.width, imageToCrop.value.width)),
+        height: Math.max(1, Math.min(props.maxHeight || imageToCrop.value.height, imageToCrop.value.height)),
+    };
+});
+
+const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
+
+const minOutputScale = computed(() => {
+    if (!imageToCrop.value) {
+        return 1;
+    }
+
+    const frame = cropFrameDimensions.value;
+    const widthLimit = (frame.width / imageToCrop.value.width) * 100;
+    const heightLimit = (frame.height / imageToCrop.value.height) * 100;
+
+    return clamp(Math.ceil(Math.max(widthLimit, heightLimit)), 1, 100);
+});
+
+const applyImageDisplayScale = (scalePercent) => {
+    if (!baseImageDisplaySize.value.width || !baseImageDisplaySize.value.height || !imageToCrop.value) {
+        return;
+    }
+
+    const ratio = clamp(scalePercent, minOutputScale.value, 100) / 100;
+    const scaledWidth = Math.max(1, Math.round(baseImageDisplaySize.value.width * ratio));
+    const scaledHeight = Math.max(1, Math.round(baseImageDisplaySize.value.height * ratio));
+
+    currentImageDisplaySize.value = {
+        width: scaledWidth,
+        height: scaledHeight,
+    };
+
+    imageScale.value = {
+        x: imageToCrop.value.width / scaledWidth,
+        y: imageToCrop.value.height / scaledHeight,
+    };
+};
+
+const applyBackgroundScale = (scalePercent, preserveCenter = true) => {
+    if (!imageToCrop.value) return;
+
+    const normalizedScale = clamp(scalePercent, minOutputScale.value, 100);
+    const ratio = normalizedScale / 100;
+
+    const frameWidth = cropFrameDimensions.value.width;
+    const frameHeight = cropFrameDimensions.value.height;
+
+    const sourceWidth = Math.min(
+        imageToCrop.value.width,
+        Math.max(1, Math.round(frameWidth / ratio))
+    );
+    const sourceHeight = Math.min(
+        imageToCrop.value.height,
+        Math.max(1, Math.round(frameHeight / ratio))
+    );
+
+    const centerX = preserveCenter
+        ? cropArea.value.x + (cropArea.value.width / 2)
+        : imageToCrop.value.width / 2;
+    const centerY = preserveCenter
+        ? cropArea.value.y + (cropArea.value.height / 2)
+        : imageToCrop.value.height / 2;
+
+    const maxX = Math.max(0, imageToCrop.value.width - sourceWidth);
+    const maxY = Math.max(0, imageToCrop.value.height - sourceHeight);
+
+    const nextX = clamp(Math.round(centerX - (sourceWidth / 2)), 0, maxX);
+    const nextY = clamp(Math.round(centerY - (sourceHeight / 2)), 0, maxY);
+
+    cropArea.value = {
+        x: nextX,
+        y: nextY,
+        width: sourceWidth,
+        height: sourceHeight,
+    };
+};
+
 const onCropImageLoad = () => {
     if (!cropImage.value || !imageToCrop.value) return;
-    
-    const imgElement = cropImage.value;
-    imageScale.value = {
-        x: imageToCrop.value.width / imgElement.clientWidth,
-        y: imageToCrop.value.height / imgElement.clientHeight,
-    };
+
+    if (!baseImageDisplaySize.value.width || !baseImageDisplaySize.value.height) {
+        baseImageDisplaySize.value = {
+            width: cropImage.value.clientWidth || imageToCrop.value.width,
+            height: cropImage.value.clientHeight || imageToCrop.value.height,
+        };
+    }
+
+    applyImageDisplayScale(outputScale.value);
 };
 
 /**
@@ -67,7 +232,7 @@ const loadAlbums = async () => {
     error.value = null;
     
     try {
-        const response = await axios.get('/admin/albums');
+        const response = await axios.get('/admin/albums/list');
         albums.value = response.data.data || [];
     } catch (err) {
         error.value = 'Erro ao carregar álbuns';
@@ -154,6 +319,7 @@ const backToAlbums = () => {
  * Verificar se imagem precisa de crop
  */
 const needsCrop = (media) => {
+    if (!props.allowCrop || media.type !== 'image') return false;
     if (!props.maxWidth && !props.maxHeight) return false;
     
     // Se não tiver dimensões, assumir que precisa de crop por segurança
@@ -172,6 +338,19 @@ const needsCrop = (media) => {
  * Selecionar imagem
  */
 const selectImage = (media) => {
+    if (media.type === 'video') {
+        emit('select', {
+            url: media.url,
+            alt: media.alt || media.filename,
+            width: media.width,
+            height: media.height,
+            mediaId: media.id,
+            type: media.type,
+        });
+        closeModal();
+        return;
+    }
+
     console.log('Media selecionada:', media);
     console.log('Max dimensions:', props.maxWidth, props.maxHeight);
     console.log('Needs crop?', needsCrop(media));
@@ -195,19 +374,120 @@ const selectImage = (media) => {
 };
 
 /**
+ * Abrir seletor de arquivo para upload no álbum atual
+ */
+const openUploadInput = () => {
+    if (uploading.value) return;
+    uploadInput.value?.click();
+};
+
+/**
+ * Validar arquivo para upload
+ */
+const isAllowedFile = (file) => {
+    const allowedByType = {
+        image: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'],
+        video: ['video/mp4', 'video/quicktime'],
+        all: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'video/mp4', 'video/quicktime'],
+    };
+
+    const list = allowedByType[props.mediaType] || allowedByType.image;
+    return list.includes(file.type);
+};
+
+/**
+ * Upload de arquivo para o álbum selecionado
+ */
+const uploadToSelectedAlbum = async (file) => {
+    if (!selectedAlbum.value?.id || !file) return;
+
+    const maxFileSize = 100 * 1024 * 1024; // 100MB
+
+    if (!isAllowedFile(file)) {
+        uploadError.value = 'Tipo de arquivo não suportado para esta seleção.';
+        return;
+    }
+
+    if (file.size > maxFileSize) {
+        uploadError.value = 'Arquivo muito grande. O tamanho máximo permitido é 100MB.';
+        return;
+    }
+
+    uploading.value = true;
+    uploadProgress.value = 0;
+    uploadError.value = null;
+
+    try {
+        const formData = new FormData();
+        formData.append('album_id', selectedAlbum.value.id);
+        formData.append('file', file);
+
+        const response = await axios.post('/admin/media/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+            onUploadProgress: (progressEvent) => {
+                if (!progressEvent.total) return;
+                uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            },
+        });
+
+        const uploadedMedia = response.data?.media || response.data?.data || response.data;
+        if (!uploadedMedia?.id) {
+            throw new Error('Resposta inválida ao fazer upload.');
+        }
+
+        await loadAlbumMedia(selectedAlbum.value.id);
+
+        selectedAlbum.value.media_count = (selectedAlbum.value.media_count || 0) + 1;
+        albums.value = albums.value.map((album) => (
+            album.id === selectedAlbum.value.id
+                ? { ...album, media_count: (album.media_count || 0) + 1, cover_url: album.cover_url || uploadedMedia.thumbnail_url || uploadedMedia.url }
+                : album
+        ));
+    } catch (err) {
+        console.error('Upload error:', err);
+        uploadError.value = err?.response?.data?.message || 'Erro ao fazer upload da mídia.';
+    } finally {
+        uploading.value = false;
+    }
+};
+
+/**
+ * Tratar arquivo selecionado no input oculto
+ */
+const handleUploadChange = async (event) => {
+    const input = event.target;
+    const file = input?.files?.[0];
+
+    if (file) {
+        await uploadToSelectedAlbum(file);
+    }
+
+    if (input) {
+        input.value = '';
+    }
+};
+
+/**
  * Inicializar área de crop
  */
 const initializeCropArea = (media) => {
-    const targetWidth = props.maxWidth || media.width;
-    const targetHeight = props.maxHeight || media.height;
+    const targetWidth = Math.max(1, Math.min(props.maxWidth || media.width, media.width));
+    const targetHeight = Math.max(1, Math.min(props.maxHeight || media.height, media.height));
+    outputScale.value = 100;
+    baseImageDisplaySize.value = { width: 0, height: 0 };
+    currentImageDisplaySize.value = { width: 0, height: 0 };
+    imageScale.value = { x: 1, y: 1 };
     
-    // Centralizar o crop
     cropArea.value = {
-        x: Math.max(0, (media.width - targetWidth) / 2),
-        y: Math.max(0, (media.height - targetHeight) / 2),
+        x: Math.max(0, Math.round((media.width - targetWidth) / 2)),
+        y: Math.max(0, Math.round((media.height - targetHeight) / 2)),
         width: targetWidth,
         height: targetHeight,
     };
+
+    applyBackgroundScale(100, false);
 };
 
 /**
@@ -217,8 +497,7 @@ const startDrag = (event) => {
     event.preventDefault();
     event.stopPropagation();
     isDragging.value = true;
-    
-    // Guardar posição inicial do mouse e do crop
+
     dragStart.value = {
         mouseX: event.clientX,
         mouseY: event.clientY,
@@ -231,22 +510,19 @@ const startDrag = (event) => {
  * Mover crop
  */
 const onDrag = (event) => {
-    if (!isDragging.value || !imageToCrop.value || !cropImage.value) return;
-    
+    if (!isDragging.value || !imageToCrop.value) return;
+
     event.preventDefault();
-    
-    // Calcular quanto o mouse se moveu
+
     const deltaX = event.clientX - dragStart.value.mouseX;
     const deltaY = event.clientY - dragStart.value.mouseY;
-    
-    // Aplicar o movimento às coordenadas do crop (considerando a escala)
+
     let newX = dragStart.value.cropX + (deltaX * imageScale.value.x);
     let newY = dragStart.value.cropY + (deltaY * imageScale.value.y);
-    
-    // Limitar aos bounds da imagem
+
     newX = Math.max(0, Math.min(newX, imageToCrop.value.width - cropArea.value.width));
     newY = Math.max(0, Math.min(newY, imageToCrop.value.height - cropArea.value.height));
-    
+
     cropArea.value.x = newX;
     cropArea.value.y = newY;
 };
@@ -276,6 +552,8 @@ const confirmCrop = async () => {
             y: Math.round(cropArea.value.y),
             width: Math.round(cropArea.value.width),
             height: Math.round(cropArea.value.height),
+            output_width: cropFrameDimensions.value.width,
+            output_height: cropFrameDimensions.value.height,
         });
         
         const croppedMedia = response.data.data;
@@ -303,6 +581,10 @@ const confirmCrop = async () => {
 const cancelCrop = () => {
     showCropModal.value = false;
     imageToCrop.value = null;
+    outputScale.value = 100;
+    baseImageDisplaySize.value = { width: 0, height: 0 };
+    currentImageDisplaySize.value = { width: 0, height: 0 };
+    imageScale.value = { x: 1, y: 1 };
 };
 
 /**
@@ -313,7 +595,28 @@ const closeModal = () => {
     albumMedia.value = [];
     showCropModal.value = false;
     imageToCrop.value = null;
+    outputScale.value = 100;
+    baseImageDisplaySize.value = { width: 0, height: 0 };
+    currentImageDisplaySize.value = { width: 0, height: 0 };
+    imageScale.value = { x: 1, y: 1 };
+    uploading.value = false;
+    uploadProgress.value = 0;
+    uploadError.value = null;
     emit('close');
+};
+
+/**
+ * Fallback para imagem original quando thumbnail quebrar
+ */
+const handleThumbnailError = (event, media) => {
+    if (!media?.url) {
+        return;
+    }
+
+    const img = event?.target;
+    if (img && img.src !== media.url) {
+        img.src = media.url;
+    }
 };
 
 // Carregar álbuns ao montar
@@ -331,29 +634,70 @@ const handleShow = () => {
 };
 
 // Watch para mudanças no prop show
-import { watch } from 'vue';
 watch(() => props.show, handleShow);
+watch(outputScale, (value) => {
+    const numericValue = Number(value);
+    const normalized = Number.isFinite(numericValue)
+        ? clamp(Math.round(numericValue), minOutputScale.value, 100)
+        : 100;
+
+    if (normalized !== numericValue) {
+        outputScale.value = normalized;
+        return;
+    }
+
+    applyImageDisplayScale(normalized);
+    applyBackgroundScale(normalized, true);
+});
+
+watch(minOutputScale, (minScale) => {
+    if (outputScale.value < minScale) {
+        outputScale.value = minScale;
+    }
+});
 
 // Computed
 const dimensionsText = computed(() => {
+    if (isVideoSelection.value) return 'Selecione um vídeo da galeria';
+    if (isAllMediaSelection.value) return 'Selecione uma mídia da galeria';
     if (!props.maxWidth && !props.maxHeight) return 'Qualquer tamanho';
     if (props.maxWidth && props.maxHeight) return `Máximo ${props.maxWidth}x${props.maxHeight}px`;
     if (props.maxWidth) return `Largura máxima ${props.maxWidth}px`;
     return `Altura máxima ${props.maxHeight}px`;
 });
 
-/**
- * Calcular estilo do crop overlay (convertendo coordenadas reais para exibição)
- */
+const cropWrapperStyle = computed(() => {
+    if (!currentImageDisplaySize.value.width || !currentImageDisplaySize.value.height) {
+        return {};
+    }
+
+    return {
+        width: `${currentImageDisplaySize.value.width}px`,
+        height: `${currentImageDisplaySize.value.height}px`,
+    };
+});
+
+const cropImageStyle = computed(() => {
+    if (!currentImageDisplaySize.value.width || !currentImageDisplaySize.value.height) {
+        return {};
+    }
+
+    return {
+        width: `${currentImageDisplaySize.value.width}px`,
+        height: `${currentImageDisplaySize.value.height}px`,
+    };
+});
+
 const cropOverlayStyle = computed(() => {
-    if (!imageToCrop.value || !cropImage.value) return {};
-    
-    // Converter coordenadas da imagem real para coordenadas de exibição
+    if (!imageToCrop.value || !currentImageDisplaySize.value.width || !currentImageDisplaySize.value.height) {
+        return {};
+    }
+
     const displayX = cropArea.value.x / imageScale.value.x;
     const displayY = cropArea.value.y / imageScale.value.y;
     const displayWidth = cropArea.value.width / imageScale.value.x;
     const displayHeight = cropArea.value.height / imageScale.value.y;
-    
+
     return {
         left: `${displayX}px`,
         top: `${displayY}px`,
@@ -441,21 +785,51 @@ onUnmounted(() => {
 
                         <!-- Mídias do Álbum -->
                         <div v-else class="media-view">
-                            <button @click="backToAlbums" class="back-button">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                                </svg>
-                                Voltar para álbuns
-                            </button>
+                            <input
+                                ref="uploadInput"
+                                type="file"
+                                class="hidden"
+                                :accept="uploadAccept"
+                                @change="handleUploadChange"
+                            />
+
+                            <div class="media-toolbar">
+                                <button @click="backToAlbums" class="back-button">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                    Voltar para álbuns
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="button-primary"
+                                    :disabled="uploading"
+                                    @click="openUploadInput"
+                                >
+                                    {{ uploadButtonLabel }}
+                                </button>
+                            </div>
+
+                            <div class="media-toolbar-status">
+                                <p class="upload-hint">{{ uploadHintText }}</p>
+                                <p v-if="uploading" class="upload-progress">Upload: {{ uploadProgress }}%</p>
+                                <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
+                            </div>
 
                             <div class="media-grid">
                                 <div
-                                    v-for="media in albumMedia"
+                                    v-for="media in filteredAlbumMedia"
                                     :key="media.id"
                                     @click="selectImage(media)"
                                     class="media-card"
                                 >
-                                    <img :src="media.thumbnail_url || media.url" :alt="media.alt || media.filename" class="media-image" />
+                                    <img
+                                        :src="media.thumbnail_url || media.url"
+                                        :alt="media.alt || media.filename"
+                                        class="media-image"
+                                        @error="(event) => handleThumbnailError(event, media)"
+                                    />
                                     <div v-if="needsCrop(media)" class="crop-badge">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
@@ -465,8 +839,8 @@ onUnmounted(() => {
                                     <div class="media-dimensions">{{ media.width }}x{{ media.height }}</div>
                                 </div>
 
-                                <div v-if="albumMedia.length === 0" class="empty-state">
-                                    <p>Nenhuma imagem neste álbum</p>
+                                <div v-if="filteredAlbumMedia.length === 0" class="empty-state">
+                                    <p>{{ emptyAlbumMessage }}</p>
                                 </div>
                             </div>
                         </div>
@@ -489,18 +863,16 @@ onUnmounted(() => {
                     </div>
 
                     <div class="modal-body">
-                        <p class="crop-instructions">
-                            Posicione a área de seleção sobre a parte da imagem que deseja usar
-                        </p>
-
                         <div class="crop-container">
-                            <div class="crop-image-wrapper" ref="cropWrapper">
-                                <img 
+                            <div class="crop-image-wrapper" ref="cropWrapper" :style="cropWrapperStyle">
+                                <img
                                     ref="cropImage"
-                                    :src="imageToCrop.url" 
-                                    :alt="imageToCrop.alt" 
+                                    :src="imageToCrop.url"
+                                    :alt="imageToCrop.alt"
                                     class="crop-image"
+                                    :style="cropImageStyle"
                                     @load="onCropImageLoad"
+                                    draggable="false"
                                 />
                                 <div
                                     class="crop-overlay"
@@ -514,10 +886,25 @@ onUnmounted(() => {
                     </div>
 
                     <div class="modal-footer">
-                        <button @click="cancelCrop" class="button-secondary">Cancelar</button>
-                        <button @click="confirmCrop" class="button-primary" :disabled="loading">
-                            {{ loading ? 'Processando...' : 'Confirmar' }}
-                        </button>
+                        <div class="crop-footer-resize">
+                            <label for="crop-output-scale" class="crop-footer-resize-label">Redimensionar imagem</label>
+                            <input
+                                id="crop-output-scale"
+                                v-model.number="outputScale"
+                                type="range"
+                                :min="minOutputScale"
+                                max="100"
+                                step="1"
+                                class="crop-resize-slider crop-footer-resize-slider"
+                            />
+                        </div>
+
+                        <div class="crop-footer-actions">
+                            <button @click="cancelCrop" class="button-secondary">Cancelar</button>
+                            <button @click="confirmCrop" class="button-primary" :disabled="loading">
+                                {{ loading ? 'Processando...' : 'Confirmar' }}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -590,8 +977,10 @@ onUnmounted(() => {
 
 .modal-footer {
     display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
     padding: 1.5rem;
     border-top: 1px solid #e5e7eb;
 }
@@ -678,7 +1067,7 @@ onUnmounted(() => {
     gap: 0.5rem;
     color: #6b7280;
     font-size: 0.875rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
     transition: color 0.2s;
 }
 
@@ -690,6 +1079,19 @@ onUnmounted(() => {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 1rem;
+}
+
+.media-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+
+.media-toolbar-status {
+    margin-bottom: 1rem;
 }
 
 .media-card {
@@ -744,23 +1146,58 @@ onUnmounted(() => {
     margin-bottom: 1rem;
 }
 
+.crop-footer-resize {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 280px;
+    flex: 1;
+}
+
+.crop-footer-resize-label {
+    white-space: nowrap;
+    font-size: 0.875rem;
+    color: #374151;
+    font-weight: 500;
+}
+
+.crop-resize-slider {
+    width: 100%;
+    accent-color: #b8998a;
+}
+
+.crop-footer-resize-slider {
+    max-width: 300px;
+    min-width: 140px;
+}
+
+.crop-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .crop-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 400px;
+    min-height: 420px;
+    overflow: auto;
 }
 
 .crop-image-wrapper {
     position: relative;
     display: inline-block;
     max-width: 100%;
+    max-height: 60vh;
 }
 
 .crop-image {
     display: block;
     max-width: 100%;
     max-height: 60vh;
+    -webkit-user-drag: none;
+    user-select: none;
 }
 
 .crop-overlay {
@@ -807,6 +1244,24 @@ onUnmounted(() => {
 
 .button-secondary:hover {
     background: #f9fafb;
+}
+
+.upload-hint {
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.upload-progress {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #8b6b5d;
+}
+
+.upload-error {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #dc2626;
 }
 
 .retry-button {

@@ -40,6 +40,7 @@
         @delete="handleDelete"
         @toggle-selection="handleToggleSelection"
         @move="handleMove"
+        @renamed="handleRenamed"
       />
     </div>
   </div>
@@ -117,6 +118,14 @@ function handleToggleSelection(mediaId: string): void {
  */
 function handleMove(mediaId: string): void {
   emit('move-media', mediaId);
+}
+
+/**
+ * Handle rename event from MediaItem
+ * Emits media-renamed event to parent component
+ */
+function handleRenamed(mediaId: string, filename: string): void {
+  emit('media-renamed', mediaId, filename);
 }
 </script>
 

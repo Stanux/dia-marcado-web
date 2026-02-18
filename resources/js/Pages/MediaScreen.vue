@@ -67,6 +67,7 @@
             :albums="albums"
             @media-uploaded="handleMediaUploaded"
             @media-deleted="handleMediaDeleted"
+            @media-renamed="handleMediaRenamed"
           />
         </div>
         
@@ -273,6 +274,31 @@ const handleMediaDeleted = async (mediaId: string): Promise<void> => {
     showNotification(errorMessage, 'error');
     console.error('Failed to delete media:', error);
   }
+};
+
+/**
+ * Handle media renamed event
+ * Updates media filename in selected album and albums cache
+ */
+const handleMediaRenamed = (mediaId: string, filename: string): void => {
+  if (!selectedAlbum.value) {
+    return;
+  }
+
+  const selectedMedia = selectedAlbum.value.media.find(m => m.id === mediaId);
+  if (selectedMedia) {
+    selectedMedia.filename = filename;
+  }
+
+  const albumIndex = albums.value.findIndex(a => a.id === selectedAlbum.value!.id);
+  if (albumIndex !== -1) {
+    const albumMedia = albums.value[albumIndex].media.find(m => m.id === mediaId);
+    if (albumMedia) {
+      albumMedia.filename = filename;
+    }
+  }
+
+  showNotification('Nome da mídia atualizado com sucesso!', 'success');
 };
 
 /**

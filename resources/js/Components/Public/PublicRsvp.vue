@@ -20,16 +20,22 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    inviteTokenState: {
+        type: String,
+        default: null,
+    },
 });
 
 const style = computed(() => props.content.style || {});
 const events = computed(() => (props.wedding?.guest_events || []).filter((event) => event.is_active));
 const selectedEventId = ref('');
 const token = ref('');
+const isTokenLimitReached = computed(() => props.inviteTokenState === 'limit_reached');
 
 const isSubmitting = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
+const tokenLimitMessage = 'Este token já atingiu o limite de uso. Solicite um novo link para alterar sua confirmação.';
 
 const form = reactive({
     name: '',
@@ -57,6 +63,11 @@ const submit = async () => {
 
     if (!selectedEventId.value) {
         errorMessage.value = 'Selecione um evento.';
+        return;
+    }
+
+    if (isTokenLimitReached.value) {
+        errorMessage.value = tokenLimitMessage;
         return;
     }
 
@@ -97,6 +108,10 @@ watch(
 if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search);
     token.value = params.get('token') || '';
+}
+
+if (isTokenLimitReached.value) {
+    errorMessage.value = tokenLimitMessage;
 }
 </script>
 
@@ -226,11 +241,11 @@ if (typeof window !== 'undefined') {
 
                     <button
                         type="submit"
-                        :disabled="isSubmitting"
+                        :disabled="isSubmitting || isTokenLimitReached"
                         class="w-full px-6 py-4 text-white font-semibold rounded-lg"
-                        :style="{ backgroundColor: theme.primaryColor, opacity: isSubmitting ? 0.7 : 1 }"
+                        :style="{ backgroundColor: theme.primaryColor, opacity: (isSubmitting || isTokenLimitReached) ? 0.7 : 1 }"
                     >
-                        {{ isSubmitting ? 'Enviando...' : 'Confirmar Presença' }}
+                        {{ isTokenLimitReached ? 'Token sem novos usos' : (isSubmitting ? 'Enviando...' : 'Confirmar Presença') }}
                     </button>
                 </form>
 

@@ -4,8 +4,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\GuestEventResource\Pages;
 use App\Models\GuestEvent;
+use App\Services\Guests\GuestEventHistoryService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
 
@@ -126,6 +128,19 @@ class GuestEventResource extends WeddingScopedResource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
+                Tables\Actions\Action::make('history')
+                    ->label('Histórico')
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->action(function (GuestEvent $record): void {
+                        $historyText = app(GuestEventHistoryService::class)->timelineText($record, 20);
+
+                        Notification::make()
+                            ->title('Histórico do evento')
+                            ->body($historyText)
+                            ->persistent()
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

@@ -32,6 +32,7 @@
           @delete-media="handleDeleteMedia"
           @toggle-selection="handleToggleSelection"
           @move-media="handleMoveSingleMedia"
+          @media-renamed="handleMediaRenamed"
         />
       </div>
     </div>
@@ -166,6 +167,13 @@ const handleUploadFailed = (error: UploadError): void => {
  */
 const handleDeleteMedia = (mediaId: string): void => {
   emit('media-deleted', mediaId);
+};
+
+/**
+ * Handle rename media event from MediaGallery
+ */
+const handleMediaRenamed = (mediaId: string, filename: string): void => {
+  emit('media-renamed', mediaId, filename);
 };
 
 /**

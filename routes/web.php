@@ -7,6 +7,7 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MediaScreenController;
 use App\Http\Controllers\Planning\PlanExportController;
 use App\Http\Controllers\PublicSiteController;
+use App\Models\PartnerInvite;
 use App\Models\SiteLayout;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
@@ -22,7 +23,6 @@ Route::get('/health', function () {
         'status' => 'ok',
         'time' => now()->toIso8601String(),
         'app' => config('app.name'),
-        'env' => app()->environment(),
     ]);
 })->name('health');
 
@@ -76,7 +76,7 @@ Route::get('/login', function () {
 
 // Fallback POST route for Filament login when JavaScript is disabled
 Route::post('/admin/login', [FilamentLoginController::class, 'store'])
-    ->middleware(['web'])
+    ->middleware(['web', 'throttle:filament-login'])
     ->name('filament.admin.auth.login.post');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -89,6 +89,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function () {
     // Media Screen routes
     Route::get('/midias', [MediaScreenController::class, 'index'])->name('midias.index');
+    Route::get('/albums/list', [AlbumController::class, 'index'])->name('albums.list');
     Route::get('/albums', [AlbumController::class, 'index'])->name('albums.index');
     Route::post('/albums', [AlbumController::class, 'store'])->name('albums.store');
     Route::put('/albums/{id}', [AlbumController::class, 'update'])->name('albums.update');
@@ -96,6 +97,7 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
     Route::get('/albums/{id}/media', [AlbumController::class, 'media'])->name('albums.media');
     Route::post('/media/upload', [MediaController::class, 'upload'])->name('media.upload');
     Route::post('/media/batch-move', [MediaController::class, 'batchMove'])->name('media.batch-move');
+    Route::patch('/media/{id}/rename', [MediaController::class, 'rename'])->name('media.rename');
     Route::post('/media/{id}/crop', [MediaController::class, 'crop'])->name('media.crop');
     Route::delete('/media/{id}', [MediaController::class, 'destroy'])->name('media.destroy');
     
@@ -155,12 +157,50 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         $wedding = $siteLayout->wedding;
         
         // Load gift registry config and guest events for the wedding
-        $wedding->load(['giftRegistryConfig', 'guestEvents']);
+        $wedding->load(['giftRegistryConfig', 'guestEvents', 'couple']);
+
+        // Build default logo initials from onboarding/couple data
+        $coupleNames = $wedding->couple
+            ->pluck('name')
+            ->filter(fn ($name) => is_string($name) && trim($name) !== '')
+            ->values();
+
+        // If partner is pending (invited during onboarding), include invite name as second initial source
+        if ($coupleNames->count() < 2) {
+            $pendingInvite = PartnerInvite::query()
+                ->where('wedding_id', $wedding->id)
+                ->where('status', 'pending')
+                ->latest('created_at')
+                ->first();
+
+            if ($pendingInvite && is_string($pendingInvite->name) && trim($pendingInvite->name) !== '') {
+                $coupleNames->push($pendingInvite->name);
+            }
+        }
+
+        $logoInitials = $coupleNames
+            ->take(2)
+            ->map(function (string $fullName): string {
+                $name = trim($fullName);
+
+                if ($name === '') {
+                    return '';
+                }
+
+                $parts = preg_split('/\s+/u', $name) ?: [];
+                $firstName = $parts[0] ?? $name;
+
+                return mb_strtoupper(mb_substr($firstName, 0, 1, 'UTF-8'), 'UTF-8');
+            })
+            ->pad(2, '')
+            ->values()
+            ->all();
         
         return Inertia::render('Sites/Editor', [
             'site' => $siteData,
             'weddingId' => $weddingId,
             'wedding' => $wedding,
+            'logoInitials' => $logoInitials,
         ]);
     })->name('sites.edit');
     

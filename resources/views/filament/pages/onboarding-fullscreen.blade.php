@@ -26,28 +26,27 @@
 </head>
 
 <body class="fi-body min-h-screen bg-gray-50 font-normal text-gray-950 antialiased dark:bg-gray-950 dark:text-white">
-    <div class="fi-simple-layout flex min-h-screen flex-col items-center justify-center p-4">
-        <div class="w-full max-w-4xl">
+    <div class="fi-simple-layout flex min-h-screen flex-col items-center justify-start px-3 py-4 sm:px-4 lg:px-6">
+        <div class="w-full max-w-screen-2xl">
             {{-- Welcome Header --}}
-            <div class="text-center mb-8">
-                <div class="text-6xl mb-4">💍</div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <div class="text-center mb-4 lg:mb-5">
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-1.5">
                     Bem-vindo ao Dia Marcado!
                 </h1>
-                <p class="text-lg text-gray-600 dark:text-gray-400">
+                <p class="text-base md:text-lg text-gray-600 dark:text-gray-400">
                     Vamos configurar seu casamento em apenas 3 passos simples.
                 </p>
             </div>
 
             {{-- Wizard Form --}}
-            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-6 sm:p-8">
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-4 sm:p-6 lg:p-7">
                 <form wire:submit="complete">
                     {{ $this->form }}
                 </form>
             </div>
 
             {{-- Footer --}}
-            <div class="text-center mt-6 text-sm text-gray-500 dark:text-gray-400">
+            <div class="text-center mt-3 lg:mt-4 text-sm text-gray-500 dark:text-gray-400">
                 <p>Precisa de ajuda? Entre em contato conosco.</p>
             </div>
         </div>

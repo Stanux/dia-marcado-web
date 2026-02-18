@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TaskResource\Pages;
 
 use App\Filament\Resources\TaskResource;
+use App\Filament\Resources\WeddingPlanResource;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateTask extends CreateRecord
@@ -25,6 +26,14 @@ class CreateTask extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
+        $planId = $this->record?->wedding_plan_id
+            ?? request()->query('return_to_plan')
+            ?? request()->query('plan');
+
+        if ($planId) {
+            return WeddingPlanResource::getUrl('edit', ['record' => $planId]);
+        }
+
         return $this->getResource()::getUrl('index');
     }
 }

@@ -67,9 +67,9 @@ const style = computed(() => props.content.style || {});
 const SECTION_IDS = {
     hero: 'hero',
     saveTheDate: 'save-the-date',
-    giftRegistry: 'lista-presentes',
-    rsvp: 'confirmar-presenca',
-    photoGallery: 'galeria',
+    giftRegistry: 'gift-registry',
+    rsvp: 'rsvp',
+    photoGallery: 'photo-gallery',
 };
 
 const SECTION_LABELS = {
@@ -193,7 +193,7 @@ const isMobileMenuOpen = computed(() => false); // Static for preview
                         v-if="content.showDate"
                         class="text-xs text-gray-500 mt-0.5"
                     >
-                        {data}
+                        {data_extenso}
                     </p>
                 </div>
 

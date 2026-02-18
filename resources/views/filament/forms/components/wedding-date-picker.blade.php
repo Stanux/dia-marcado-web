@@ -4,7 +4,6 @@
             value: $wire.$entangle('{{ $getStatePath() }}'),
             currentMonth: null,
             currentYear: null,
-            showPicker: true,
             
             init() {
                 const today = new Date();
@@ -121,41 +120,38 @@
                 this.currentYear = today.getFullYear();
             }
         }"
-        class="wedding-date-picker"
+        class="wedding-date-picker h-full w-full"
     >
-        <!-- Selected Date Display -->
-        <div x-show="value" class="mb-4 p-4 bg-pink-50 dark:bg-pink-900/30 rounded-xl border-2 border-pink-300 dark:border-pink-600 text-center">
-            <p class="text-sm text-pink-600 dark:text-pink-300 font-medium">Data selecionada</p>
-            <p class="text-xl font-bold text-pink-700 dark:text-pink-200 capitalize" x-text="formatDisplayDate(value)"></p>
-        </div>
-
         <!-- Calendar -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
+            style="height: clamp(15rem, 46vh, 20rem);"
+        >
             <!-- Year Navigation -->
-            <div class="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-                <button type="button" @click="prevYear" class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition">
-                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center justify-between px-2 py-1 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sm:px-3">
+                <button type="button" @click="prevYear" class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition">
+                    <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
                     </svg>
                 </button>
-                <span class="text-lg font-bold text-gray-700 dark:text-gray-200" x-text="currentYear"></span>
-                <button type="button" @click="nextYear" class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition">
-                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 sm:text-base" x-text="currentYear"></span>
+                <button type="button" @click="nextYear" class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition">
+                    <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
                     </svg>
                 </button>
             </div>
             
             <!-- Month Navigation -->
-            <div class="flex items-center justify-between px-4 py-3 bg-pink-500 dark:bg-pink-600">
-                <button type="button" @click="prevMonth" class="p-2 hover:bg-pink-600 dark:hover:bg-pink-700 rounded-lg transition">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center justify-between px-2 py-1.5 bg-pink-500 dark:bg-pink-600 sm:px-3">
+                <button type="button" @click="prevMonth" class="p-1.5 hover:bg-pink-600 dark:hover:bg-pink-700 rounded-md transition">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
                 </button>
-                <span class="text-xl font-bold text-white" x-text="monthName"></span>
-                <button type="button" @click="nextMonth" class="p-2 hover:bg-pink-600 dark:hover:bg-pink-700 rounded-lg transition">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span class="text-base font-semibold text-white sm:text-lg" x-text="monthName"></span>
+                <button type="button" @click="nextMonth" class="p-1.5 hover:bg-pink-600 dark:hover:bg-pink-700 rounded-md transition">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                     </svg>
                 </button>
@@ -164,7 +160,7 @@
             <!-- Weekday Headers -->
             <div class="grid grid-cols-7 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                 <template x-for="day in ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']">
-                    <div class="py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400" x-text="day"></div>
+                    <div class="py-0.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-[11px]" x-text="day"></div>
                 </template>
             </div>
 
@@ -183,7 +179,7 @@
                             'text-gray-700 dark:text-gray-200': !cell.disabled && !isSelected(cell.date),
                             'font-bold': isSelected(cell.date)
                         }"
-                        class="py-3 text-center text-sm transition-colors"
+                        class="h-6 text-center text-[11px] transition-colors sm:h-7 sm:text-sm"
                     >
                         <span x-text="cell.day"></span>
                     </button>
@@ -191,11 +187,11 @@
             </div>
 
             <!-- Quick Actions -->
-            <div class="flex justify-center gap-2 p-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex justify-center gap-2 p-1 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 sm:p-1.5">
                 <button 
                     type="button" 
                     @click="goToToday" 
-                    class="px-3 py-1 text-sm text-pink-600 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-900/30 rounded-lg transition"
+                    class="px-2 py-0.5 text-[11px] text-pink-600 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-900/30 rounded-md transition sm:text-sm"
                 >
                     Ir para hoje
                 </button>

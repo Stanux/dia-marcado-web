@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\GuestEvent;
+use App\Services\Guests\GuestEventHistoryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class GuestEventController extends Controller
 {
+    public function __construct(
+        private readonly GuestEventHistoryService $guestEventHistoryService,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', GuestEvent::class);
@@ -75,5 +80,32 @@ class GuestEventController extends Controller
         $event->delete();
 
         return response()->json(['message' => 'Evento removido com sucesso.']);
+    }
+
+    public function history(Request $request, GuestEvent $event): JsonResponse
+    {
+        $this->authorize('view', $event);
+
+        $validated = $request->validate([
+            'limit' => 'nullable|integer|min:1|max:200',
+        ]);
+
+        $limit = (int) ($validated['limit'] ?? 50);
+
+        $events = $this->guestEventHistoryService->timelineForEvent($event, $limit)
+            ->map(fn (array $row): array => [
+                'occurred_at' => $row['occurred_at']?->toIso8601String(),
+                'title' => $row['title'],
+                'details' => $row['details'],
+                'actor' => $row['actor'],
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => [
+                'event_id' => $event->id,
+                'events' => $events,
+            ],
+        ]);
     }
 }
