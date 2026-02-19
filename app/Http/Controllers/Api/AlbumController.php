@@ -40,18 +40,35 @@ class AlbumController extends Controller
 
         $albums = Album::where('wedding_id', $wedding->id)
             ->with('albumType', 'coverMedia')
-            ->withCount('media')
+            ->withCount([
+                'media as media_count' => fn ($query) => $query
+                    ->where('status', 'completed'),
+                'media as image_count' => fn ($query) => $query
+                    ->where('status', 'completed')
+                    ->where('mime_type', 'like', 'image/%'),
+                'media as video_count' => fn ($query) => $query
+                    ->where('status', 'completed')
+                    ->where('mime_type', 'like', 'video/%'),
+            ])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($album) {
+                $coverImage = $album->media()
+                    ->where('status', 'completed')
+                    ->where('mime_type', 'like', 'image/%')
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
                 return [
                     'id' => $album->id,
                     'name' => $album->name,
                     'description' => $album->description,
                     'type_slug' => $album->albumType?->slug,
                     'type_name' => $album->albumType?->name,
-                    'cover_url' => $album->coverMedia?->getVariantUrl('thumbnail') ?? $album->coverMedia?->getUrl(),
+                    'cover_url' => $coverImage ? ($coverImage->getVariantUrl('thumbnail') ?? $coverImage->getUrl()) : null,
                     'media_count' => $album->media_count,
+                    'image_count' => $album->image_count ?? 0,
+                    'video_count' => $album->video_count ?? 0,
                     'created_at' => $album->created_at?->toIso8601String(),
                 ];
             });
@@ -272,14 +289,34 @@ class AlbumController extends Controller
      */
     private function formatAlbumResponse(Album $album, bool $detailed = false): array
     {
+        $coverImage = $album->media()
+            ->where('status', 'completed')
+            ->where('mime_type', 'like', 'image/%')
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        $mediaCount = $album->media()
+            ->where('status', 'completed')
+            ->count();
+        $imageCount = $album->media()
+            ->where('status', 'completed')
+            ->where('mime_type', 'like', 'image/%')
+            ->count();
+        $videoCount = $album->media()
+            ->where('status', 'completed')
+            ->where('mime_type', 'like', 'video/%')
+            ->count();
+
         $response = [
             'id' => $album->id,
             'name' => $album->name,
             'description' => $album->description,
             'type_slug' => $album->albumType?->slug,
             'type_name' => $album->albumType?->name,
-            'cover_url' => $album->coverMedia?->getUrl(),
-            'media_count' => $album->media()->count(),
+            'cover_url' => $coverImage ? ($coverImage->getVariantUrl('thumbnail') ?? $coverImage->getUrl()) : null,
+            'media_count' => $mediaCount,
+            'image_count' => $imageCount,
+            'video_count' => $videoCount,
             'created_at' => $album->created_at?->toIso8601String(),
         ];
 

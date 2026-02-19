@@ -80,6 +80,7 @@ const enabledSections = computed(() => {
             :content="getSectionContent('header')"
             :theme="theme"
             :enabled-sections="enabledSections"
+            :viewport-mode="mode"
         />
 
         <!-- Hero Section -->

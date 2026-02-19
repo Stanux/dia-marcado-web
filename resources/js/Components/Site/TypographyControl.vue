@@ -252,141 +252,148 @@ const configSummary = computed(() => {
         
         <!-- Controles expandidos -->
         <div v-if="isExpanded" class="controls-expanded">
-            <!-- Tipo de Fonte -->
-            <div v-if="showFontFamily" class="control-group">
-                <label class="control-label-small">Tipo de Fonte</label>
-                <select
-                    :value="localFontFamily"
-                    @change="handleFontFamilyChange"
-                    class="control-select"
-                    :disabled="disabled"
-                >
-                    <optgroup label="✒️ Manuscritas / Elegantes">
-                        <option
-                            v-for="font in fontFamilies.filter(f => f.category === 'script')"
-                            :key="font.value"
-                            :value="font.value"
-                        >
-                            {{ font.label }}
-                        </option>
-                    </optgroup>
-                    <optgroup label="🖋️ Serifas Clássicas">
-                        <option
-                            v-for="font in fontFamilies.filter(f => f.category === 'serif')"
-                            :key="font.value"
-                            :value="font.value"
-                        >
-                            {{ font.label }}
-                        </option>
-                    </optgroup>
-                    <optgroup label="🔡 Sans-Serif Modernas">
-                        <option
-                            v-for="font in fontFamilies.filter(f => f.category === 'sans-serif')"
-                            :key="font.value"
-                            :value="font.value"
-                        >
-                            {{ font.label }}
-                        </option>
-                    </optgroup>
-                </select>
-            </div>
-            
-            <!-- Tamanho da Fonte -->
-            <div v-if="showSize" class="control-group">
-                <label class="control-label-small">Tamanho</label>
-                <div class="size-controls">
+            <div class="controls-row controls-row-top">
+                <!-- Tipo de Fonte -->
+                <div v-if="showFontFamily" class="control-group">
+                    <label class="control-label-small">Tipo de Fonte</label>
                     <select
-                        :value="isCustomSize ? 'custom' : localFontSize"
-                        @change="handleFontSizeChange"
-                        class="control-select flex-1"
+                        :value="localFontFamily"
+                        @change="handleFontFamilyChange"
+                        class="control-select"
                         :disabled="disabled"
                     >
-                        <option
-                            v-for="size in fontSizes"
-                            :key="size.value"
-                            :value="size.value"
-                        >
-                            {{ size.label }} ({{ size.value }}px)
-                        </option>
-                        <option value="custom">Personalizado</option>
+                        <optgroup label="✒️ Manuscritas / Elegantes">
+                            <option
+                                v-for="font in fontFamilies.filter(f => f.category === 'script')"
+                                :key="font.value"
+                                :value="font.value"
+                            >
+                                {{ font.label }}
+                            </option>
+                        </optgroup>
+                        <optgroup label="🖋️ Serifas Clássicas">
+                            <option
+                                v-for="font in fontFamilies.filter(f => f.category === 'serif')"
+                                :key="font.value"
+                                :value="font.value"
+                            >
+                                {{ font.label }}
+                            </option>
+                        </optgroup>
+                        <optgroup label="🔡 Sans-Serif Modernas">
+                            <option
+                                v-for="font in fontFamilies.filter(f => f.category === 'sans-serif')"
+                                :key="font.value"
+                                :value="font.value"
+                            >
+                                {{ font.label }}
+                            </option>
+                        </optgroup>
                     </select>
-                    
-                    <input
-                        v-if="isCustomSize"
-                        type="number"
-                        :value="localFontSize"
-                        @input="handleCustomSizeChange"
-                        class="size-input"
-                        min="8"
-                        max="200"
+                </div>
+                
+                <!-- Tamanho de Fonte -->
+                <div v-if="showSize" class="control-group">
+                    <label class="control-label-small">Tamanho de Fonte</label>
+                    <div class="size-controls">
+                        <select
+                            :value="isCustomSize ? 'custom' : localFontSize"
+                            @change="handleFontSizeChange"
+                            class="control-select flex-1"
+                            :disabled="disabled"
+                        >
+                            <option
+                                v-for="size in fontSizes"
+                                :key="size.value"
+                                :value="size.value"
+                            >
+                                {{ size.label }} ({{ size.value }}px)
+                            </option>
+                            <option value="custom">Personalizado</option>
+                        </select>
+                        
+                        <input
+                            v-if="isCustomSize"
+                            type="number"
+                            :value="localFontSize"
+                            @input="handleCustomSizeChange"
+                            class="size-input"
+                            min="8"
+                            max="200"
+                            :disabled="disabled"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-row controls-row-bottom">
+                <!-- Cor da Fonte -->
+                <div v-if="showColor" class="control-group">
+                    <label class="control-label-small">Cor da Fonte</label>
+                    <ColorPicker
+                        :model-value="localFontColor"
+                        @update:model-value="handleFontColorChange"
+                        label=""
                         :disabled="disabled"
                     />
                 </div>
-            </div>
-            
-            <!-- Cor da Fonte -->
-            <div v-if="showColor" class="control-group">
-                <ColorPicker
-                    :model-value="localFontColor"
-                    @update:model-value="handleFontColorChange"
-                    label="Cor da Fonte"
-                    :disabled="disabled"
-                />
-            </div>
-            
-            <!-- Estilos -->
-            <div v-if="showStyles" class="control-group">
-                <label class="control-label-small">Estilo</label>
-                <div class="style-buttons">
-                    <button
-                        type="button"
-                        @click="toggleBold"
-                        class="style-btn"
-                        :class="{ 'active': localFontWeight >= 600 }"
-                        title="Negrito"
-                        :disabled="disabled"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z" />
-                        </svg>
-                    </button>
-                    
-                    <button
-                        type="button"
-                        @click="toggleItalic"
-                        class="style-btn"
-                        :class="{ 'active': localFontItalic }"
-                        title="Itálico"
-                        :disabled="disabled"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 4h4m-2 0v16m-4 0h8" transform="skewX(-10)" />
-                        </svg>
-                    </button>
-                    
-                    <button
-                        type="button"
-                        @click="toggleUnderline"
-                        class="style-btn"
-                        :class="{ 'active': localFontUnderline }"
-                        title="Sublinhado"
-                        :disabled="disabled"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 20h14M7 4v8a5 5 0 0010 0V4" />
-                        </svg>
-                    </button>
+                
+                <!-- Estilos -->
+                <div v-if="showStyles" class="control-group">
+                    <label class="control-label-small">Estilo</label>
+                    <div class="style-buttons">
+                        <button
+                            type="button"
+                            @click="toggleBold"
+                            class="style-btn"
+                            :class="{ 'active': localFontWeight >= 600 }"
+                            title="Negrito"
+                            :disabled="disabled"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z" />
+                            </svg>
+                        </button>
+                        
+                        <button
+                            type="button"
+                            @click="toggleItalic"
+                            class="style-btn"
+                            :class="{ 'active': localFontItalic }"
+                            title="Itálico"
+                            :disabled="disabled"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 4h4m-2 0v16m-4 0h8" transform="skewX(-10)" />
+                            </svg>
+                        </button>
+                        
+                        <button
+                            type="button"
+                            @click="toggleUnderline"
+                            class="style-btn"
+                            :class="{ 'active': localFontUnderline }"
+                            title="Sublinhado"
+                            :disabled="disabled"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 20h14M7 4v8a5 5 0 0010 0V4" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
             
             <!-- Preview -->
-            <div class="control-group">
-                <label class="control-label-small">Preview</label>
-                <div class="preview-box">
-                    <p :style="previewStyle">
-                        O rato roeu a roupa do rei de Roma
-                    </p>
+            <div class="controls-row">
+                <div class="control-group">
+                    <label class="control-label-small">Preview</label>
+                    <div class="preview-box">
+                        <p :style="previewStyle">
+                            O rato roeu a roupa do rei de Roma
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -436,6 +443,54 @@ const configSummary = computed(() => {
 
 .controls-expanded {
     @apply p-4 space-y-4;
+}
+
+.controls-row {
+    @apply w-full;
+}
+
+.controls-row-top,
+.controls-row-bottom {
+    @apply grid gap-4 items-start;
+}
+
+.controls-row-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.controls-row-bottom {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.controls-row-top .control-group,
+.controls-row-bottom .control-group {
+    @apply flex flex-col justify-start;
+}
+
+.controls-row-top .control-label-small,
+.controls-row-bottom .control-label-small {
+    @apply mb-2;
+    min-height: 1rem;
+    line-height: 1rem;
+}
+
+.controls-row-top .control-group :deep(.color-picker .picker-container),
+.controls-row-bottom .control-group :deep(.color-picker .picker-container) {
+    margin-top: 0;
+}
+
+@media (max-width: 1279px) {
+    .controls-row-top,
+    .controls-row-bottom {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767px) {
+    .controls-row-top,
+    .controls-row-bottom {
+        grid-template-columns: 1fr;
+    }
 }
 
 .control-group {

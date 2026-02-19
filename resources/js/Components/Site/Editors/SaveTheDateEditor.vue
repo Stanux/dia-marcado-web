@@ -9,6 +9,7 @@
  */
 import { ref, watch, computed } from 'vue';
 import TypographyControl from '../TypographyControl.vue';
+import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
     content: {
@@ -18,6 +19,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
@@ -78,10 +80,23 @@ const updateTypography = (typographyKey, field, value) => {
 // Computed properties
 const mapCoordinates = computed(() => localContent.value.mapCoordinates || { lat: null, lng: null });
 const style = computed(() => localContent.value.style || {});
+const saveTheDateBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#f5f5f5'));
 const sectionTypography = computed(() => localContent.value.sectionTypography || {});
 const descriptionTypography = computed(() => localContent.value.descriptionTypography || {});
 const countdownNumbersTypography = computed(() => localContent.value.countdownNumbersTypography || {});
 const countdownLabelsTypography = computed(() => localContent.value.countdownLabelsTypography || {});
+const selectedLayout = computed(() => {
+    if (style.value.layout === 'inline') {
+        return 'inline';
+    }
+
+    // Backward compatibility: old "card" now maps to "modal"
+    return 'modal';
+});
+
+const pickSaveTheDateBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
+};
 </script>
 
 <template>
@@ -111,21 +126,28 @@ const countdownLabelsTypography = computed(() => localContent.value.countdownLab
                 <strong>Nota:</strong> O tipo de fonte será aplicado ao título "Save the Date", data e local. 
                 O tamanho da fonte afeta apenas data e local (não o título). Os dados do local são herdados de "Dados do Evento".
             </p>
-        </div>
-
-        <!-- Style Settings -->
-        <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Estilo</h3>
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Cor de Fundo</label>
                 <div class="flex items-center space-x-2">
                     <input
                         type="color"
-                        :value="style.backgroundColor || '#f5f5f5'"
+                        :value="saveTheDateBackgroundColorHex"
                         @input="updateStyle('backgroundColor', $event.target.value)"
+                        @change="updateStyle('backgroundColor', $event.target.value)"
                         class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                     />
+                    <button
+                        v-if="isEyeDropperSupported"
+                        type="button"
+                        @click="pickSaveTheDateBackgroundColor"
+                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                        title="Capturar cor da tela"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                        </svg>
+                    </button>
                     <input
                         type="text"
                         :value="style.backgroundColor || '#f5f5f5'"
@@ -138,13 +160,12 @@ const countdownLabelsTypography = computed(() => localContent.value.countdownLab
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Layout</label>
                 <select
-                    :value="style.layout"
+                    :value="selectedLayout"
                     @change="updateStyle('layout', $event.target.value)"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                 >
-                    <option value="inline">Inline</option>
-                    <option value="card">Card</option>
-                    <option value="modal">Modal</option>
+                    <option value="inline">Exibição em Linha: textos e contador à esquerda e mapa à direita.</option>
+                    <option value="modal">Exibição em Coluna: textos e contador acima e mapa abaixo.</option>
                 </select>
             </div>
         </div>

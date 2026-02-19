@@ -8,6 +8,7 @@
  * @Requirements: 14.1, 14.3, 14.4, 14.5
  */
 import { ref, watch, computed } from 'vue';
+import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
     content: {
@@ -17,6 +18,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
@@ -116,6 +118,16 @@ const moveSocialLinkDown = (index) => {
 // Computed properties
 const socialLinks = computed(() => localContent.value.socialLinks || []);
 const style = computed(() => localContent.value.style || {});
+const footerBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#333333'));
+const footerTextColorHex = computed(() => normalizeHexColor(style.value.textColor, '#ffffff'));
+
+const pickFooterBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
+};
+
+const pickFooterTextColor = () => {
+    pickColorFromScreen((hex) => updateStyle('textColor', hex));
+};
 
 // Available social platforms
 const socialPlatforms = [
@@ -300,10 +312,22 @@ const socialPlatforms = [
                     <div class="flex items-center space-x-2">
                         <input
                             type="color"
-                            :value="style.backgroundColor || '#333333'"
+                            :value="footerBackgroundColorHex"
                             @input="updateStyle('backgroundColor', $event.target.value)"
+                            @change="updateStyle('backgroundColor', $event.target.value)"
                             class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                         />
+                        <button
+                            v-if="isEyeDropperSupported"
+                            type="button"
+                            @click="pickFooterBackgroundColor"
+                            class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                            title="Capturar cor da tela"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                            </svg>
+                        </button>
                         <input
                             type="text"
                             :value="style.backgroundColor || '#333333'"
@@ -317,10 +341,22 @@ const socialPlatforms = [
                     <div class="flex items-center space-x-2">
                         <input
                             type="color"
-                            :value="style.textColor || '#ffffff'"
+                            :value="footerTextColorHex"
                             @input="updateStyle('textColor', $event.target.value)"
+                            @change="updateStyle('textColor', $event.target.value)"
                             class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                         />
+                        <button
+                            v-if="isEyeDropperSupported"
+                            type="button"
+                            @click="pickFooterTextColor"
+                            class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                            title="Capturar cor da tela"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                            </svg>
+                        </button>
                         <input
                             type="text"
                             :value="style.textColor || '#ffffff'"

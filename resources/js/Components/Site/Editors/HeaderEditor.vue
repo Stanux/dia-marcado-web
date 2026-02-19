@@ -7,7 +7,7 @@
  * 
  * @Requirements: 8.1, 8.5, 8.6, 8.7
  */
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, useAttrs, onMounted } from 'vue';
 import { SECTION_IDS, SECTION_LABELS } from '@/Composables/useSiteEditor';
 import MediaGalleryModal from '@/Components/Site/MediaGalleryModal.vue';
 import TypographyControl from '@/Components/Site/TypographyControl.vue';
@@ -28,22 +28,6 @@ const props = defineProps({
 });
 
 /**
- * Get available sections for navigation/action button targets (only enabled sections, excluding header/footer)
- */
-const availableSectionTargets = computed(() => {
-    const targets = [];
-    Object.keys(SECTION_IDS).forEach(key => {
-        if (props.enabledSections[key]) {
-            targets.push({
-                value: `#${SECTION_IDS[key]}`,
-                label: SECTION_LABELS[key],
-            });
-        }
-    });
-    return targets;
-});
-
-/**
  * Get navigable sections (all sections except header and footer)
  */
 const navigableSections = computed(() => {
@@ -56,6 +40,8 @@ const navigableSections = computed(() => {
 });
 
 const emit = defineEmits(['change']);
+const attrs = useAttrs();
+const isEyeDropperSupported = ref(false);
 
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
@@ -157,17 +143,6 @@ const updateLogo = (field, value) => {
 };
 
 /**
- * Update action button field
- */
-const updateActionButton = (field, value) => {
-    if (!localContent.value.actionButton) {
-        localContent.value.actionButton = { label: '', target: '', style: 'primary', icon: null };
-    }
-    localContent.value.actionButton[field] = value;
-    emitChange();
-};
-
-/**
  * Update style field
  */
 const updateStyle = (field, value) => {
@@ -176,6 +151,25 @@ const updateStyle = (field, value) => {
     }
     localContent.value.style[field] = value;
     emitChange();
+};
+
+const pickBackgroundColorFromScreen = async () => {
+    if (!isEyeDropperSupported.value) {
+        return;
+    }
+
+    try {
+        const eyeDropper = new window.EyeDropper();
+        const { sRGBHex } = await eyeDropper.open();
+
+        if (typeof sRGBHex === 'string' && sRGBHex) {
+            updateStyle('backgroundColor', sRGBHex.toLowerCase());
+        }
+    } catch (error) {
+        if (error?.name !== 'AbortError') {
+            console.warn('EyeDropper falhou:', error);
+        }
+    }
 };
 
 /**
@@ -199,8 +193,11 @@ const initializeNavigation = () => {
                 return item;
             }
 
+            const isLegacyHeroLabel = item.sectionKey === 'hero' && (!item.label || item.label === 'Hero');
+
             return {
                 ...item,
+                label: isLegacyHeroLabel ? 'Destaque' : (item.label || SECTION_LABELS[item.sectionKey] || item.sectionKey),
                 target: item.target || `#${SECTION_IDS[item.sectionKey] || ''}`,
                 type: item.type || 'anchor',
             };
@@ -416,6 +413,37 @@ const updateSubtitleTypography = (field, value) => {
     emitChange();
 };
 
+const normalizeHexColor = (color, fallback = '#ffffff') => {
+    if (typeof color !== 'string' || !color.trim()) {
+        return fallback;
+    }
+
+    const value = color.trim();
+
+    if (/^#[0-9a-f]{6}$/i.test(value)) {
+        return value;
+    }
+
+    if (/^#[0-9a-f]{3}$/i.test(value)) {
+        const [r, g, b] = value.slice(1).split('');
+        return `#${r}${r}${g}${g}${b}${b}`;
+    }
+
+    const rgbaMatch = value.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*[\d.]+\s*)?\)$/i);
+
+    if (!rgbaMatch) {
+        return fallback;
+    }
+
+    const toHex = (raw) => {
+        const n = Number.parseInt(raw, 10);
+        if (Number.isNaN(n)) return '00';
+        return Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+    };
+
+    return `#${toHex(rgbaMatch[1])}${toHex(rgbaMatch[2])}${toHex(rgbaMatch[3])}`;
+};
+
 // Computed properties
 const navigation = computed(() => localContent.value.navigation || []);
 const logo = computed(() => localContent.value.logo || { type: 'image', url: '', alt: '' });
@@ -445,12 +473,16 @@ const subtitleTypography = computed(() => localContent.value.subtitleTypography 
     fontItalic: true,
     fontUnderline: false,
 });
-const actionButton = computed(() => localContent.value.actionButton || { label: '', target: '', style: 'primary', icon: null });
 const style = computed(() => localContent.value.style || {});
+const headerBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#ffffff'));
+
+onMounted(() => {
+    isEyeDropperSupported.value = typeof window !== 'undefined' && 'EyeDropper' in window;
+});
 </script>
 
 <template>
-    <div class="space-y-6 h-full overflow-y-auto">
+    <div v-bind="attrs" class="space-y-6 h-full overflow-y-auto">
         <!-- Logo Section -->
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Logo</h3>
@@ -458,26 +490,24 @@ const style = computed(() => localContent.value.style || {});
             <!-- Tipo de Logo -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Logo</label>
-                <div class="flex gap-3">
+                <div class="logo-type-tabs" role="tablist" aria-label="Tipo de Logo">
                     <button
+                        type="button"
                         @click="updateLogoType('image')"
-                        :class="[
-                            'flex-1 px-4 py-2 border-2 rounded-md font-medium transition-all',
-                            logoType === 'image'
-                                ? 'border-wedding-500 bg-wedding-50 text-wedding-700'
-                                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                        ]"
+                        class="logo-type-tab"
+                        :class="{ 'logo-type-tab-active': logoType === 'image' }"
+                        :aria-selected="logoType === 'image'"
+                        role="tab"
                     >
                         Usar Imagem
                     </button>
                     <button
+                        type="button"
                         @click="updateLogoType('text')"
-                        :class="[
-                            'flex-1 px-4 py-2 border-2 rounded-md font-medium transition-all',
-                            logoType === 'text'
-                                ? 'border-wedding-500 bg-wedding-50 text-wedding-700'
-                                : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                        ]"
+                        class="logo-type-tab"
+                        :class="{ 'logo-type-tab-active': logoType === 'text' }"
+                        :aria-selected="logoType === 'text'"
+                        role="tab"
                     >
                         Usar Iniciais
                     </button>
@@ -506,7 +536,6 @@ const style = computed(() => localContent.value.style || {});
                         <img :src="logo.url" :alt="logo.alt" class="w-12 h-12 object-contain border border-gray-200 rounded" />
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-900 truncate">{{ logo.alt || 'Logo' }}</p>
-                            <p class="text-xs text-gray-500 truncate">{{ logo.url }}</p>
                         </div>
                         <button
                             @click="updateLogo('url', '')"
@@ -625,32 +654,32 @@ const style = computed(() => localContent.value.style || {});
                         :value="localContent.title"
                         @input="updateField('title', $event.target.value)"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                        placeholder="Ex: {noivo} & {noiva}"
+                        placeholder="Ex: {nome_1} & {nome_2}"
                     />
                     <div class="flex flex-wrap gap-2">
                         <button
-                            @click="insertTag('{noivo}')"
+                            @click="insertTag('{nome_1}')"
                             class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
                         >
-                            + {noivo}
+                            + {nome_1}
                         </button>
                         <button
-                            @click="insertTag('{noiva}')"
+                            @click="insertTag('{nome_2}')"
                             class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
                         >
-                            + {noiva}
+                            + {nome_2}
                         </button>
                         <button
-                            @click="insertTag('{primeiro_nome_noivo}')"
+                            @click="insertTag('{primeiro_nome_1}')"
                             class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
                         >
-                            + {primeiro_nome_noivo}
+                            + {primeiro_nome_1}
                         </button>
                         <button
-                            @click="insertTag('{primeiro_nome_noiva}')"
+                            @click="insertTag('{primeiro_nome_2}')"
                             class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
                         >
-                            + {primeiro_nome_noiva}
+                            + {primeiro_nome_2}
                         </button>
                         <button
                             @click="insertTag('{data_extenso}')"
@@ -665,7 +694,6 @@ const style = computed(() => localContent.value.style || {});
                             + {data_simples}
                         </button>
                     </div>
-                    <p class="text-xs text-gray-500">Use {noivo}, {noiva}, {primeiro_nome_noivo}, {primeiro_nome_noiva}, {data_extenso}, {data_simples} para placeholders</p>
                 </div>
             </div>
 
@@ -761,57 +789,6 @@ const style = computed(() => localContent.value.style || {});
             </div>
         </div>
 
-        <!-- Action Button -->
-        <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Botão de Ação</h3>
-            
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Rótulo</label>
-                    <input
-                        type="text"
-                        :value="actionButton.label"
-                        @input="updateActionButton('label', $event.target.value)"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                        placeholder="Ex: Confirmar Presença"
-                    />
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Estilo</label>
-                    <select
-                        :value="actionButton.style"
-                        @change="updateActionButton('style', $event.target.value)"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    >
-                        <option value="primary">Primário</option>
-                        <option value="secondary">Secundário</option>
-                        <option value="ghost">Ghost</option>
-                    </select>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Destino</label>
-                <select
-                    :value="actionButton.target"
-                    @change="updateActionButton('target', $event.target.value)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                >
-                    <option value="">Selecione uma seção</option>
-                    <option 
-                        v-for="target in availableSectionTargets" 
-                        :key="target.value" 
-                        :value="target.value"
-                    >
-                        {{ target.label }}
-                    </option>
-                </select>
-                <p v-if="availableSectionTargets.length === 0" class="mt-1 text-xs text-amber-600">
-                    Ative outras seções para vincular
-                </p>
-            </div>
-        </div>
-
         <!-- Style Settings -->
         <div class="space-y-4 pt-6 border-t border-gray-200">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Estilo</h3>
@@ -846,10 +823,22 @@ const style = computed(() => localContent.value.style || {});
                 <div class="flex items-center space-x-2">
                     <input
                         type="color"
-                        :value="style.backgroundColor || '#ffffff'"
+                        :value="headerBackgroundColorHex"
                         @input="updateStyle('backgroundColor', $event.target.value)"
+                        @change="updateStyle('backgroundColor', $event.target.value)"
                         class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                     />
+                    <button
+                        v-if="isEyeDropperSupported"
+                        type="button"
+                        @click="pickBackgroundColorFromScreen"
+                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                        title="Capturar cor da tela"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                        </svg>
+                    </button>
                     <input
                         type="text"
                         :value="style.backgroundColor || '#ffffff'"
@@ -910,5 +899,31 @@ const style = computed(() => localContent.value.style || {});
 }
 .hover\:text-wedding-600:hover {
     color: #a18072;
+}
+
+.logo-type-tabs {
+    @apply flex w-full items-end gap-2 border-b border-gray-300;
+}
+
+.logo-type-tab {
+    @apply flex-1 px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 0.65rem 0.65rem 0 0;
+    margin-bottom: -1px;
+    background: transparent;
+}
+
+.logo-type-tab:hover {
+    @apply text-gray-700;
+    border-color: #e5e7eb;
+    background: #f9fafb;
+}
+
+.logo-type-tab-active {
+    @apply text-wedding-700;
+    background: #ffffff;
+    border-color: #b8998a;
+    box-shadow: inset 0 2px 0 #b8998a;
 }
 </style>

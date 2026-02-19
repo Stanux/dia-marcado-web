@@ -25,7 +25,7 @@ export const SECTION_IDS = {
  * Section labels for display in select options
  */
 export const SECTION_LABELS = {
-    hero: 'Hero',
+    hero: 'Destaque',
     saveTheDate: 'Save the Date',
     giftRegistry: 'Lista de Presentes',
     rsvp: 'Confirme Presença',

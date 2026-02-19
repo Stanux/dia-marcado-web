@@ -8,6 +8,7 @@
  * @Requirements: 8.5, 9.5
  */
 import { ref, computed, watch } from 'vue';
+import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
     modelValue: {
@@ -53,16 +54,17 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue', 'update:alpha']);
+const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 const showPalette = ref(false);
-const localColor = ref(props.modelValue);
+const localColor = ref(normalizeHexColor(props.modelValue, '#ffffff'));
 const localAlpha = ref(props.alpha);
 
 /**
  * Watch for external value changes
  */
 watch(() => props.modelValue, (newValue) => {
-    localColor.value = newValue;
+    localColor.value = normalizeHexColor(newValue, '#ffffff');
 });
 
 watch(() => props.alpha, (newValue) => {
@@ -73,7 +75,7 @@ watch(() => props.alpha, (newValue) => {
  * Handle color input change
  */
 const handleColorChange = (event) => {
-    localColor.value = event.target.value;
+    localColor.value = normalizeHexColor(event.target.value, '#ffffff');
     emit('update:modelValue', localColor.value);
 };
 
@@ -110,6 +112,13 @@ const selectPreset = (preset) => {
     localColor.value = preset.color;
     emit('update:modelValue', preset.color);
     showPalette.value = false;
+};
+
+const pickColorFromEyedropper = async () => {
+    await pickColorFromScreen((hex) => {
+        localColor.value = hex;
+        emit('update:modelValue', hex);
+    });
 };
 
 /**
@@ -172,6 +181,7 @@ const closePalette = () => {
                             type="color"
                             :value="localColor"
                             @input="handleColorChange"
+                            @change="handleColorChange"
                             class="color-input-native"
                             :disabled="disabled"
                         />
@@ -189,6 +199,19 @@ const closePalette = () => {
                     maxlength="7"
                     :disabled="disabled"
                 />
+
+                <button
+                    v-if="isEyeDropperSupported"
+                    type="button"
+                    @click="pickColorFromEyedropper"
+                    class="palette-toggle"
+                    :disabled="disabled"
+                    title="Capturar cor da tela"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                    </svg>
+                </button>
                 
                 <!-- Palette Toggle -->
                 <button
@@ -300,6 +323,7 @@ export default {
 .color-preview::before {
     content: '';
     @apply absolute inset-0;
+    pointer-events: none;
 }
 
 .color-input-native {

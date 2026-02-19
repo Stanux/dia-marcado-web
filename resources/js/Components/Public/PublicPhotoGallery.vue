@@ -113,10 +113,10 @@ const stopSlideshow = () => {
 
             <!-- Album Tabs -->
             <div class="flex justify-center mb-10">
-                <div class="inline-flex bg-gray-100 rounded-xl p-1.5">
+                <div class="flex w-full max-w-md sm:max-w-none sm:w-auto flex-col sm:flex-row bg-gray-100 rounded-xl p-1.5 gap-1">
                     <button
                         @click="activeAlbum = 'before'"
-                        class="px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200"
+                        class="w-full sm:w-auto px-4 sm:px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 break-words"
                         :class="activeAlbum === 'before' 
                             ? 'bg-white shadow-md text-gray-900' 
                             : 'text-gray-600 hover:text-gray-900'"
@@ -125,7 +125,7 @@ const stopSlideshow = () => {
                     </button>
                     <button
                         @click="activeAlbum = 'after'"
-                        class="px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200"
+                        class="w-full sm:w-auto px-4 sm:px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 break-words"
                         :class="activeAlbum === 'after' 
                             ? 'bg-white shadow-md text-gray-900' 
                             : 'text-gray-600 hover:text-gray-900'"

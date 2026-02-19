@@ -11,6 +11,7 @@
 import { ref, watch, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import TypographyControl from '@/Components/Site/TypographyControl.vue';
+import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
     content: {
@@ -20,6 +21,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 const page = usePage();
 const wedding = computed(() => page.props.wedding);
@@ -184,6 +186,7 @@ const feeExample = computed(() => {
 // Computed properties
 const style = computed(() => localContent.value.style || {});
 const config = computed(() => localContent.value.config || {});
+const giftRegistryBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#ffffff'));
 const titleTypography = computed(() => localContent.value.titleTypography || {
     fontFamily: 'Playfair Display',
     fontColor: '#333333',
@@ -192,6 +195,10 @@ const titleTypography = computed(() => localContent.value.titleTypography || {
     fontItalic: false,
     fontUnderline: false,
 });
+
+const pickGiftRegistryBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
+};
 </script>
 
 <template>
@@ -240,10 +247,22 @@ const titleTypography = computed(() => localContent.value.titleTypography || {
                 <div class="flex items-center space-x-2">
                     <input
                         type="color"
-                        :value="style.backgroundColor || '#ffffff'"
+                        :value="giftRegistryBackgroundColorHex"
                         @input="updateStyle('backgroundColor', $event.target.value)"
+                        @change="updateStyle('backgroundColor', $event.target.value)"
                         class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                     />
+                    <button
+                        v-if="isEyeDropperSupported"
+                        type="button"
+                        @click="pickGiftRegistryBackgroundColor"
+                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                        title="Capturar cor da tela"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                        </svg>
+                    </button>
                     <input
                         type="text"
                         :value="style.backgroundColor || '#ffffff'"

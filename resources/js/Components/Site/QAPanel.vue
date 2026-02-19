@@ -43,6 +43,55 @@ const displayedChecks = computed(() => {
     return [...failedChecks.value, ...warningChecks.value, ...passedChecks.value];
 });
 
+const CHECK_PRESENTATION = {
+    images_alt_text: {
+        title: 'Descrição das imagens',
+        pass: 'As imagens importantes já têm descrição para acessibilidade.',
+        fail: 'Algumas imagens ainda não têm descrição. Adicione um texto curto para melhorar acessibilidade e SEO.',
+        warning: 'Revise as descrições das imagens para melhorar a leitura por tecnologias assistivas.',
+    },
+    valid_links: {
+        title: 'Links do site',
+        pass: 'Todos os links estão válidos e funcionando.',
+        fail: 'Encontramos link(s) inválido(s) ou incompleto(s). Revise botões e menus.',
+        warning: 'Existem links que precisam de revisão.',
+    },
+    required_fields: {
+        title: 'Informações obrigatórias',
+        pass: 'Os dados essenciais para publicação estão preenchidos.',
+        fail: 'Faltam informações obrigatórias para publicar com segurança.',
+        warning: 'Revise os campos obrigatórios antes de publicar.',
+    },
+    wcag_contrast: {
+        title: 'Legibilidade das cores',
+        pass: 'As combinações de cor atendem ao contraste recomendado.',
+        fail: 'As cores estão com contraste baixo para leitura.',
+        warning: 'Algumas combinações de cor dificultam a leitura. Ajuste cor de fundo e texto.',
+    },
+    resource_size: {
+        title: 'Peso do site',
+        pass: 'O tamanho do site está dentro do recomendado.',
+        fail: 'O tamanho do site está acima do limite.',
+        warning: 'O site está mais pesado que o recomendado. Otimize imagens e vídeos para carregar mais rápido.',
+    },
+};
+
+const getDisplayName = (check) => {
+    const presentation = CHECK_PRESENTATION[check.name];
+    return presentation?.title || check.name;
+};
+
+const getDisplayMessage = (check) => {
+    const presentation = CHECK_PRESENTATION[check.name];
+    const friendly = presentation?.[check.status];
+
+    if (check.name === 'resource_size' && check.status === 'warning' && check.message) {
+        return `${friendly}\n\nDetalhes técnicos:\n${check.message}`;
+    }
+
+    return friendly || check.message || '';
+};
+
 // Methods
 const getStatusIcon = (status) => {
     switch (status) {
@@ -167,7 +216,7 @@ const getSectionLabel = (section) => {
                                 'text-gray-800': !['fail', 'warning', 'pass'].includes(check.status),
                             }"
                         >
-                            {{ check.name }}
+                            {{ getDisplayName(check) }}
                         </p>
                         <span 
                             v-if="check.section"
@@ -186,7 +235,7 @@ const getSectionLabel = (section) => {
                             'text-gray-600': !['fail', 'warning', 'pass'].includes(check.status),
                         }"
                     >
-                        {{ check.message }}
+                        {{ getDisplayMessage(check) }}
                     </p>
 
                     <!-- Navigate to Section Button -->

@@ -13,7 +13,10 @@ use App\Models\Wedding;
  * wedding data (couple names, date, venue, etc.).
  * 
  * Supported placeholders:
- * - {noivo} / {noiva} → couple member names
+ * - {nome_1} / {nome_2} → couple member names
+ * - {noivo} / {noiva} → legacy aliases for couple member names
+ * - {primeiro_nome_1} / {primeiro_nome_2} → first names of couple members
+ * - {primeiro_nome_noivo} / {primeiro_nome_noiva} → legacy first-name aliases
  * - {noivos} → all couple names separated by " e "
  * - {data_extenso} → formatted wedding date (e.g., "15 de Março de 2025")
  * - {data_simples} → short date format (e.g., "15/03/2025")

@@ -7,10 +7,11 @@
  * 
  * @Requirements: 9.1, 9.2, 9.4, 9.5
  */
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, useAttrs } from 'vue';
 import { SECTION_IDS, SECTION_LABELS } from '@/Composables/useSiteEditor';
 import TypographyControl from '@/Components/Site/TypographyControl.vue';
 import MediaGalleryModal from '@/Components/Site/MediaGalleryModal.vue';
+import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
     content: {
@@ -24,6 +25,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const attrs = useAttrs();
+const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 /**
  * Get available sections for CTA target (only enabled sections, excluding header/footer)
@@ -72,7 +75,7 @@ const updateField = (field, value) => {
  */
 const updateMedia = (field, value) => {
     if (!localContent.value.media) {
-        localContent.value.media = { type: 'image', url: '', fallback: '', autoplay: true, loop: true };
+        localContent.value.media = { type: 'image', url: '', alt: '', fallback: '', autoplay: true, loop: true };
     }
     localContent.value.media[field] = value;
     emitChange();
@@ -191,11 +194,12 @@ const updateSubtitleTypography = (field, value) => {
 };
 
 // Computed properties
-const media = computed(() => localContent.value.media || { type: 'image', url: '', fallback: '', autoplay: true, loop: true });
+const media = computed(() => localContent.value.media || { type: 'image', url: '', alt: '', fallback: '', autoplay: true, loop: true });
 const ctaPrimary = computed(() => localContent.value.ctaPrimary || { label: '', target: '' });
 const ctaSecondary = computed(() => localContent.value.ctaSecondary || { label: '', target: '' });
 const style = computed(() => localContent.value.style || {});
 const overlay = computed(() => style.value.overlay || { color: '#000000', opacity: 0.3 });
+const overlayColorHex = computed(() => normalizeHexColor(overlay.value.color, '#000000'));
 const isVideo = computed(() => media.value.type === 'video');
 const isGallery = computed(() => media.value.type === 'gallery');
 const isImage = computed(() => media.value.type === 'image');
@@ -248,6 +252,7 @@ const openBannerGallery = () => {
  */
 const onImageSelected = (imageData) => {
     updateMedia('url', imageData.url);
+    updateMedia('alt', imageData.alt || '');
     showImageGallery.value = false;
 };
 
@@ -266,25 +271,52 @@ const onBannerImageSelected = (imageData) => {
     addImageToGallery(imageData);
     showBannerGallery.value = false;
 };
+
+const pickOverlayColorFromScreen = () => {
+    pickColorFromScreen((hex) => updateOverlay('color', hex));
+};
 </script>
 
 <template>
-    <div class="space-y-6 h-full overflow-y-auto">
+    <div v-bind="attrs" class="space-y-6 h-full overflow-y-auto">
         <!-- Media Section -->
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Mídia</h3>
             
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Mídia</label>
-                <select
-                    :value="media.type"
-                    @change="updateMedia('type', $event.target.value)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                >
-                    <option value="image">Imagem Única</option>
-                    <option value="gallery">Banner Rotativo (Galeria)</option>
-                    <option value="video">Vídeo</option>
-                </select>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Mídia</label>
+                <div class="media-type-tabs" role="tablist" aria-label="Tipo de Mídia">
+                    <button
+                        type="button"
+                        @click="updateMedia('type', 'image')"
+                        class="media-type-tab"
+                        :class="{ 'media-type-tab-active': media.type === 'image' }"
+                        :aria-selected="media.type === 'image'"
+                        role="tab"
+                    >
+                        Imagem Única
+                    </button>
+                    <button
+                        type="button"
+                        @click="updateMedia('type', 'gallery')"
+                        class="media-type-tab"
+                        :class="{ 'media-type-tab-active': media.type === 'gallery' }"
+                        :aria-selected="media.type === 'gallery'"
+                        role="tab"
+                    >
+                        Banner Rotativo
+                    </button>
+                    <button
+                        type="button"
+                        @click="updateMedia('type', 'video')"
+                        class="media-type-tab"
+                        :class="{ 'media-type-tab-active': media.type === 'video' }"
+                        :aria-selected="media.type === 'video'"
+                        role="tab"
+                    >
+                        Vídeo
+                    </button>
+                </div>
             </div>
 
             <!-- Image Selection -->
@@ -309,7 +341,6 @@ const onBannerImageSelected = (imageData) => {
                         <img :src="media.url" alt="Preview" class="w-32 h-20 object-cover border border-gray-200 rounded" />
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-900 truncate">Imagem selecionada</p>
-                            <p class="text-xs text-gray-500 truncate">{{ media.url }}</p>
                         </div>
                         <button
                             @click="updateMedia('url', '')"
@@ -321,6 +352,18 @@ const onBannerImageSelected = (imageData) => {
                             </svg>
                         </button>
                     </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Texto Alternativo (alt)</label>
+                    <input
+                        type="text"
+                        :value="media.alt || ''"
+                        @input="updateMedia('alt', $event.target.value)"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                        placeholder="Ex: Foto dos noivos sorrindo em frente ao altar"
+                    />
+                    <p class="mt-1 text-xs text-gray-500">Esse texto melhora acessibilidade e SEO para a imagem de fundo.</p>
                 </div>
             </template>
 
@@ -350,7 +393,6 @@ const onBannerImageSelected = (imageData) => {
                         <img :src="image.url" :alt="image.alt" class="w-24 h-16 object-cover border border-gray-200 rounded" />
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-900">Imagem {{ index + 1 }}</p>
-                            <p class="text-xs text-gray-500 truncate">{{ image.url }}</p>
                         </div>
                         <button
                             @click="removeImageFromGallery(index)"
@@ -489,7 +531,6 @@ const onBannerImageSelected = (imageData) => {
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                     placeholder="Ex: Vamos nos casar!"
                 />
-                <p class="mt-1 text-xs text-gray-500">Suporta rich text básico e placeholders</p>
             </div>
 
             <!-- Tipografia do Título -->
@@ -626,9 +667,8 @@ const onBannerImageSelected = (imageData) => {
                     @change="updateField('layout', $event.target.value)"
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                 >
-                    <option value="full-bleed">Full Bleed (tela inteira)</option>
-                    <option value="boxed">Boxed (com margens)</option>
-                    <option value="split">Split (imagem/texto lado a lado)</option>
+                    <option value="full-bleed">Ocupar a largura total da tela.</option>
+                    <option value="boxed">Ocupar o centro da tela com margens laterais e cantos arredondados.</option>
                 </select>
             </div>
         </div>
@@ -646,10 +686,22 @@ const onBannerImageSelected = (imageData) => {
                         <div class="flex items-center space-x-2">
                             <input
                                 type="color"
-                                :value="overlay.color"
+                                :value="overlayColorHex"
                                 @input="updateOverlay('color', $event.target.value)"
+                                @change="updateOverlay('color', $event.target.value)"
                                 class="h-8 w-12 border border-gray-300 rounded cursor-pointer"
                             />
+                            <button
+                                v-if="isEyeDropperSupported"
+                                type="button"
+                                @click="pickOverlayColorFromScreen"
+                                class="h-8 w-8 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                title="Capturar cor da tela"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                </svg>
+                            </button>
                             <input
                                 type="text"
                                 :value="overlay.color"
@@ -775,5 +827,31 @@ const onBannerImageSelected = (imageData) => {
 }
 .hover\:text-wedding-600:hover {
     color: #a18072;
+}
+
+.media-type-tabs {
+    @apply grid w-full grid-cols-3 items-end gap-2 border-b border-gray-300;
+}
+
+.media-type-tab {
+    @apply px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 0.65rem 0.65rem 0 0;
+    margin-bottom: -1px;
+    background: transparent;
+}
+
+.media-type-tab:hover {
+    @apply text-gray-700;
+    border-color: #e5e7eb;
+    background: #f9fafb;
+}
+
+.media-type-tab-active {
+    @apply text-wedding-700;
+    background: #ffffff;
+    border-color: #b8998a;
+    box-shadow: inset 0 2px 0 #b8998a;
 }
 </style>

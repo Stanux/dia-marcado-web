@@ -289,15 +289,14 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             $mediaType = $sections['hero']['media']['type'] ?? 'image';
             $mediaUrl = $sections['hero']['media']['url'] ?? '';
             if ($mediaType === 'image' && !empty($mediaUrl)) {
-                // Hero images should have alt via title/subtitle
-                $title = $sections['hero']['title'] ?? '';
-                if (empty(trim($title))) {
+                $mediaAlt = $sections['hero']['media']['alt'] ?? '';
+                if (empty(trim((string) $mediaAlt))) {
                     $warnings[] = [
                         'type' => 'missing_alt',
                         'section' => 'hero',
                         'element' => 'media',
-                        'message' => 'A imagem do hero não tem descrição textual',
-                        'suggestion' => 'Adicione um título ao hero para descrever a imagem',
+                        'message' => 'A imagem do destaque não tem texto alternativo',
+                        'suggestion' => 'Adicione um texto alternativo (alt) para a imagem de fundo do destaque',
                     ];
                 }
             }

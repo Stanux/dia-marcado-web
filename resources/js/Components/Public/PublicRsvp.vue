@@ -124,12 +124,12 @@ if (isTokenLimitReached.value) {
         <div class="max-w-xl mx-auto">
             <div class="text-center mb-10">
                 <h2
-                    class="text-3xl md:text-4xl font-bold mb-4"
+                    class="text-3xl md:text-4xl font-bold mb-4 break-words [overflow-wrap:anywhere]"
                     :style="{ color: theme.primaryColor, fontFamily: theme.fontFamily }"
                 >
                     {{ content.title || 'Confirme sua Presença' }}
                 </h2>
-                <p class="text-gray-600 text-lg">
+                <p class="text-gray-600 text-lg break-words [overflow-wrap:anywhere]">
                     {{ content.description || 'Por favor, confirme sua presença para que possamos preparar tudo com carinho.' }}
                 </p>
             </div>

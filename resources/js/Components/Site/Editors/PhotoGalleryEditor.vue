@@ -10,6 +10,7 @@
  */
 import { ref, watch, computed } from 'vue';
 import NavigationSettings from './NavigationSettings.vue';
+import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
     content: {
@@ -19,6 +20,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
@@ -158,6 +160,11 @@ const albums = computed(() => localContent.value.albums || {
     after: { title: 'O Grande Dia', photos: [] },
 });
 const style = computed(() => localContent.value.style || {});
+const photoGalleryBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#ffffff'));
+
+const pickPhotoGalleryBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
+};
 const currentAlbumPhotos = computed(() => albums.value[activeAlbum.value]?.photos || []);
 </script>
 
@@ -373,10 +380,22 @@ const currentAlbumPhotos = computed(() => albums.value[activeAlbum.value]?.photo
                 <div class="flex items-center space-x-2">
                     <input
                         type="color"
-                        :value="style.backgroundColor || '#ffffff'"
+                        :value="photoGalleryBackgroundColorHex"
                         @input="updateStyle('backgroundColor', $event.target.value)"
+                        @change="updateStyle('backgroundColor', $event.target.value)"
                         class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                     />
+                    <button
+                        v-if="isEyeDropperSupported"
+                        type="button"
+                        @click="pickPhotoGalleryBackgroundColor"
+                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                        title="Capturar cor da tela"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                        </svg>
+                    </button>
                     <input
                         type="text"
                         :value="style.backgroundColor || '#ffffff'"

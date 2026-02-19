@@ -54,7 +54,7 @@ const loadPreview = async () => {
     isLoading.value = true;
     loadError.value = null;
     try {
-        const response = await axios.get(`/api/sites/${props.siteId}/preview`);
+        const response = await axios.get(`/admin/sites/${props.siteId}/preview`);
         previewContent.value = response.data?.data?.content || props.content;
     } catch (err) {
         loadError.value = err?.response?.data?.message || 'Erro ao carregar preview';
@@ -86,15 +86,16 @@ watch(
         >
             <div
                 v-if="show"
-                class="fixed inset-0 z-50 bg-gray-100 overflow-auto"
+                class="fixed inset-0 z-50 bg-white overflow-auto"
             >
                 <!-- Floating Top Menu -->
-                <div class="fixed top-12 right-6 z-10">
-                    <div class="bg-transparent rounded-lg px-2 py-2 flex flex-col items-center space-y-1">
+                <div class="fixed top-4 right-4 md:top-6 md:right-6 pointer-events-auto" style="z-index: 2147483647;">
+                    <div class="rounded-xl bg-white px-2 py-2 flex flex-col items-center space-y-1 shadow-xl ring-1 ring-black/10">
                         <!-- Close Button -->
                         <button
                             @click="handleClose"
-                            class="p-2 text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
+                            class="inline-flex items-center justify-center p-2 text-sm font-medium rounded-md transition-colors shadow-sm"
+                            style="background-color: #b91c1c; color: #ffffff;"
                             title="Fechar"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,7 +104,7 @@ watch(
                         </button>
 
                         <!-- Divider -->
-                        <div class="w-6 h-px bg-gray-500"></div>
+                        <div class="w-6 h-px bg-gray-300"></div>
 
                         <!-- Device Selector -->
                         <div class="flex flex-col items-center space-y-1">
@@ -113,7 +114,7 @@ watch(
                                 class="p-2 text-sm font-medium rounded-md transition-colors"
                                 :class="previewMode === 'desktop' 
                                     ? 'bg-wedding-600 text-white shadow-md' 
-                                    : 'bg-gray-700 text-white hover:bg-gray-600'"
+                                    : 'bg-white text-gray-700 hover:bg-gray-100 ring-1 ring-gray-200'"
                                 title="Web"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,7 +128,7 @@ watch(
                                 class="p-2 text-sm font-medium rounded-md transition-colors"
                                 :class="previewMode === 'tablet' 
                                     ? 'bg-wedding-600 text-white shadow-md' 
-                                    : 'bg-gray-700 text-white hover:bg-gray-600'"
+                                    : 'bg-white text-gray-700 hover:bg-gray-100 ring-1 ring-gray-200'"
                                 title="Tablet"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,7 +142,7 @@ watch(
                                 class="p-2 text-sm font-medium rounded-md transition-colors"
                                 :class="previewMode === 'mobile' 
                                     ? 'bg-wedding-600 text-white shadow-md' 
-                                    : 'bg-gray-700 text-white hover:bg-gray-600'"
+                                    : 'bg-white text-gray-700 hover:bg-gray-100 ring-1 ring-gray-200'"
                                 title="Mobile"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -63,6 +63,59 @@ const navigation = computed(() => {
 const actionButton = computed(() => props.content.actionButton || { label: '', target: '', style: 'primary' });
 const style = computed(() => props.content.style || {});
 
+const clampRgbChannel = (value) => {
+    const parsed = Number.parseInt(value, 10);
+
+    if (Number.isNaN(parsed)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.min(255, parsed));
+};
+
+const resolveHeaderBackgroundColor = (value) => {
+    if (typeof value !== 'string' || !value.trim()) {
+        return '#ffffff';
+    }
+
+    const normalized = value.trim();
+
+    if (normalized.toLowerCase() === 'transparent') {
+        return '#ffffff';
+    }
+
+    if (/^#[0-9a-f]{6}$/i.test(normalized) || /^#[0-9a-f]{3}$/i.test(normalized)) {
+        return normalized;
+    }
+
+    const rgbaMatch = normalized.match(/^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*([+-]?\d*\.?\d+)\s*\)$/i);
+    if (rgbaMatch) {
+        const alpha = Number.parseFloat(rgbaMatch[4]);
+
+        if (Number.isNaN(alpha) || alpha <= 0.01) {
+            return '#ffffff';
+        }
+
+        const r = clampRgbChannel(rgbaMatch[1]);
+        const g = clampRgbChannel(rgbaMatch[2]);
+        const b = clampRgbChannel(rgbaMatch[3]);
+        const a = Math.max(0, Math.min(1, alpha));
+
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+
+    const rgbMatch = normalized.match(/^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);
+    if (rgbMatch) {
+        const r = clampRgbChannel(rgbMatch[1]);
+        const g = clampRgbChannel(rgbMatch[2]);
+        const b = clampRgbChannel(rgbMatch[3]);
+
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    return '#ffffff';
+};
+
 // Section mapping helpers
 const SECTION_IDS = {
     hero: 'hero',
@@ -73,7 +126,7 @@ const SECTION_IDS = {
 };
 
 const SECTION_LABELS = {
-    hero: 'Hero',
+    hero: 'Destaque',
     saveTheDate: 'Save the Date',
     giftRegistry: 'Lista de Presentes',
     rsvp: 'Confirme Presença',
@@ -91,7 +144,7 @@ const getSectionLabel = (sectionKey) => {
 // Header styles
 const headerStyles = computed(() => ({
     height: style.value.height || '80px',
-    backgroundColor: style.value.backgroundColor || '#ffffff',
+    backgroundColor: resolveHeaderBackgroundColor(style.value.backgroundColor),
     position: style.value.sticky ? 'sticky' : 'relative',
     top: style.value.sticky ? '0' : 'auto',
     zIndex: style.value.sticky ? '100' : 'auto',

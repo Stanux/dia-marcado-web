@@ -71,13 +71,23 @@ class AlbumController extends Controller
         try {
             // Get all albums (WeddingScope filters automatically)
             $albums = Album::with('albumType')
-                ->withCount('media')
+                ->withCount([
+                    'media as media_count' => fn ($query) => $query
+                        ->where('status', 'completed'),
+                    'media as image_count' => fn ($query) => $query
+                        ->where('status', 'completed')
+                        ->where('mime_type', 'like', 'image/%'),
+                    'media as video_count' => fn ($query) => $query
+                        ->where('status', 'completed')
+                        ->where('mime_type', 'like', 'video/%'),
+                ])
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($album) {
-                    // Get cover image (first media item)
+                    // Get cover image (latest image only). Ignore videos for cover.
                     $coverMedia = $album->media()
                         ->where('status', 'completed')
+                        ->where('mime_type', 'like', 'image/%')
                         ->orderBy('created_at', 'desc')
                         ->first();
                     
@@ -87,6 +97,8 @@ class AlbumController extends Controller
                         'type' => $album->albumType?->slug ?? 'uso_site',
                         'description' => $album->description,
                         'media_count' => $album->media_count,
+                        'image_count' => $album->image_count ?? 0,
+                        'video_count' => $album->video_count ?? 0,
                         'cover_url' => $coverMedia ? ($coverMedia->getVariantUrl('thumbnail') ?? $coverMedia->getUrl()) : null,
                         'created_at' => $album->created_at->toISOString(),
                         'updated_at' => $album->updated_at->toISOString(),
@@ -124,7 +136,16 @@ class AlbumController extends Controller
             // Find album (WeddingScope filters automatically)
             $album = Album::where('id', $id)
                 ->with('albumType')
-                ->withCount('media')
+                ->withCount([
+                    'media as media_count' => fn ($query) => $query
+                        ->where('status', 'completed'),
+                    'media as image_count' => fn ($query) => $query
+                        ->where('status', 'completed')
+                        ->where('mime_type', 'like', 'image/%'),
+                    'media as video_count' => fn ($query) => $query
+                        ->where('status', 'completed')
+                        ->where('mime_type', 'like', 'video/%'),
+                ])
                 ->firstOrFail();
 
             // Get media
@@ -157,6 +178,8 @@ class AlbumController extends Controller
                     'type' => $album->albumType?->slug ?? 'uso_site',
                     'description' => $album->description,
                     'media_count' => $album->media_count,
+                    'image_count' => $album->image_count ?? 0,
+                    'video_count' => $album->video_count ?? 0,
                     'media' => $media,
                     'created_at' => $album->created_at->toISOString(),
                     'updated_at' => $album->updated_at->toISOString(),
@@ -233,6 +256,8 @@ class AlbumController extends Controller
                 'type' => $album->albumType?->slug ?? 'uso_site',
                 'description' => $album->description,
                 'media_count' => 0,
+                'image_count' => 0,
+                'video_count' => 0,
                 'media' => [],
                 'created_at' => $album->created_at->toISOString(),
                 'updated_at' => $album->updated_at->toISOString(),

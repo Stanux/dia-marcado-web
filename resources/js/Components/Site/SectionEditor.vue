@@ -15,6 +15,7 @@ import GiftRegistryEditor from './Editors/GiftRegistryEditor.vue';
 import RsvpEditor from './Editors/RsvpEditor.vue';
 import PhotoGalleryEditor from './Editors/PhotoGalleryEditor.vue';
 import FooterEditor from './Editors/FooterEditor.vue';
+import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
     sectionType: {
@@ -36,6 +37,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
@@ -117,6 +119,16 @@ const sectionTitles = {
 
 const sectionTitle = computed(() => sectionTitles[props.sectionType] || 'Editor');
 const siteOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+const themePrimaryColorHex = computed(() => normalizeHexColor(localContent.value.primaryColor, '#d4a574'));
+const themeSecondaryColorHex = computed(() => normalizeHexColor(localContent.value.secondaryColor, '#8b7355'));
+
+const pickThemePrimaryColor = () => {
+    pickColorFromScreen((hex) => updateField('primaryColor', hex));
+};
+
+const pickThemeSecondaryColor = () => {
+    pickColorFromScreen((hex) => updateField('secondaryColor', hex));
+};
 
 /**
  * Map section types to their editor components
@@ -155,7 +167,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                 :enabled-sections="enabledSections"
                 :logo-initials="logoInitials"
                 @change="handleChange"
-                class="flex-1 min-h-0"
+                class="flex-1 min-h-0 premium-editor-shell"
             />
 
             <!-- Meta Section Editor -->
@@ -215,10 +227,22 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                             <div class="flex items-center space-x-2">
                                 <input
                                     type="color"
-                                    :value="localContent.primaryColor || '#d4a574'"
+                                    :value="themePrimaryColorHex"
                                     @input="updateField('primaryColor', $event.target.value)"
+                                    @change="updateField('primaryColor', $event.target.value)"
                                     class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                                 />
+                                <button
+                                    v-if="isEyeDropperSupported"
+                                    type="button"
+                                    @click="pickThemePrimaryColor"
+                                    class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                    title="Capturar cor da tela"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                    </svg>
+                                </button>
                                 <input
                                     type="text"
                                     :value="localContent.primaryColor || '#d4a574'"
@@ -232,10 +256,22 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                             <div class="flex items-center space-x-2">
                                 <input
                                     type="color"
-                                    :value="localContent.secondaryColor || '#8b7355'"
+                                    :value="themeSecondaryColorHex"
                                     @input="updateField('secondaryColor', $event.target.value)"
+                                    @change="updateField('secondaryColor', $event.target.value)"
                                     class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                                 />
+                                <button
+                                    v-if="isEyeDropperSupported"
+                                    type="button"
+                                    @click="pickThemeSecondaryColor"
+                                    class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                    title="Capturar cor da tela"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                    </svg>
+                                </button>
                                 <input
                                     type="text"
                                     :value="localContent.secondaryColor || '#8b7355'"
@@ -412,6 +448,76 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
         </div>
     </div>
 </template>
+
+<style scoped>
+:deep(.premium-editor-shell) {
+    padding-right: 0.25rem;
+}
+
+:deep(.premium-editor-shell > div) {
+    position: relative;
+    border: 1px solid #e5d5c9 !important;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #fdfaf7 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        0 10px 28px -24px rgba(58, 34, 18, 0.55);
+    padding: 1rem !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+:deep(.premium-editor-shell > div::before) {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 14px 0 0 14px;
+    background: linear-gradient(180deg, #d1a787 0%, #a18072 100%);
+}
+
+:deep(.premium-editor-shell > div:focus-within) {
+    border-color: #c29f89 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 1),
+        0 0 0 3px rgba(161, 128, 114, 0.14),
+        0 14px 32px -24px rgba(58, 34, 18, 0.65);
+}
+
+:deep(.premium-editor-shell > div > h3) {
+    margin: 0;
+    padding-left: 0.625rem;
+    color: #6b5347;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+}
+
+:deep(.premium-editor-shell > div > h3 + *) {
+    margin-top: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    :deep(.premium-editor-shell) {
+        padding-right: 0;
+    }
+
+    :deep(.premium-editor-shell > div) {
+        border-radius: 12px;
+        padding: 0.85rem !important;
+    }
+
+    :deep(.premium-editor-shell > div::before) {
+        width: 3px;
+        border-radius: 12px 0 0 12px;
+    }
+
+    :deep(.premium-editor-shell > div > h3) {
+        padding-left: 0.5rem;
+        font-size: 0.68rem;
+    }
+}
+</style>
 
 <style scoped>
 .focus\:ring-wedding-500:focus {

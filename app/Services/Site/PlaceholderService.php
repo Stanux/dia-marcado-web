@@ -75,8 +75,12 @@ class PlaceholderService implements PlaceholderServiceInterface
     public function getAvailablePlaceholders(): array
     {
         return [
+            '{nome_1}' => 'Nome do primeiro membro do casal',
+            '{nome_2}' => 'Nome do segundo membro do casal',
             '{noivo}' => 'Nome do primeiro membro do casal',
             '{noiva}' => 'Nome do segundo membro do casal',
+            '{primeiro_nome_1}' => 'Primeiro nome do primeiro membro do casal',
+            '{primeiro_nome_2}' => 'Primeiro nome do segundo membro do casal',
             '{primeiro_nome_noivo}' => 'Primeiro nome do primeiro membro do casal',
             '{primeiro_nome_noiva}' => 'Primeiro nome do segundo membro do casal',
             '{noivos}' => 'Todos os nomes do casal separados por " e "',
@@ -112,8 +116,12 @@ class PlaceholderService implements PlaceholderServiceInterface
         }
         
         return [
+            '{nome_1}' => $this->getNoivo($coupleNames),
+            '{nome_2}' => $this->getNoiva($coupleNames),
             '{noivo}' => $this->getNoivo($coupleNames),
             '{noiva}' => $this->getNoiva($coupleNames),
+            '{primeiro_nome_1}' => $this->getFirstName($this->getNoivo($coupleNames)),
+            '{primeiro_nome_2}' => $this->getFirstName($this->getNoiva($coupleNames)),
             '{primeiro_nome_noivo}' => $this->getFirstName($this->getNoivo($coupleNames)),
             '{primeiro_nome_noiva}' => $this->getFirstName($this->getNoiva($coupleNames)),
             '{noivos}' => $this->getNoivos($coupleNames),

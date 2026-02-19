@@ -34,6 +34,15 @@ const props = defineProps({
 
 // Computed properties
 const style = computed(() => props.content.style || {});
+const resolvedLayout = computed(() => {
+    if (style.value.layout === 'inline') {
+        return 'inline';
+    }
+
+    // Backward compatibility: legacy "card" now behaves as "modal"
+    return 'modal';
+});
+const isInlineWithMap = computed(() => resolvedLayout.value === 'inline' && Boolean(props.content.showMap));
 const mapCoordinates = computed(() => props.content.mapCoordinates || { lat: null, lng: null });
 const sectionTypography = computed(() => props.content.sectionTypography || {});
 const descriptionTypography = computed(() => props.content.descriptionTypography || {});
@@ -126,14 +135,11 @@ const mapEmbedUrl = computed(() => {
 
 // Layout classes
 const layoutClasses = computed(() => {
-    switch (style.value.layout) {
-        case 'inline':
-            return 'flex flex-col md:flex-row items-start gap-8';
-        case 'modal':
-            return 'max-w-lg mx-auto bg-white rounded-xl shadow-xl p-8';
-        default: // card
-            return 'max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8';
+    if (isInlineWithMap.value) {
+        return 'flex flex-col md:flex-row items-start gap-8';
     }
+
+    return 'max-w-lg mx-auto bg-white rounded-xl shadow-xl p-8';
 });
 
 // Description style
@@ -206,7 +212,7 @@ const formattedDate = computed(() => {
                 <!-- Date & Location Info -->
                 <div 
                     class="flex-1"
-                    :class="style.layout === 'inline' ? 'text-left' : 'text-center'"
+                    :class="isInlineWithMap ? 'text-left' : 'text-center'"
                 >
                     <h2 
                         class="text-2xl md:text-3xl font-bold mb-4"
@@ -233,7 +239,7 @@ const formattedDate = computed(() => {
                     <div 
                         v-if="wedding.venue" 
                         class="flex items-center mb-1"
-                        :class="style.layout === 'inline' ? 'justify-start' : 'justify-center'"
+                        :class="isInlineWithMap ? 'justify-start' : 'justify-center'"
                     >
                         <svg class="w-5 h-5 mr-2 flex-shrink-0" :style="{ color: sectionElementsStyle.color }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -268,7 +274,7 @@ const formattedDate = computed(() => {
                     <p 
                         v-if="content.description"
                         class="mb-6 max-w-lg"
-                        :class="style.layout === 'inline' ? 'mx-0' : 'mx-auto'"
+                        :class="isInlineWithMap ? 'mx-0' : 'mx-auto'"
                         :style="descriptionStyle"
                     >
                         {{ content.description }}
@@ -281,7 +287,7 @@ const formattedDate = computed(() => {
                     >
                         <div 
                             class="flex flex-wrap gap-2 sm:gap-3 md:gap-4 lg:gap-6 px-2 justify-center"
-                            :class="style.layout === 'inline' ? 'sm:justify-start' : ''"
+                            :class="isInlineWithMap ? 'sm:justify-start' : ''"
                         >
                             <div 
                                 v-for="(item, index) in formattedCountdown"
@@ -309,7 +315,7 @@ const formattedDate = computed(() => {
                 <div 
                     v-if="content.showMap"
                     class="flex-1 w-full"
-                    :class="style.layout === 'inline' ? '' : 'flex justify-center'"
+                    :class="isInlineWithMap ? '' : 'flex justify-center'"
                 >
                     <div class="w-full max-w-md">
                         <div 

@@ -189,7 +189,7 @@ class SiteContentSchema
             'showCalendarButton' => true,
             'style' => [
                 'backgroundColor' => '#f5f5f5',
-                'layout' => 'card',
+                'layout' => 'modal',
             ],
         ];
     }

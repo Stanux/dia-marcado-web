@@ -47,6 +47,12 @@ const uploadInput = ref(null);
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadError = ref(null);
+const showCreateAlbumForm = ref(false);
+const creatingAlbum = ref(false);
+const createAlbumError = ref(null);
+const newAlbumName = ref('');
+const newAlbumType = ref('');
+const videoHoverTimeouts = new Map();
 
 // Crop state
 const showCropModal = ref(false);
@@ -123,6 +129,38 @@ const uploadHintText = computed(() => {
 
     return 'Formatos aceitos: JPEG, JPG, PNG e GIF (até 100MB).';
 });
+
+const albumItemLabel = computed(() => {
+    if (isVideoSelection.value) {
+        return 'vídeos';
+    }
+
+    if (isAllMediaSelection.value) {
+        return 'itens';
+    }
+
+    return 'imagens';
+});
+
+const shouldShowAlbumImageCover = computed(() => {
+    return !isVideoSelection.value && !isAllMediaSelection.value;
+});
+
+const getAlbumItemCount = (album) => {
+    if (!album) {
+        return 0;
+    }
+
+    if (isVideoSelection.value) {
+        return Number(album.video_count ?? 0);
+    }
+
+    if (isAllMediaSelection.value) {
+        return Number(album.media_count ?? 0);
+    }
+
+    return Number(album.image_count ?? 0);
+};
 
 const cropFrameDimensions = computed(() => {
     if (!imageToCrop.value) {
@@ -440,9 +478,25 @@ const uploadToSelectedAlbum = async (file) => {
         await loadAlbumMedia(selectedAlbum.value.id);
 
         selectedAlbum.value.media_count = (selectedAlbum.value.media_count || 0) + 1;
+        if (uploadedMedia?.type === 'image') {
+            selectedAlbum.value.image_count = (selectedAlbum.value.image_count || 0) + 1;
+        }
+        if (uploadedMedia?.type === 'video') {
+            selectedAlbum.value.video_count = (selectedAlbum.value.video_count || 0) + 1;
+        }
         albums.value = albums.value.map((album) => (
             album.id === selectedAlbum.value.id
-                ? { ...album, media_count: (album.media_count || 0) + 1, cover_url: album.cover_url || uploadedMedia.thumbnail_url || uploadedMedia.url }
+                ? {
+                    ...album,
+                    media_count: (album.media_count || 0) + 1,
+                    image_count: uploadedMedia?.type === 'image'
+                        ? (album.image_count || 0) + 1
+                        : (album.image_count || 0),
+                    video_count: uploadedMedia?.type === 'video'
+                        ? (album.video_count || 0) + 1
+                        : (album.video_count || 0),
+                    cover_url: album.cover_url || (uploadedMedia?.type === 'image' ? (uploadedMedia.thumbnail_url || uploadedMedia.url) : null),
+                }
                 : album
         ));
     } catch (err) {
@@ -466,6 +520,77 @@ const handleUploadChange = async (event) => {
 
     if (input) {
         input.value = '';
+    }
+};
+
+/**
+ * Toggle create album form
+ */
+const toggleCreateAlbumForm = () => {
+    showCreateAlbumForm.value = !showCreateAlbumForm.value;
+    createAlbumError.value = null;
+
+    if (!showCreateAlbumForm.value) {
+        newAlbumName.value = '';
+        newAlbumType.value = '';
+    }
+};
+
+/**
+ * Create album directly from modal
+ */
+const createAlbum = async () => {
+    const name = (newAlbumName.value || '').trim();
+    const type = (newAlbumType.value || '').trim();
+
+    if (!name) {
+        createAlbumError.value = 'Informe o nome do álbum.';
+        return;
+    }
+
+    if (!type) {
+        createAlbumError.value = 'Selecione o tipo do álbum.';
+        return;
+    }
+
+    creatingAlbum.value = true;
+    createAlbumError.value = null;
+
+    try {
+        const response = await axios.post('/admin/albums', {
+            name,
+            type,
+        });
+
+        const payload = response.data?.data ?? response.data;
+
+        if (!payload?.id) {
+            throw new Error('Resposta inválida ao criar álbum.');
+        }
+
+        const createdAlbum = {
+            id: payload.id,
+            name: payload.name,
+            type: payload.type || 'uso_site',
+            description: payload.description || null,
+            media_count: payload.media_count || 0,
+            image_count: payload.image_count || 0,
+            video_count: payload.video_count || 0,
+            cover_url: payload.cover_url || null,
+            created_at: payload.created_at,
+            updated_at: payload.updated_at,
+        };
+
+        albums.value = [createdAlbum, ...albums.value];
+        showCreateAlbumForm.value = false;
+        newAlbumName.value = '';
+
+        await selectAlbum(createdAlbum);
+    } catch (err) {
+        console.error('Create album error:', err);
+        createAlbumError.value = err?.response?.data?.message || 'Erro ao criar álbum.';
+    } finally {
+        creatingAlbum.value = false;
     }
 };
 
@@ -602,6 +727,11 @@ const closeModal = () => {
     uploading.value = false;
     uploadProgress.value = 0;
     uploadError.value = null;
+    showCreateAlbumForm.value = false;
+    creatingAlbum.value = false;
+    createAlbumError.value = null;
+    newAlbumName.value = '';
+    newAlbumType.value = '';
     emit('close');
 };
 
@@ -617,6 +747,94 @@ const handleThumbnailError = (event, media) => {
     if (img && img.src !== media.url) {
         img.src = media.url;
     }
+};
+
+/**
+ * Fallback da capa do álbum para placeholder quando URL estiver quebrada.
+ */
+const handleAlbumCoverError = (album) => {
+    if (!album) {
+        return;
+    }
+
+    album.cover_url = null;
+};
+
+/**
+ * Limpar timer de hover de preview do vídeo.
+ */
+const clearVideoHoverTimeout = (mediaId) => {
+    const timeoutId = videoHoverTimeouts.get(mediaId);
+    if (timeoutId) {
+        window.clearTimeout(timeoutId);
+        videoHoverTimeouts.delete(mediaId);
+    }
+};
+
+/**
+ * Obter elemento de vídeo dentro do card.
+ */
+const getVideoElementFromCardEvent = (event) => {
+    const card = event?.currentTarget;
+    if (!card || typeof card.querySelector !== 'function') {
+        return null;
+    }
+
+    return card.querySelector('video');
+};
+
+/**
+ * Iniciar preview do vídeo com atraso de 1 segundo ao passar mouse.
+ */
+const onVideoHoverEnter = (mediaId, event) => {
+    clearVideoHoverTimeout(mediaId);
+
+    const video = getVideoElementFromCardEvent(event);
+    if (!video) {
+        return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+        videoHoverTimeouts.delete(mediaId);
+
+        try {
+            video.currentTime = 0;
+            const playPromise = video.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {});
+            }
+        } catch (_error) {
+            // ignore preview autoplay errors
+        }
+    }, 1000);
+
+    videoHoverTimeouts.set(mediaId, timeoutId);
+};
+
+/**
+ * Parar preview ao tirar o mouse: pausa e reinicia vídeo.
+ */
+const onVideoHoverLeave = (mediaId, event) => {
+    clearVideoHoverTimeout(mediaId);
+
+    const video = getVideoElementFromCardEvent(event);
+    if (!video) {
+        return;
+    }
+
+    try {
+        video.pause();
+        video.currentTime = 0;
+    } catch (_error) {
+        // ignore video reset errors
+    }
+};
+
+/**
+ * Nome amigável para exibição no card da mídia.
+ */
+const getMediaDisplayName = (media) => {
+    return media?.filename || media?.alt || media?.original_name || 'Arquivo sem nome';
 };
 
 // Carregar álbuns ao montar
@@ -715,6 +933,8 @@ onMounted(() => {
 onUnmounted(() => {
     document.removeEventListener('mousemove', onDrag);
     document.removeEventListener('mouseup', stopDrag);
+    videoHoverTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    videoHoverTimeouts.clear();
 });
 </script>
 
@@ -753,6 +973,49 @@ onUnmounted(() => {
 
                         <!-- Lista de Álbuns -->
                         <div v-else-if="!selectedAlbum" class="albums-grid">
+                            <div class="albums-create">
+                                <button
+                                    type="button"
+                                    class="button-primary"
+                                    :disabled="creatingAlbum"
+                                    @click="toggleCreateAlbumForm"
+                                >
+                                    {{ showCreateAlbumForm ? 'Cancelar criação' : 'Criar álbum' }}
+                                </button>
+
+                                <div v-if="showCreateAlbumForm" class="create-album-form">
+                                    <select
+                                        v-model="newAlbumType"
+                                        class="create-album-select"
+                                        :disabled="creatingAlbum"
+                                    >
+                                        <option value="">Selecione o tipo do álbum</option>
+                                        <option value="pre_casamento">Pré-Casamento</option>
+                                        <option value="pos_casamento">Pós-Casamento</option>
+                                        <option value="uso_site">Uso no Site</option>
+                                    </select>
+                                    <input
+                                        v-model="newAlbumName"
+                                        type="text"
+                                        class="create-album-input"
+                                        placeholder="Nome do álbum"
+                                        maxlength="255"
+                                        :disabled="creatingAlbum"
+                                        @keydown.enter.prevent="createAlbum"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="button-secondary"
+                                        :disabled="creatingAlbum || !newAlbumType || !newAlbumName.trim()"
+                                        @click="createAlbum"
+                                    >
+                                        {{ creatingAlbum ? 'Criando...' : 'Salvar álbum' }}
+                                    </button>
+                                </div>
+
+                                <p v-if="createAlbumError" class="create-album-error">{{ createAlbumError }}</p>
+                            </div>
+
                             <div
                                 v-for="album in albums"
                                 :key="album.id"
@@ -761,20 +1024,40 @@ onUnmounted(() => {
                             >
                                 <div class="album-cover">
                                     <img
-                                        v-if="album.cover_url"
+                                        v-if="shouldShowAlbumImageCover && album.cover_url"
                                         :src="album.cover_url"
                                         :alt="album.name"
                                         class="album-cover-image"
+                                        @error="handleAlbumCoverError(album)"
                                     />
                                     <div v-else class="album-cover-placeholder">
-                                        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg
+                                            v-if="isVideoSelection"
+                                            class="w-12 h-12"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        <svg
+                                            v-else-if="isAllMediaSelection"
+                                            class="w-12 h-12"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7a3 3 0 013-3h10a3 3 0 013 3v10a3 3 0 01-3 3H7a3 3 0 01-3-3V7z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 11l1.5 2 2-3 2.5 4" />
+                                        </svg>
+                                        <svg v-else class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                     </div>
                                 </div>
                                 <div class="album-info">
                                     <h3 class="album-name">{{ album.name }}</h3>
-                                    <p class="album-count">{{ album.media_count || 0 }} imagens</p>
+                                    <p class="album-count">{{ getAlbumItemCount(album) }} {{ albumItemLabel }}</p>
                                 </div>
                             </div>
 
@@ -823,8 +1106,28 @@ onUnmounted(() => {
                                     :key="media.id"
                                     @click="selectImage(media)"
                                     class="media-card"
+                                    @mouseenter="media.type === 'video' && onVideoHoverEnter(media.id, $event)"
+                                    @mouseleave="media.type === 'video' && onVideoHoverLeave(media.id, $event)"
                                 >
+                                    <template v-if="media.type === 'video'">
+                                        <video
+                                            :src="media.url"
+                                            :poster="media.thumbnail_url || undefined"
+                                            class="media-image"
+                                            muted
+                                            playsinline
+                                            preload="metadata"
+                                        ></video>
+                                        <div class="video-badge">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Vídeo
+                                        </div>
+                                    </template>
                                     <img
+                                        v-else
                                         :src="media.thumbnail_url || media.url"
                                         :alt="media.alt || media.filename"
                                         class="media-image"
@@ -836,7 +1139,12 @@ onUnmounted(() => {
                                         </svg>
                                         Crop
                                     </div>
-                                    <div class="media-dimensions">{{ media.width }}x{{ media.height }}</div>
+                                    <div class="media-meta">
+                                        <p class="media-filename" :title="getMediaDisplayName(media)">
+                                            {{ getMediaDisplayName(media) }}
+                                        </p>
+                                        <span class="media-dimensions">{{ media.width || '--' }}x{{ media.height || '--' }}</span>
+                                    </div>
                                 </div>
 
                                 <div v-if="filteredAlbumMedia.length === 0" class="empty-state">
@@ -1015,6 +1323,47 @@ onUnmounted(() => {
     gap: 1rem;
 }
 
+.albums-create {
+    grid-column: 1 / -1;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #fafafa;
+}
+
+.create-album-form {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.create-album-select {
+    flex: 0 1 240px;
+    min-width: 210px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    background: white;
+}
+
+.create-album-input {
+    flex: 1;
+    min-width: 220px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.create-album-error {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #dc2626;
+}
+
 .album-card {
     cursor: pointer;
     border: 2px solid #e5e7eb;
@@ -1115,6 +1464,20 @@ onUnmounted(() => {
     object-fit: cover;
 }
 
+.video-badge {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    background: rgba(17, 24, 39, 0.8);
+    color: white;
+    padding: 0.2rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
 .crop-badge {
     position: absolute;
     top: 0.5rem;
@@ -1129,15 +1492,36 @@ onUnmounted(() => {
     gap: 0.25rem;
 }
 
-.media-dimensions {
+.media-meta {
     position: absolute;
-    bottom: 0.5rem;
-    left: 0.5rem;
-    background: rgba(0, 0, 0, 0.7);
+    inset-inline: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.72) 100%);
     color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
+    pointer-events: none;
+}
+
+.media-filename {
+    margin: 0;
+    min-width: 0;
+    flex: 1;
+    font-size: 0.72rem;
+    line-height: 1.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.media-dimensions {
+    font-size: 0.7rem;
+    line-height: 1rem;
+    opacity: 0.95;
+    flex-shrink: 0;
 }
 
 .crop-instructions {

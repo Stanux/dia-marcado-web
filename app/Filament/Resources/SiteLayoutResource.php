@@ -147,6 +147,7 @@ class SiteLayoutResource extends WeddingScopedResource
                         false: fn (Builder $query) => $query->whereNull('access_token'),
                     ),
             ])
+            ->recordUrl(fn (SiteLayout $record): string => route('filament.admin.pages.site-editor', ['site' => $record->id]))
             ->actions([
                 Tables\Actions\Action::make('view_site')
                     ->label('Ver Site')
@@ -154,15 +155,6 @@ class SiteLayoutResource extends WeddingScopedResource
                     ->url(fn (SiteLayout $record): string => route('public.site.show', ['slug' => $record->slug]))
                     ->openUrlInNewTab()
                     ->visible(fn (SiteLayout $record): bool => $record->is_published),
-
-                Tables\Actions\Action::make('edit_visual')
-                    ->label('Editor Visual')
-                    ->icon('heroicon-o-pencil-square')
-                    ->url(fn (SiteLayout $record): string => route('filament.admin.pages.site-editor', ['site' => $record->id]))
-                    ->color('primary'),
-
-                Tables\Actions\EditAction::make()
-                    ->label('Configurações'),
             ])
             ->bulkActions([
                 // No bulk actions for sites

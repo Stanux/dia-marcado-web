@@ -11,6 +11,7 @@
  */
 import { ref, watch, computed } from 'vue';
 import NavigationSettings from './NavigationSettings.vue';
+import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
     content: {
@@ -20,6 +21,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
@@ -65,12 +67,17 @@ const updateNavigation = (navigation) => {
 
 // Computed properties
 const style = computed(() => localContent.value.style || {});
+const rsvpBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#f5f5f5'));
 const mockFields = computed(() => localContent.value.mockFields || [
     { label: 'Nome', type: 'text' },
     { label: 'Email', type: 'email' },
     { label: 'Confirmação', type: 'select' },
     { label: 'Acompanhantes', type: 'number' },
 ]);
+
+const pickRsvpBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
+};
 </script>
 
 <template>
@@ -133,10 +140,22 @@ const mockFields = computed(() => localContent.value.mockFields || [
                 <div class="flex items-center space-x-2">
                     <input
                         type="color"
-                        :value="style.backgroundColor || '#f5f5f5'"
+                        :value="rsvpBackgroundColorHex"
                         @input="updateStyle('backgroundColor', $event.target.value)"
+                        @change="updateStyle('backgroundColor', $event.target.value)"
                         class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                     />
+                    <button
+                        v-if="isEyeDropperSupported"
+                        type="button"
+                        @click="pickRsvpBackgroundColor"
+                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                        title="Capturar cor da tela"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                        </svg>
+                    </button>
                     <input
                         type="text"
                         :value="style.backgroundColor || '#f5f5f5'"

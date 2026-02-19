@@ -21,11 +21,13 @@ const props = defineProps({
 });
 
 // Computed properties
-const media = computed(() => props.content.media || { type: 'image', url: '', fallback: '' });
+const media = computed(() => props.content.media || { type: 'image', url: '', alt: '', fallback: '' });
 const ctaPrimary = computed(() => props.content.ctaPrimary || { label: '', target: '' });
 const ctaSecondary = computed(() => props.content.ctaSecondary || { label: '', target: '' });
 const style = computed(() => props.content.style || {});
 const overlay = computed(() => style.value.overlay || { color: '#000000', opacity: 0.3 });
+const titleTypography = computed(() => props.content.titleTypography || {});
+const subtitleTypography = computed(() => props.content.subtitleTypography || {});
 
 // Animation state
 const isVisible = ref(false);
@@ -69,6 +71,22 @@ const animationClass = computed(() => {
         default: return 'opacity-100';
     }
 });
+
+const titleTextStyle = computed(() => ({
+    fontFamily: titleTypography.value.fontFamily || props.theme.fontFamily,
+    color: titleTypography.value.fontColor || '#ffffff',
+    fontWeight: titleTypography.value.fontWeight || undefined,
+    fontStyle: titleTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: titleTypography.value.fontUnderline ? 'underline' : 'none',
+}));
+
+const subtitleTextStyle = computed(() => ({
+    fontFamily: subtitleTypography.value.fontFamily || props.theme.fontFamily,
+    color: subtitleTypography.value.fontColor || 'rgba(255, 255, 255, 0.9)',
+    fontWeight: subtitleTypography.value.fontWeight || undefined,
+    fontStyle: subtitleTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: subtitleTypography.value.fontUnderline ? 'underline' : 'none',
+}));
 
 // Check media type
 const isVideo = computed(() => media.value.type === 'video');
@@ -153,7 +171,7 @@ const navigateTo = (target) => {
 <template>
     <section 
         id="hero"
-        class="relative min-h-[500px] md:min-h-[700px] flex items-center justify-center"
+        class="relative min-h-[420px] md:min-h-[700px] flex items-center justify-center"
         :class="layoutClasses"
     >
         <!-- Background Media -->
@@ -194,7 +212,7 @@ const navigateTo = (target) => {
             <template v-else-if="isImage && media.url">
                 <img
                     :src="media.url"
-                    :alt="content.title || 'Hero image'"
+                    :alt="media.alt || content.title || 'Imagem de destaque'"
                     class="w-full h-full object-cover"
                     loading="eager"
                 />
@@ -256,15 +274,15 @@ const navigateTo = (target) => {
 
         <!-- Content -->
         <div 
-            class="relative z-10 px-6 py-16 md:py-24 flex flex-col max-w-4xl mx-auto"
+            class="relative z-10 px-4 sm:px-6 py-12 md:py-24 flex flex-col max-w-4xl mx-auto w-full"
             :class="[textAlignClass, animationClass]"
             :style="{ animationDuration: `${style.animationDuration || 600}ms` }"
         >
             <!-- Title -->
             <h1 
                 v-if="content.title"
-                class="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight"
-                :style="{ fontFamily: theme.fontFamily }"
+                class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-5 md:mb-6 leading-tight break-words [overflow-wrap:anywhere] max-w-full"
+                :style="titleTextStyle"
             >
                 {{ content.title }}
             </h1>
@@ -272,8 +290,9 @@ const navigateTo = (target) => {
             <!-- Subtitle -->
             <p 
                 v-if="content.subtitle"
-                class="text-lg md:text-xl lg:text-2xl text-white/90 mb-10 max-w-2xl leading-relaxed"
+                class="text-base sm:text-lg md:text-xl lg:text-2xl mb-8 md:mb-10 max-w-2xl leading-relaxed break-words [overflow-wrap:anywhere]"
                 :class="{ 'mx-auto': style.textAlign === 'center' }"
+                :style="subtitleTextStyle"
             >
                 {{ content.subtitle }}
             </p>
@@ -291,7 +310,7 @@ const navigateTo = (target) => {
                 <a
                     v-if="ctaPrimary.label"
                     :href="ctaPrimary.target || '#'"
-                    class="px-8 py-4 text-base font-semibold rounded-lg text-white transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                    class="w-full sm:w-auto px-8 py-4 text-base font-semibold rounded-lg text-white text-center break-words transition-all duration-200 hover:scale-105 hover:shadow-lg"
                     :style="{ backgroundColor: theme.primaryColor }"
                     @click.prevent="navigateTo(ctaPrimary.target)"
                 >
@@ -300,7 +319,7 @@ const navigateTo = (target) => {
                 <a
                     v-if="ctaSecondary.label"
                     :href="ctaSecondary.target || '#'"
-                    class="px-8 py-4 text-base font-semibold rounded-lg bg-white/20 text-white border-2 border-white/50 hover:bg-white/30 transition-all duration-200 backdrop-blur-sm"
+                    class="w-full sm:w-auto px-8 py-4 text-base font-semibold rounded-lg bg-white/20 text-white border-2 border-white/50 text-center break-words hover:bg-white/30 transition-all duration-200 backdrop-blur-sm"
                     @click.prevent="navigateTo(ctaSecondary.target)"
                 >
                     {{ ctaSecondary.label }}

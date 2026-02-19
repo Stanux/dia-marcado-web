@@ -2,6 +2,7 @@
     {{-- CSS Local: Purificação Total --}}
     <style>
         .fi-main-ctn, .fi-page, .fi-content { max-width: none !important; width: 100% !important; margin: 0 !important; }
+        .media-gallery-blade .fi-dropdown-panel { z-index: 9999 !important; }
         .media-gallery-grid {
             display: grid;
             grid-template-columns: 260px 1fr;
@@ -59,7 +60,7 @@
                                     </p>
                                 </button>
                                 
-                                <x-filament::dropdown placement="bottom-end">
+                                <x-filament::dropdown placement="bottom-end" teleport>
                                     <x-slot name="trigger">
                                         <x-filament::icon-button
                                             icon="heroicon-m-ellipsis-horizontal"

@@ -29,7 +29,7 @@ const props = defineProps({
 });
 
 // Computed properties
-const media = computed(() => props.content.media || { type: 'image', url: '', fallback: '' });
+const media = computed(() => props.content.media || { type: 'image', url: '', alt: '', fallback: '' });
 const ctaPrimary = computed(() => props.content.ctaPrimary || { label: '', target: '' });
 const ctaSecondary = computed(() => props.content.ctaSecondary || { label: '', target: '' });
 const style = computed(() => props.content.style || {});
@@ -121,7 +121,7 @@ const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/200
             <template v-if="!isVideo">
                 <img
                     :src="media.url || placeholderImage"
-                    :alt="content.title || 'Hero image'"
+                    :alt="media.alt || content.title || 'Imagem de destaque'"
                     class="w-full h-full object-cover"
                 />
             </template>
