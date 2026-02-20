@@ -102,12 +102,13 @@ const enabledSections = computed(() => {
             :is-preview="false"
         />
 
-        <!-- RSVP Section (Mockup) -->
+        <!-- RSVP Section -->
         <PublicRsvp
             v-if="isSectionEnabled('rsvp')"
             :content="getSectionContent('rsvp')"
             :theme="theme"
             :wedding="wedding"
+            :site-slug="site.slug"
             :invite-token-state="inviteTokenState"
         />
 

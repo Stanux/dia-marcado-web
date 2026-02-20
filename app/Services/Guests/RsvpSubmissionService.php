@@ -7,6 +7,8 @@ use App\Models\GuestEvent;
 use App\Models\GuestHousehold;
 use App\Models\GuestInvite;
 use App\Models\GuestRsvp;
+use App\Models\SiteLayout;
+use App\Services\Site\SiteContentSchema;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -91,13 +93,28 @@ class RsvpSubmissionService
         );
 
         $weddingId = (string) $event->wedding_id;
-        $rsvpAccess = $event->wedding?->settings['rsvp_access'] ?? 'open';
+        $siteRsvpRules = $this->resolveSiteRsvpRules(
+            siteSlug: $validated['site_slug'] ?? null,
+            weddingId: $weddingId,
+            weddingFallbackAccess: $event->wedding?->settings['rsvp_access'] ?? 'open',
+        );
+        $this->validateGuestDataForRules($validated, $siteRsvpRules);
 
         $invite = $this->inviteValidationService->resolveForWedding(
             $validated['token'] ?? null,
             $weddingId,
         );
-        $accessMode = $invite ? 'token' : ($rsvpAccess === 'restricted' ? 'restricted' : 'open');
+
+        if ($siteRsvpRules['requireInviteToken'] && !$invite) {
+            throw new RsvpSubmissionException(
+                'Este RSVP exige link de convite. Use o link recebido para confirmar presença.',
+                422,
+            );
+        }
+
+        $accessMode = $invite
+            ? 'token'
+            : ($siteRsvpRules['effectiveAccessMode'] === 'restricted' ? 'restricted' : 'open');
 
         $guest = null;
         $createMode = null;
@@ -116,7 +133,7 @@ class RsvpSubmissionService
             $createMode = 'invite_household';
         }
 
-        if (!$guest && !$createMode && $rsvpAccess === 'restricted') {
+        if (!$guest && !$createMode && $siteRsvpRules['effectiveAccessMode'] === 'restricted') {
             $guest = $this->resolveRestrictedGuest($validated, $weddingId);
         }
 
@@ -124,7 +141,7 @@ class RsvpSubmissionService
             $createMode = 'open';
         }
 
-        return DB::transaction(function () use ($invite, $guest, $createMode, $validated, $weddingId, $status, $accessMode, $responses): GuestRsvp {
+        return DB::transaction(function () use ($invite, $guest, $createMode, $validated, $weddingId, $status, $accessMode, $responses, $siteRsvpRules): GuestRsvp {
             $lockedInvite = null;
             if ($invite) {
                 $lockedInvite = $this->inviteValidationService->lockAndValidateForWedding($invite, $weddingId);
@@ -171,6 +188,18 @@ class RsvpSubmissionService
                 throw new RsvpSubmissionException('Convidado não pertence a este evento.', 422);
             }
 
+            $existingRsvp = GuestRsvp::withoutGlobalScopes()
+                ->where('guest_id', $lockedGuest->id)
+                ->where('event_id', $validated['event_id'])
+                ->first();
+
+            if ($existingRsvp && !$siteRsvpRules['allowResponseUpdate']) {
+                throw new RsvpSubmissionException(
+                    'Este convite já foi respondido e não permite alteração.',
+                    409,
+                );
+            }
+
             $rsvp = GuestRsvp::updateOrCreate(
                 ['guest_id' => $lockedGuest->id, 'event_id' => $validated['event_id']],
                 [
@@ -213,6 +242,101 @@ class RsvpSubmissionService
 
             return $rsvp;
         });
+    }
+
+    private function resolveSiteRsvpRules(?string $siteSlug, string $weddingId, ?string $weddingFallbackAccess): array
+    {
+        $rules = [
+            'effectiveAccessMode' => ($weddingFallbackAccess === 'restricted') ? 'restricted' : 'open',
+            'requireInviteToken' => false,
+            'allowResponseUpdate' => true,
+            'collectName' => true,
+            'requireEmail' => false,
+            'requirePhone' => false,
+        ];
+
+        $siteQuery = SiteLayout::withoutGlobalScopes()
+            ->where('wedding_id', $weddingId);
+
+        if ($siteSlug) {
+            $siteQuery->where('slug', $siteSlug);
+        } else {
+            $siteQuery
+                ->where('is_published', true)
+                ->orderByDesc('published_at')
+                ->orderByDesc('updated_at');
+        }
+
+        $site = $siteQuery->first();
+
+        if (!$site) {
+            return $rules;
+        }
+
+        $sourceContent = is_array($site->published_content)
+            ? $site->published_content
+            : (is_array($site->draft_content) ? $site->draft_content : null);
+
+        if (!is_array($sourceContent)) {
+            return $rules;
+        }
+
+        $normalized = SiteContentSchema::normalize($sourceContent);
+        $rsvp = $normalized['sections']['rsvp'] ?? [];
+
+        $access = is_array($rsvp['access'] ?? null) ? $rsvp['access'] : [];
+        $fields = is_array($rsvp['fields'] ?? null) ? $rsvp['fields'] : [];
+
+        $configuredMode = in_array($access['mode'] ?? 'inherit', ['inherit', 'open', 'restricted', 'token_only'], true)
+            ? $access['mode']
+            : 'inherit';
+
+        $effectiveAccessMode = match ($configuredMode) {
+            'open' => 'open',
+            'restricted' => 'restricted',
+            'token_only' => 'token_only',
+            default => ($weddingFallbackAccess === 'restricted') ? 'restricted' : 'open',
+        };
+
+        $rules['effectiveAccessMode'] = $effectiveAccessMode;
+        $rules['requireInviteToken'] = ($effectiveAccessMode === 'token_only')
+            || (bool) ($access['requireInviteToken'] ?? false);
+        $rules['allowResponseUpdate'] = (bool) ($access['allowResponseUpdate'] ?? true);
+        $rules['collectName'] = (bool) ($fields['collectName'] ?? true);
+        $rules['requireEmail'] = (bool) ($fields['requireEmail'] ?? false);
+        $rules['requirePhone'] = (bool) ($fields['requirePhone'] ?? false);
+
+        return $rules;
+    }
+
+    /**
+     * @throws RsvpSubmissionException
+     */
+    private function validateGuestDataForRules(array &$validated, array $rules): void
+    {
+        $validated['guest'] = is_array($validated['guest'] ?? null) ? $validated['guest'] : [];
+
+        $name = trim((string) ($validated['guest']['name'] ?? ''));
+        $email = Guest::normalizeEmail($validated['guest']['email'] ?? null);
+        $phone = Guest::normalizePhone($validated['guest']['phone'] ?? null);
+
+        if ($rules['collectName'] && $name === '') {
+            throw new RsvpSubmissionException('Informe seu nome.', 422);
+        }
+
+        if (!$rules['collectName'] && $name === '') {
+            $name = $email ?: ($phone ?: 'Convidado');
+        }
+
+        if ($rules['requireEmail'] && !$email) {
+            throw new RsvpSubmissionException('Informe e-mail para confirmar presença.', 422);
+        }
+
+        if ($rules['requirePhone'] && !$phone) {
+            throw new RsvpSubmissionException('Informe telefone para confirmar presença.', 422);
+        }
+
+        $validated['guest']['name'] = $name;
     }
 
     /**

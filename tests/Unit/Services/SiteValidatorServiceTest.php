@@ -2,6 +2,9 @@
 
 namespace Tests\Unit\Services;
 
+use App\Models\Guest;
+use App\Models\GuestEvent;
+use App\Models\GuestHousehold;
 use App\Models\SiteLayout;
 use App\Models\SiteMedia;
 use App\Models\Wedding;
@@ -271,6 +274,7 @@ class SiteValidatorServiceTest extends TestCase
     {
         $content = SiteContentSchema::getDefaultContent();
         $content['sections']['header']['enabled'] = true;
+        $content['sections']['header']['title'] = 'Nosso Casamento';
         $content['sections']['header']['style']['backgroundColor'] = '#ffffff';
         $content['theme']['primaryColor'] = '#cccccc'; // Low contrast with white
 
@@ -287,6 +291,7 @@ class SiteValidatorServiceTest extends TestCase
     {
         $content = SiteContentSchema::getDefaultContent();
         $content['sections']['header']['enabled'] = true;
+        $content['sections']['header']['title'] = 'Nosso Casamento';
         $content['sections']['header']['style']['backgroundColor'] = '#ffffff';
         $content['theme']['primaryColor'] = '#000000'; // High contrast
 
@@ -294,6 +299,62 @@ class SiteValidatorServiceTest extends TestCase
 
         $contrastWarnings = array_filter($warnings, fn($w) => $w['type'] === 'low_contrast');
         $this->assertEmpty($contrastWarnings);
+    }
+
+    /**
+     * @test
+     */
+    public function check_accessibility_uses_real_header_typography_color_instead_of_theme_primary(): void
+    {
+        $content = SiteContentSchema::getDefaultContent();
+        $content['sections']['header']['enabled'] = true;
+        $content['sections']['header']['title'] = 'Nosso Casamento';
+        $content['sections']['header']['style']['backgroundColor'] = '#5ca7d6';
+        $content['theme']['primaryColor'] = '#d4a574'; // Low contrast with background
+        $content['sections']['header']['titleTypography'] = [
+            'fontColor' => '#333333', // Good contrast with background
+            'fontSize' => 20,
+            'fontWeight' => 600,
+        ];
+
+        $warnings = $this->service->checkAccessibility($content);
+
+        $contrastWarnings = array_filter($warnings, fn($w) => $w['type'] === 'low_contrast');
+        $this->assertEmpty($contrastWarnings);
+    }
+
+    /**
+     * @test
+     */
+    public function run_qa_checklist_warnings_show_exact_low_contrast_items(): void
+    {
+        $wedding = Wedding::factory()->create();
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = 'Teste Contraste';
+        $content['sections']['header']['enabled'] = true;
+        $content['sections']['header']['title'] = 'Nosso Casamento';
+        $content['sections']['header']['style']['backgroundColor'] = '#85acf9';
+        $content['sections']['header']['titleTypography'] = [
+            'fontColor' => '#eacd10',
+            'fontSize' => 48,
+            'fontWeight' => 700,
+        ];
+
+        $site = SiteLayout::factory()->create([
+            'wedding_id' => $wedding->id,
+            'draft_content' => $content,
+        ]);
+
+        $result = $this->service->runQAChecklist($site);
+
+        $warnings = array_values(array_filter(
+            $result->getWarnings(),
+            fn ($check) => ($check['name'] ?? null) === 'wcag_contrast'
+        ));
+
+        $this->assertNotEmpty($warnings);
+        $this->assertStringContainsString('Itens com contraste baixo', $warnings[0]['message']);
+        $this->assertStringContainsString('Cabeçalho: Título', $warnings[0]['message']);
     }
 
     /**
@@ -325,7 +386,9 @@ class SiteValidatorServiceTest extends TestCase
     {
         $wedding = Wedding::factory()->create();
         $content = SiteContentSchema::getDefaultContent();
-        $content['meta']['title'] = ''; // Missing required field
+        $content['meta']['title'] = '';
+        $content['sections']['header']['enabled'] = false;
+        $content['sections']['hero']['enabled'] = false;
 
         $site = SiteLayout::factory()->create([
             'wedding_id' => $wedding->id,
@@ -369,6 +432,112 @@ class SiteValidatorServiceTest extends TestCase
     /**
      * @test
      */
+    public function run_qa_checklist_fails_when_rsvp_is_enabled_without_active_events(): void
+    {
+        $wedding = Wedding::factory()->create();
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = 'Test RSVP';
+        $content['sections']['rsvp']['enabled'] = true;
+
+        $site = SiteLayout::factory()->create([
+            'wedding_id' => $wedding->id,
+            'draft_content' => $content,
+        ]);
+
+        $result = $this->service->runQAChecklist($site);
+
+        $failedChecks = $result->getFailedChecks();
+        $rsvpCheck = array_values(array_filter($failedChecks, fn($c) => $c['name'] === 'rsvp_readiness'));
+
+        $this->assertNotEmpty($rsvpCheck);
+        $this->assertSame('rsvp', $rsvpCheck[0]['section']);
+        $this->assertStringContainsString('evento RSVP ativo', $rsvpCheck[0]['message']);
+    }
+
+    /**
+     * @test
+     */
+    public function run_qa_checklist_warns_when_rsvp_requires_token_without_invites(): void
+    {
+        $wedding = Wedding::factory()->create();
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = 'Test RSVP Token';
+        $content['sections']['rsvp']['enabled'] = true;
+        $content['sections']['rsvp']['access']['mode'] = 'token_only';
+        $content['sections']['rsvp']['access']['requireInviteToken'] = true;
+
+        $site = SiteLayout::factory()->create([
+            'wedding_id' => $wedding->id,
+            'draft_content' => $content,
+        ]);
+
+        GuestEvent::create([
+            'wedding_id' => $wedding->id,
+            'name' => 'Cerimônia',
+            'slug' => 'cerimonia-token',
+            'is_active' => true,
+        ]);
+
+        $household = GuestHousehold::create([
+            'wedding_id' => $wedding->id,
+            'name' => 'Família RSVP',
+        ]);
+
+        Guest::create([
+            'wedding_id' => $wedding->id,
+            'household_id' => $household->id,
+            'name' => 'Convidado RSVP',
+            'email' => 'guest-rsvp@example.com',
+            'status' => 'pending',
+        ]);
+
+        $result = $this->service->runQAChecklist($site);
+
+        $warnings = $result->getWarnings();
+        $rsvpWarning = array_values(array_filter($warnings, fn($c) => $c['name'] === 'rsvp_readiness'));
+
+        $this->assertNotEmpty($rsvpWarning);
+        $this->assertSame('rsvp', $rsvpWarning[0]['section']);
+        $this->assertStringContainsStringIgnoringCase('token obrigatório', $rsvpWarning[0]['message']);
+    }
+
+    /**
+     * @test
+     */
+    public function run_qa_checklist_passes_when_rsvp_is_ready(): void
+    {
+        $wedding = Wedding::factory()->create();
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = 'Test RSVP Ready';
+        $content['sections']['rsvp']['enabled'] = true;
+        $content['sections']['rsvp']['access']['mode'] = 'open';
+        $content['sections']['rsvp']['access']['requireInviteToken'] = false;
+
+        $site = SiteLayout::factory()->create([
+            'wedding_id' => $wedding->id,
+            'draft_content' => $content,
+        ]);
+
+        GuestEvent::create([
+            'wedding_id' => $wedding->id,
+            'name' => 'Festa',
+            'slug' => 'festa-rsvp',
+            'is_active' => true,
+        ]);
+
+        $result = $this->service->runQAChecklist($site);
+
+        $passedChecks = $result->getPassedChecks();
+        $rsvpCheck = array_values(array_filter($passedChecks, fn($c) => $c['name'] === 'rsvp_readiness'));
+
+        $this->assertNotEmpty($rsvpCheck);
+        $this->assertSame('rsvp', $rsvpCheck[0]['section']);
+        $this->assertStringContainsStringIgnoringCase('pronto', $rsvpCheck[0]['message']);
+    }
+
+    /**
+     * @test
+     */
     public function qa_result_can_publish_when_no_failures(): void
     {
         $wedding = Wedding::factory()->create();
@@ -394,7 +563,9 @@ class SiteValidatorServiceTest extends TestCase
     {
         $wedding = Wedding::factory()->create();
         $content = SiteContentSchema::getDefaultContent();
-        $content['meta']['title'] = ''; // Missing required
+        $content['meta']['title'] = '';
+        $content['sections']['header']['enabled'] = false;
+        $content['sections']['hero']['enabled'] = false;
 
         $site = SiteLayout::factory()->create([
             'wedding_id' => $wedding->id,
@@ -435,5 +606,63 @@ class SiteValidatorServiceTest extends TestCase
         $result = $this->service->validateSection('photoGallery', $content);
 
         $this->assertTrue($result->hasWarnings());
+    }
+
+    /**
+     * @test
+     */
+    public function validate_photo_gallery_mixed_items_ignores_video_alt_and_validates_image_alt(): void
+    {
+        $content = SiteContentSchema::getPhotoGallerySection();
+        $content['enabled'] = true;
+        $content['albums']['before']['items'] = [
+            [
+                'type' => 'video',
+                'url' => 'https://example.com/video.mp4',
+                'alt' => '',
+            ],
+            [
+                'type' => 'image',
+                'url' => 'https://example.com/photo.jpg',
+                'alt' => 'Foto com descrição',
+            ],
+        ];
+        $content['albums']['before']['photos'] = [];
+
+        $result = $this->service->validateSection('photoGallery', $content);
+
+        $this->assertFalse($result->hasWarnings());
+    }
+
+    /**
+     * @test
+     */
+    public function check_accessibility_photo_gallery_items_warns_for_image_without_alt(): void
+    {
+        $content = SiteContentSchema::getDefaultContent();
+        $content['sections']['photoGallery']['enabled'] = true;
+        $content['sections']['photoGallery']['albums']['before']['items'] = [
+            [
+                'type' => 'video',
+                'url' => 'https://example.com/video.mp4',
+                'alt' => '',
+            ],
+            [
+                'type' => 'image',
+                'url' => 'https://example.com/image-without-alt.jpg',
+                'alt' => '',
+            ],
+        ];
+        $content['sections']['photoGallery']['albums']['before']['photos'] = [];
+
+        $warnings = $this->service->checkAccessibility($content);
+
+        $missingAltWarnings = array_values(array_filter(
+            $warnings,
+            fn ($warning) => ($warning['type'] ?? null) === 'missing_alt' && ($warning['section'] ?? null) === 'photoGallery'
+        ));
+
+        $this->assertCount(1, $missingAltWarnings);
+        $this->assertStringContainsString('albums.before.items[1]', $missingAltWarnings[0]['element']);
     }
 }

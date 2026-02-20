@@ -12,6 +12,7 @@ use App\Services\Site\SiteContentSchema;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Session;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -66,9 +67,13 @@ class PublicSiteController extends Controller
         if ($publishedSite && $site->access_token !== null) {
             // Check if user is already authenticated for this site
             if (!$this->isAuthenticated($site)) {
-                return view('public.site-password', [
+                return response()->view('public.site-password', [
                     'slug' => $slug,
                     'siteTitle' => $site->published_content['meta']['title'] ?? 'Site Protegido',
+                ], 200, [
+                    'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
+                    'Pragma' => 'no-cache',
+                    'Expires' => '0',
                 ]);
             }
         }
@@ -86,23 +91,43 @@ class PublicSiteController extends Controller
             ? (array) $site->published_content
             : $this->buildRsvpOnlyContent($site);
 
+        $normalizedContent = SiteContentSchema::normalize($rawContent);
+
         // Apply placeholders to published content
         $content = $this->placeholderService->replaceInArray(
-            $rawContent,
+            $normalizedContent,
             $wedding
         );
 
         $siteData = $site->makeHidden(['draft_content', 'published_content'])->toArray();
 
         // Use Inertia to render with Vue components (same as preview)
-        return inertia('Public/Site', [
+        $response = inertia('Public/Site', [
             'site' => $siteData,
             'content' => $content,
             'wedding' => $wedding,
             'inviteTokenState' => $inviteTokenState,
         ])->withViewData([
             'pageTitle' => $content['meta']['title'] ?? null,
-        ]);
+        ])->toResponse($request);
+
+        if ($this->shouldUsePublicCaching($publishedSite, $site, $inviteToken, $inviteTokenState)) {
+            $etag = $this->generatePublicEtag($site);
+            $lastModified = $this->resolvePublicLastModified($site);
+            $headers = $this->buildPublicCacheHeaders($etag, $lastModified);
+
+            if ($this->isClientCacheFresh($request, $etag, $lastModified)) {
+                return response('', 304, $headers);
+            }
+
+            foreach ($headers as $header => $value) {
+                $response->headers->set($header, $value);
+            }
+        } else {
+            $this->applyPrivateNoStoreHeaders($response);
+        }
+
+        return $response;
     }
 
     private function resolveInviteTokenState(?string $token, string $weddingId): string
@@ -158,6 +183,107 @@ class PublicSiteController extends Controller
         $content['meta']['description'] = 'Confirmação de presença do convite.';
 
         return $content;
+    }
+
+    private function shouldUsePublicCaching(bool $publishedSite, SiteLayout $site, ?string $inviteToken, string $inviteTokenState): bool
+    {
+        return $publishedSite
+            && $site->access_token === null
+            && !$inviteToken
+            && $inviteTokenState === 'missing';
+    }
+
+    private function generatePublicEtag(SiteLayout $site): string
+    {
+        $contentHash = sha1(
+            json_encode(
+                $site->published_content ?? [],
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            ) ?: '{}'
+        );
+
+        $fingerprint = implode('|', [
+            (string) $site->id,
+            (string) optional($site->published_at)->getTimestamp(),
+            (string) optional($site->updated_at)->getTimestamp(),
+            $contentHash,
+        ]);
+
+        return '"' . sha1($fingerprint) . '"';
+    }
+
+    private function resolvePublicLastModified(SiteLayout $site): \DateTimeImmutable
+    {
+        $timestamp = optional($site->published_at)->getTimestamp()
+            ?? optional($site->updated_at)->getTimestamp()
+            ?? time();
+
+        return (new \DateTimeImmutable('@' . $timestamp))->setTimezone(new \DateTimeZone('UTC'));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function buildPublicCacheHeaders(string $etag, \DateTimeImmutable $lastModified): array
+    {
+        return [
+            'Cache-Control' => 'public, no-cache, max-age=0, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+            'ETag' => $etag,
+            'Last-Modified' => $lastModified->format('D, d M Y H:i:s') . ' GMT',
+        ];
+    }
+
+    private function isClientCacheFresh(Request $request, string $etag, \DateTimeImmutable $lastModified): bool
+    {
+        $ifNoneMatch = $request->headers->get('If-None-Match');
+        if ($ifNoneMatch !== null && $this->matchesEtag($ifNoneMatch, $etag)) {
+            return true;
+        }
+
+        $ifModifiedSince = $request->headers->get('If-Modified-Since');
+        if ($ifModifiedSince !== null) {
+            $clientTimestamp = strtotime($ifModifiedSince);
+
+            if ($clientTimestamp !== false && $clientTimestamp >= $lastModified->getTimestamp()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function matchesEtag(string $ifNoneMatch, string $etag): bool
+    {
+        $normalizedCurrent = trim($etag, '"');
+
+        foreach (explode(',', $ifNoneMatch) as $candidate) {
+            $candidate = trim($candidate);
+
+            if ($candidate === '*') {
+                return true;
+            }
+
+            if (str_starts_with($candidate, 'W/')) {
+                $candidate = substr($candidate, 2);
+            }
+
+            $candidate = trim($candidate, '"');
+
+            if ($candidate !== '' && hash_equals($normalizedCurrent, $candidate)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function applyPrivateNoStoreHeaders(SymfonyResponse $response): void
+    {
+        $response->headers->set('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
     }
 
     /**

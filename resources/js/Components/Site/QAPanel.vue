@@ -74,6 +74,12 @@ const CHECK_PRESENTATION = {
         fail: 'O tamanho do site está acima do limite.',
         warning: 'O site está mais pesado que o recomendado. Otimize imagens e vídeos para carregar mais rápido.',
     },
+    rsvp_readiness: {
+        title: 'Prontidão do RSVP',
+        pass: 'O fluxo de confirmação está pronto para receber respostas.',
+        fail: 'Existem ajustes obrigatórios para o formulário de confirmação funcionar corretamente.',
+        warning: 'Há pontos de atenção no fluxo de confirmação que podem reduzir respostas.',
+    },
 };
 
 const getDisplayName = (check) => {
@@ -87,6 +93,18 @@ const getDisplayMessage = (check) => {
 
     if (check.name === 'resource_size' && check.status === 'warning' && check.message) {
         return `${friendly}\n\nDetalhes técnicos:\n${check.message}`;
+    }
+
+    if (check.name === 'wcag_contrast' && check.message) {
+        const details = check.message.includes('\n\n')
+            ? check.message.split('\n\n').slice(1).join('\n\n')
+            : check.message;
+
+        return `${friendly}\n\n${details}`;
+    }
+
+    if (check.name === 'rsvp_readiness' && check.message) {
+        return `${friendly}\n\nItens encontrados:\n${check.message}`;
     }
 
     return friendly || check.message || '';
@@ -131,7 +149,7 @@ const getSectionLabel = (section) => {
         hero: 'Destaque',
         saveTheDate: 'Save the Date',
         giftRegistry: 'Lista de Presentes',
-        rsvp: 'RSVP',
+        rsvp: 'Confirme Presença',
         photoGallery: 'Galeria de Fotos',
         footer: 'Rodapé',
         meta: 'Meta Tags',

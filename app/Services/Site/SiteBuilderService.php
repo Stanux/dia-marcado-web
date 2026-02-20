@@ -86,22 +86,23 @@ class SiteBuilderService implements SiteBuilderServiceInterface
     {
         // Sanitize content to prevent XSS
         $sanitizedContent = $this->sanitizer->sanitizeArray($content);
+        $normalizedContent = SiteContentSchema::normalize($sanitizedContent);
 
-        return DB::transaction(function () use ($site, $sanitizedContent, $user, $createVersion, $summary) {
+        return DB::transaction(function () use ($site, $normalizedContent, $user, $createVersion, $summary) {
             // Extract and save gift registry config if present
-            if (isset($sanitizedContent['sections']['giftRegistry']['config'])) {
-                $this->saveGiftRegistryConfig($site->wedding, $sanitizedContent['sections']['giftRegistry']['config']);
+            if (isset($normalizedContent['sections']['giftRegistry']['config'])) {
+                $this->saveGiftRegistryConfig($site->wedding, $normalizedContent['sections']['giftRegistry']['config']);
             }
 
             // Update draft content
-            $site->draft_content = $sanitizedContent;
+            $site->draft_content = $normalizedContent;
             $site->save();
 
             if ($createVersion) {
                 // Create version for history tracking
                 $this->versionService->createVersion(
                     $site,
-                    $sanitizedContent,
+                    $normalizedContent,
                     $user,
                     $summary
                 );
@@ -116,8 +117,10 @@ class SiteBuilderService implements SiteBuilderServiceInterface
      */
     public function publish(SiteLayout $site, User $user): SiteLayout
     {
+        $normalizedDraft = SiteContentSchema::normalize((array) ($site->draft_content ?? []));
+
         // Validate content before publishing
-        $errors = SiteContentSchema::validate($site->draft_content);
+        $errors = SiteContentSchema::validate($normalizedDraft);
         
         if (!empty($errors)) {
             throw ValidationException::withMessages([
@@ -125,18 +128,19 @@ class SiteBuilderService implements SiteBuilderServiceInterface
             ]);
         }
 
-        return DB::transaction(function () use ($site, $user) {
+        return DB::transaction(function () use ($site, $user, $normalizedDraft) {
             // Copy draft to published
-            $site->published_content = $site->draft_content;
+            $site->draft_content = $normalizedDraft;
+            $site->published_content = $normalizedDraft;
             $site->is_published = true;
             $site->published_at = now();
             $site->save();
 
             // Create published version snapshot
-            $version = SiteVersion::create([
+            SiteVersion::create([
                 'site_layout_id' => $site->id,
                 'user_id' => $user->id,
-                'content' => $site->draft_content,
+                'content' => $normalizedDraft,
                 'summary' => 'Site publicado',
                 'is_published' => true,
             ]);
@@ -191,9 +195,10 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         return DB::transaction(function () use ($site, $template) {
             // Merge template content with existing draft
             $mergedContent = $this->mergeTemplateContent(
-                $site->draft_content ?? SiteContentSchema::getDefaultContent(),
+                SiteContentSchema::normalize((array) ($site->draft_content ?? [])),
                 $template->content
             );
+            $mergedContent = SiteContentSchema::normalize($mergedContent);
 
             // Update draft with merged content
             $site->draft_content = $mergedContent;

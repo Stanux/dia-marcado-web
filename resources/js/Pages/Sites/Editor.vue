@@ -8,15 +8,16 @@
  * @Requirements: 1.2, 3.1
  */
 import { Head, usePage } from '@inertiajs/vue3';
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import axios from 'axios';
 import SectionSidebar from '@/Components/Site/SectionSidebar.vue';
 import SectionEditor from '@/Components/Site/SectionEditor.vue';
-import FullscreenPreview from '@/Components/Site/FullscreenPreview.vue';
-import PublishDialog from '@/Components/Site/PublishDialog.vue';
 import Toast from '@/Components/Site/Toast.vue';
 import useSiteEditor from '@/Composables/useSiteEditor';
 import useVersionHistory from '@/Composables/useVersionHistory';
+
+const FullscreenPreview = defineAsyncComponent(() => import('@/Components/Site/FullscreenPreview.vue'));
+const PublishDialog = defineAsyncComponent(() => import('@/Components/Site/PublishDialog.vue'));
 
 const props = defineProps({
     site: {
@@ -239,18 +240,54 @@ const handleSectionUpdate = async (data) => {
 };
 
 // Handle publish - open dialog
-const handlePublish = () => {
+const waitForPendingSave = async (timeoutMs = 10000) => {
+    const startedAt = Date.now();
+
+    while (isSaving.value) {
+        if (Date.now() - startedAt > timeoutMs) {
+            return false;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    return true;
+};
+
+const syncDraftBeforeActions = async (actionLabel = 'continuar') => {
+    const saveCompleted = await waitForPendingSave();
+
+    if (!saveCompleted) {
+        showToast('error', 'O salvamento automático está demorando. Aguarde alguns segundos e tente novamente.');
+        return false;
+    }
+
+    if (isDirty.value) {
+        const saved = await save();
+        if (!saved && isDirty.value) {
+            showToast('error', `Não foi possível salvar as alterações antes de ${actionLabel}.`);
+            return false;
+        }
+    }
+
+    return true;
+};
+
+const handlePublish = async () => {
+    const isReady = await syncDraftBeforeActions('publicar');
+    if (!isReady) {
+        return;
+    }
+
     showPublishDialog.value = true;
 };
 
 const openPreview = async () => {
-    if (isDirty.value) {
-        const saved = await save();
-        if (!saved) {
-            showToast('error', 'Erro ao salvar antes do preview');
-            return;
-        }
+    const isReady = await syncDraftBeforeActions('abrir o preview');
+    if (!isReady) {
+        return;
     }
+
     showPreview.value = true;
 };
 

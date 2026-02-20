@@ -65,6 +65,81 @@ class PublicAccessTest extends TestCase
     /**
      * @test
      */
+    public function public_published_site_includes_http_cache_headers(): void
+    {
+        // Arrange
+        $wedding = Wedding::factory()->create();
+
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = 'Site Cacheável';
+
+        $site = SiteLayout::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'slug' => 'site-cacheavel',
+            'draft_content' => $content,
+            'published_content' => $content,
+            'is_published' => true,
+            'published_at' => now(),
+            'access_token' => null,
+        ]);
+
+        // Act
+        $response = $this->get("/site/{$site->slug}");
+
+        // Assert
+        $response->assertStatus(200);
+        $response->assertHeader('ETag');
+        $response->assertHeader('Last-Modified');
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('public', $cacheControl);
+        $this->assertStringContainsString('no-cache', $cacheControl);
+        $this->assertStringContainsString('max-age=0', $cacheControl);
+        $this->assertStringContainsString('must-revalidate', $cacheControl);
+    }
+
+    /**
+     * @test
+     */
+    public function conditional_get_with_matching_etag_returns_304(): void
+    {
+        // Arrange
+        $wedding = Wedding::factory()->create();
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = 'Site com ETag';
+
+        $site = SiteLayout::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'slug' => 'site-etag',
+            'draft_content' => $content,
+            'published_content' => $content,
+            'is_published' => true,
+            'published_at' => now(),
+            'access_token' => null,
+        ]);
+
+        $firstResponse = $this->get("/site/{$site->slug}");
+        $etag = $firstResponse->headers->get('ETag');
+
+        $this->assertNotEmpty($etag);
+
+        // Act
+        $response = $this->withHeaders([
+            'If-None-Match' => $etag,
+        ])->get("/site/{$site->slug}");
+
+        // Assert
+        $response->assertStatus(304);
+        $response->assertHeader('ETag', $etag);
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('public', $cacheControl);
+        $this->assertStringContainsString('no-cache', $cacheControl);
+        $this->assertStringContainsString('max-age=0', $cacheControl);
+        $this->assertStringContainsString('must-revalidate', $cacheControl);
+    }
+
+    /**
+     * @test
+     */
     public function unpublished_site_returns_404(): void
     {
         // Arrange
@@ -252,6 +327,10 @@ class PublicAccessTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Site Protegido');
         $response->assertSee('senha'); // Password form should be shown
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('private', $cacheControl);
+        $this->assertStringContainsString('no-store', $cacheControl);
+        $this->assertStringContainsString('no-cache', $cacheControl);
     }
 
     /**

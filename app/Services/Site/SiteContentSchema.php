@@ -226,6 +226,56 @@ class SiteContentSchema
             ],
             'title' => 'Confirme sua Presença',
             'description' => '',
+            'access' => [
+                // inherit | open | restricted | token_only
+                'mode' => 'inherit',
+                'allowResponseUpdate' => true,
+                'requireInviteToken' => false,
+            ],
+            'eventSelection' => [
+                // all_active | selected
+                'mode' => 'all_active',
+                'selectedEventIds' => [],
+                'featuredEventId' => null,
+            ],
+            'fields' => [
+                'collectName' => true,
+                'collectEmail' => true,
+                'collectPhone' => true,
+                'requireEmail' => false,
+                'requirePhone' => false,
+                'showDynamicQuestions' => true,
+            ],
+            'messages' => [
+                'success' => 'RSVP enviado com sucesso!',
+                'genericError' => 'Erro ao enviar RSVP.',
+                'nameRequired' => 'Informe seu nome.',
+                'eventRequired' => 'Selecione um evento.',
+                'tokenLimitReached' => 'Este token já atingiu o limite de uso. Solicite um novo link para alterar sua confirmação.',
+                'tokenInvalid' => 'Este link de convite é inválido.',
+                'tokenExpired' => 'Este link de convite expirou.',
+                'tokenRevoked' => 'Este link de convite foi revogado.',
+                'tokenRequired' => 'Este convite exige um link com token para confirmação.',
+                'restrictedAccess' => 'Não encontramos seu cadastro na lista de convidados para este evento.',
+                'submitLabel' => 'Confirmar Presença',
+                'submitLoadingLabel' => 'Enviando...',
+                'submitDisabledTokenLabel' => 'Token sem novos usos',
+            ],
+            'labels' => [
+                'name' => 'Nome completo',
+                'email' => 'Email',
+                'phone' => 'Telefone',
+                'event' => 'Evento',
+                'status' => 'Confirmação',
+            ],
+            'statusOptions' => [
+                'showConfirmed' => true,
+                'showMaybe' => true,
+                'showDeclined' => true,
+                'confirmedLabel' => 'Confirmo presença',
+                'maybeLabel' => 'Talvez',
+                'declinedLabel' => 'Não poderei comparecer',
+            ],
             'mockFields' => [
                 ['label' => 'Nome', 'type' => 'text'],
                 ['label' => 'Email', 'type' => 'email'],
@@ -234,6 +284,13 @@ class SiteContentSchema
             ],
             'style' => [
                 'backgroundColor' => '#f5f5f5',
+                'layout' => 'card',
+                'containerMaxWidth' => 'max-w-xl',
+                'showCard' => true,
+            ],
+            'preview' => [
+                // default | valid_token | invalid_token | token_limit_reached | restricted_denied | success
+                'scenario' => 'default',
             ],
         ];
     }
@@ -252,16 +309,25 @@ class SiteContentSchema
             'albums' => [
                 'before' => [
                     'title' => 'Nossa História',
+                    'items' => [],
                     'photos' => [],
                 ],
                 'after' => [
                     'title' => 'O Grande Dia',
+                    'items' => [],
                     'photos' => [],
                 ],
             ],
             'layout' => 'masonry',
             'showLightbox' => true,
             'allowDownload' => true,
+            'pagination' => [
+                'perPage' => 20,
+            ],
+            'video' => [
+                'hoverPreview' => true,
+                'hoverDelayMs' => 1000,
+            ],
             'style' => [
                 'backgroundColor' => '#ffffff',
                 'columns' => 3,
@@ -321,5 +387,55 @@ class SiteContentSchema
         }
 
         return $errors;
+    }
+
+    /**
+     * Normalize any incoming content against the default schema.
+     *
+     * Keeps existing values and fills only missing keys.
+     * Indexed arrays are preserved as-is to avoid unexpected list merges.
+     */
+    public static function normalize(array $content): array
+    {
+        return self::mergeWithDefaults(self::getDefaultContent(), $content);
+    }
+
+    /**
+     * Recursively merge content with defaults.
+     *
+     * For associative arrays, keys are merged recursively.
+     * For indexed arrays, provided content wins entirely.
+     */
+    private static function mergeWithDefaults(mixed $defaults, mixed $content): mixed
+    {
+        if (!is_array($defaults)) {
+            return $content ?? $defaults;
+        }
+
+        if (!is_array($content)) {
+            return $defaults;
+        }
+
+        if (self::isIndexedArray($defaults) || self::isIndexedArray($content)) {
+            return $content;
+        }
+
+        $merged = $defaults;
+
+        foreach ($content as $key => $value) {
+            if (!array_key_exists($key, $defaults)) {
+                $merged[$key] = $value;
+                continue;
+            }
+
+            $merged[$key] = self::mergeWithDefaults($defaults[$key], $value);
+        }
+
+        return $merged;
+    }
+
+    private static function isIndexedArray(array $value): bool
+    {
+        return array_is_list($value);
     }
 }

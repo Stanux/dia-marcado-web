@@ -318,6 +318,45 @@ class EditPublishFlowTest extends TestCase
     /**
      * @test
      */
+    public function updating_legacy_rsvp_payload_normalizes_new_phase_one_keys(): void
+    {
+        $wedding = Wedding::factory()->create();
+        $couple = User::factory()->create();
+        $wedding->users()->attach($couple->id, ['role' => 'couple']);
+
+        $site = $this->siteBuilderService->create($wedding);
+
+        $legacyContent = $site->draft_content;
+        $legacyContent['sections']['rsvp'] = [
+            'enabled' => true,
+            'navigation' => [
+                'label' => 'Confirme Presença',
+                'showInMenu' => true,
+            ],
+            'title' => 'RSVP',
+            'description' => 'Fluxo antigo',
+            'style' => [
+                'backgroundColor' => '#f5f5f5',
+            ],
+            'mockFields' => [
+                ['label' => 'Nome', 'type' => 'text'],
+            ],
+        ];
+
+        $site = $this->siteBuilderService->updateDraft($site, $legacyContent, $couple);
+
+        $this->assertArrayHasKey('access', $site->draft_content['sections']['rsvp']);
+        $this->assertArrayHasKey('eventSelection', $site->draft_content['sections']['rsvp']);
+        $this->assertArrayHasKey('fields', $site->draft_content['sections']['rsvp']);
+        $this->assertArrayHasKey('messages', $site->draft_content['sections']['rsvp']);
+        $this->assertArrayHasKey('labels', $site->draft_content['sections']['rsvp']);
+        $this->assertArrayHasKey('statusOptions', $site->draft_content['sections']['rsvp']);
+        $this->assertArrayHasKey('preview', $site->draft_content['sections']['rsvp']);
+    }
+
+    /**
+     * @test
+     */
     public function organizer_cannot_publish_site(): void
     {
         // Arrange

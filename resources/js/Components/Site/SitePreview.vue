@@ -60,6 +60,25 @@ const enabledSections = computed(() => {
     });
     return result;
 });
+
+const rsvpPreviewScenario = computed(() => {
+    return sections.value?.rsvp?.preview?.scenario || 'default';
+});
+
+const rsvpPreviewInviteTokenState = computed(() => {
+    switch (rsvpPreviewScenario.value) {
+        case 'valid_token':
+            return 'valid';
+        case 'invalid_token':
+            return 'invalid';
+        case 'token_limit_reached':
+            return 'limit_reached';
+        case 'restricted_denied':
+            return 'restricted_denied';
+        default:
+            return null;
+    }
+});
 </script>
 
 <template>
@@ -114,6 +133,9 @@ const enabledSections = computed(() => {
             :content="getSectionContent('rsvp')"
             :theme="theme"
             :wedding="wedding"
+            :is-preview="true"
+            :preview-scenario="rsvpPreviewScenario"
+            :invite-token-state="rsvpPreviewInviteTokenState"
         />
 
         <!-- Photo Gallery Section -->

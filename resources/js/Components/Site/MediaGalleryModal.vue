@@ -33,20 +33,45 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    multiple: {
+        type: Boolean,
+        default: false,
+    },
+    allowedAlbumTypes: {
+        type: Array,
+        default: () => [],
+    },
+    defaultAlbumType: {
+        type: String,
+        default: '',
+    },
 });
 
 const emit = defineEmits(['close', 'select']);
+const ALBUM_TYPE_LABELS = {
+    pre_casamento: 'Pré-Casamento',
+    pos_casamento: 'Pós-Casamento',
+    uso_site: 'Uso no Site',
+};
 
 // Estado
 const albums = ref([]);
 const selectedAlbum = ref(null);
 const albumMedia = ref([]);
+const selectedMediaMap = ref({});
 const loading = ref(false);
 const error = ref(null);
 const uploadInput = ref(null);
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadError = ref(null);
+const uploadBatch = ref({
+    total: 0,
+    current: 0,
+    success: 0,
+    failed: 0,
+    currentName: '',
+});
 const showCreateAlbumForm = ref(false);
 const creatingAlbum = ref(false);
 const createAlbumError = ref(null);
@@ -69,6 +94,34 @@ const currentImageDisplaySize = ref({ width: 0, height: 0 });
 
 const isVideoSelection = computed(() => props.mediaType === 'video');
 const isAllMediaSelection = computed(() => props.mediaType === 'all');
+const isMultiSelect = computed(() => props.multiple === true);
+const normalizedAllowedAlbumTypes = computed(() => {
+    if (!Array.isArray(props.allowedAlbumTypes) || props.allowedAlbumTypes.length === 0) {
+        return [];
+    }
+
+    return props.allowedAlbumTypes
+        .map((type) => String(type).trim())
+        .filter((type) => type.length > 0);
+});
+const hasAlbumTypeRestriction = computed(() => normalizedAllowedAlbumTypes.value.length > 0);
+const allowedAlbumTypesSet = computed(() => new Set(normalizedAllowedAlbumTypes.value));
+const filteredAlbums = computed(() => {
+    if (!hasAlbumTypeRestriction.value) {
+        return albums.value;
+    }
+
+    return albums.value.filter((album) => allowedAlbumTypesSet.value.has(album.type));
+});
+const albumTypeOptions = computed(() => {
+    if (hasAlbumTypeRestriction.value) {
+        return normalizedAllowedAlbumTypes.value;
+    }
+
+    return ['pre_casamento', 'pos_casamento', 'uso_site'];
+});
+const selectedMediaList = computed(() => Object.values(selectedMediaMap.value));
+const selectedMediaCount = computed(() => selectedMediaList.value.length);
 
 const filteredAlbumMedia = computed(() => {
     if (isAllMediaSelection.value) {
@@ -108,7 +161,15 @@ const emptyAlbumMessage = computed(() => {
 
 const uploadButtonLabel = computed(() => {
     if (uploading.value) {
+        if (uploadBatch.value.total > 1) {
+            return `Enviando ${uploadBatch.value.current}/${uploadBatch.value.total}...`;
+        }
+
         return 'Enviando...';
+    }
+
+    if (isAllMediaSelection.value) {
+        return 'Enviar mídia';
     }
 
     if (isVideoSelection.value) {
@@ -120,14 +181,26 @@ const uploadButtonLabel = computed(() => {
 
 const uploadHintText = computed(() => {
     if (isVideoSelection.value) {
-        return 'Formatos aceitos: MP4 e QuickTime (até 100MB).';
+        return 'Formatos aceitos: MP4 e QuickTime (até 100MB por arquivo). Você pode selecionar múltiplos arquivos.';
     }
 
     if (isAllMediaSelection.value) {
-        return 'Formatos aceitos: JPEG, PNG, GIF, MP4 e QuickTime (até 100MB).';
+        return 'Formatos aceitos: JPEG, PNG, GIF, MP4 e QuickTime (até 100MB por arquivo). Você pode selecionar múltiplos arquivos.';
     }
 
-    return 'Formatos aceitos: JPEG, JPG, PNG e GIF (até 100MB).';
+    return 'Formatos aceitos: JPEG, JPG, PNG e GIF (até 100MB por arquivo). Você pode selecionar múltiplos arquivos.';
+});
+
+const uploadProgressText = computed(() => {
+    if (!uploading.value) {
+        return '';
+    }
+
+    if (uploadBatch.value.total > 1) {
+        return `Upload ${uploadBatch.value.current}/${uploadBatch.value.total}: ${uploadProgress.value}%`;
+    }
+
+    return `Upload: ${uploadProgress.value}%`;
 });
 
 const albumItemLabel = computed(() => {
@@ -373,25 +446,62 @@ const needsCrop = (media) => {
 };
 
 /**
- * Selecionar imagem
+ * Build standard selection payload for single and multiple modes.
  */
-const selectImage = (media) => {
-    if (media.type === 'video') {
-        emit('select', {
-            url: media.url,
-            alt: media.alt || media.filename,
-            width: media.width,
-            height: media.height,
-            mediaId: media.id,
-            type: media.type,
-        });
-        closeModal();
+const buildSelectionPayload = (media) => ({
+    url: media.url,
+    alt: media.alt || media.filename,
+    width: media.width,
+    height: media.height,
+    mediaId: media.id,
+    type: media.type || 'image',
+    thumbnailUrl: media.thumbnail_url || media.url,
+    filename: media.filename || '',
+    albumId: selectedAlbum.value?.id || null,
+});
+
+const isMediaSelected = (mediaId) => Boolean(selectedMediaMap.value[mediaId]);
+
+const toggleMediaSelection = (media) => {
+    const key = media?.id;
+    if (!key) {
         return;
     }
 
-    console.log('Media selecionada:', media);
-    console.log('Max dimensions:', props.maxWidth, props.maxHeight);
-    console.log('Needs crop?', needsCrop(media));
+    if (selectedMediaMap.value[key]) {
+        const next = { ...selectedMediaMap.value };
+        delete next[key];
+        selectedMediaMap.value = next;
+        return;
+    }
+
+    selectedMediaMap.value = {
+        ...selectedMediaMap.value,
+        [key]: buildSelectionPayload(media),
+    };
+};
+
+const clearSelectedMedia = () => {
+    selectedMediaMap.value = {};
+};
+
+const confirmMultipleSelection = () => {
+    if (selectedMediaCount.value === 0) {
+        return;
+    }
+
+    emit('select', selectedMediaList.value);
+    closeModal();
+};
+
+/**
+ * Selecionar imagem
+ */
+const selectImage = (media) => {
+    if (isMultiSelect.value) {
+        toggleMediaSelection(media);
+        return;
+    }
     
     if (needsCrop(media)) {
         // Iniciar processo de crop
@@ -400,13 +510,7 @@ const selectImage = (media) => {
         showCropModal.value = true;
     } else {
         // Selecionar diretamente
-        emit('select', {
-            url: media.url,
-            alt: media.alt || media.filename,
-            width: media.width,
-            height: media.height,
-            mediaId: media.id,
-        });
+        emit('select', buildSelectionPayload(media));
         closeModal();
     }
 };
@@ -433,27 +537,90 @@ const isAllowedFile = (file) => {
     return list.includes(file.type);
 };
 
+const resetUploadState = () => {
+    uploading.value = false;
+    uploadProgress.value = 0;
+    uploadError.value = null;
+    uploadBatch.value = {
+        total: 0,
+        current: 0,
+        success: 0,
+        failed: 0,
+        currentName: '',
+    };
+};
+
+const applyUploadedMediaToAlbumState = (uploadedMedia) => {
+    if (!selectedAlbum.value) {
+        return;
+    }
+
+    selectedAlbum.value.media_count = (selectedAlbum.value.media_count || 0) + 1;
+    if (uploadedMedia?.type === 'image') {
+        selectedAlbum.value.image_count = (selectedAlbum.value.image_count || 0) + 1;
+    }
+    if (uploadedMedia?.type === 'video') {
+        selectedAlbum.value.video_count = (selectedAlbum.value.video_count || 0) + 1;
+    }
+
+    albums.value = albums.value.map((album) => (
+        album.id === selectedAlbum.value.id
+            ? {
+                ...album,
+                media_count: (album.media_count || 0) + 1,
+                image_count: uploadedMedia?.type === 'image'
+                    ? (album.image_count || 0) + 1
+                    : (album.image_count || 0),
+                video_count: uploadedMedia?.type === 'video'
+                    ? (album.video_count || 0) + 1
+                    : (album.video_count || 0),
+                cover_url: album.cover_url || (uploadedMedia?.type === 'image' ? (uploadedMedia.thumbnail_url || uploadedMedia.url) : null),
+            }
+            : album
+    ));
+};
+
 /**
  * Upload de arquivo para o álbum selecionado
  */
-const uploadToSelectedAlbum = async (file) => {
-    if (!selectedAlbum.value?.id || !file) return;
+const uploadToSelectedAlbum = async (file, options = {}) => {
+    const { manageLoading = true, refreshMedia = true } = options;
+
+    if (!selectedAlbum.value?.id || !file) {
+        return {
+            success: false,
+            error: 'Álbum inválido para upload.',
+        };
+    }
 
     const maxFileSize = 100 * 1024 * 1024; // 100MB
 
     if (!isAllowedFile(file)) {
-        uploadError.value = 'Tipo de arquivo não suportado para esta seleção.';
-        return;
+        return {
+            success: false,
+            error: 'Tipo de arquivo não suportado para esta seleção.',
+        };
     }
 
     if (file.size > maxFileSize) {
-        uploadError.value = 'Arquivo muito grande. O tamanho máximo permitido é 100MB.';
-        return;
+        return {
+            success: false,
+            error: 'Arquivo muito grande. O tamanho máximo permitido é 100MB.',
+        };
     }
 
-    uploading.value = true;
-    uploadProgress.value = 0;
-    uploadError.value = null;
+    if (manageLoading) {
+        uploading.value = true;
+        uploadProgress.value = 0;
+        uploadError.value = null;
+        uploadBatch.value = {
+            total: 1,
+            current: 1,
+            success: 0,
+            failed: 0,
+            currentName: file.name,
+        };
+    }
 
     try {
         const formData = new FormData();
@@ -475,35 +642,32 @@ const uploadToSelectedAlbum = async (file) => {
             throw new Error('Resposta inválida ao fazer upload.');
         }
 
-        await loadAlbumMedia(selectedAlbum.value.id);
+        if (refreshMedia) {
+            await loadAlbumMedia(selectedAlbum.value.id);
+        }
 
-        selectedAlbum.value.media_count = (selectedAlbum.value.media_count || 0) + 1;
-        if (uploadedMedia?.type === 'image') {
-            selectedAlbum.value.image_count = (selectedAlbum.value.image_count || 0) + 1;
-        }
-        if (uploadedMedia?.type === 'video') {
-            selectedAlbum.value.video_count = (selectedAlbum.value.video_count || 0) + 1;
-        }
-        albums.value = albums.value.map((album) => (
-            album.id === selectedAlbum.value.id
-                ? {
-                    ...album,
-                    media_count: (album.media_count || 0) + 1,
-                    image_count: uploadedMedia?.type === 'image'
-                        ? (album.image_count || 0) + 1
-                        : (album.image_count || 0),
-                    video_count: uploadedMedia?.type === 'video'
-                        ? (album.video_count || 0) + 1
-                        : (album.video_count || 0),
-                    cover_url: album.cover_url || (uploadedMedia?.type === 'image' ? (uploadedMedia.thumbnail_url || uploadedMedia.url) : null),
-                }
-                : album
-        ));
+        applyUploadedMediaToAlbumState(uploadedMedia);
+
+        return {
+            success: true,
+            media: uploadedMedia,
+        };
     } catch (err) {
         console.error('Upload error:', err);
-        uploadError.value = err?.response?.data?.message || 'Erro ao fazer upload da mídia.';
+        const errorMessage = err?.response?.data?.message || 'Erro ao fazer upload da mídia.';
+
+        if (manageLoading) {
+            uploadError.value = errorMessage;
+        }
+
+        return {
+            success: false,
+            error: errorMessage,
+        };
     } finally {
-        uploading.value = false;
+        if (manageLoading) {
+            uploading.value = false;
+        }
     }
 };
 
@@ -512,15 +676,69 @@ const uploadToSelectedAlbum = async (file) => {
  */
 const handleUploadChange = async (event) => {
     const input = event.target;
-    const file = input?.files?.[0];
+    const files = Array.from(input?.files ?? []);
 
-    if (file) {
-        await uploadToSelectedAlbum(file);
+    if (files.length > 0) {
+        uploading.value = true;
+        uploadProgress.value = 0;
+        uploadError.value = null;
+        uploadBatch.value = {
+            total: files.length,
+            current: 0,
+            success: 0,
+            failed: 0,
+            currentName: '',
+        };
+
+        const failures = [];
+
+        try {
+            for (let index = 0; index < files.length; index += 1) {
+                const file = files[index];
+                uploadBatch.value.current = index + 1;
+                uploadBatch.value.currentName = file.name;
+                uploadProgress.value = 0;
+
+                const result = await uploadToSelectedAlbum(file, {
+                    manageLoading: false,
+                    refreshMedia: false,
+                });
+
+                if (result.success) {
+                    uploadBatch.value.success += 1;
+                } else {
+                    uploadBatch.value.failed += 1;
+                    failures.push(`${file.name}: ${result.error || 'erro no upload'}`);
+                }
+            }
+
+            if (uploadBatch.value.success > 0 && selectedAlbum.value?.id) {
+                await loadAlbumMedia(selectedAlbum.value.id);
+            }
+
+            if (uploadBatch.value.failed > 0) {
+                const firstError = failures[0] || 'erro desconhecido';
+                uploadError.value = uploadBatch.value.failed === 1
+                    ? firstError
+                    : `${uploadBatch.value.failed} arquivo(s) falharam. Primeiro erro: ${firstError}`;
+            }
+        } finally {
+            uploading.value = false;
+            uploadProgress.value = 0;
+        }
     }
 
     if (input) {
         input.value = '';
     }
+};
+
+const getDefaultAlbumType = () => {
+    if (props.defaultAlbumType && albumTypeOptions.value.includes(props.defaultAlbumType)) {
+        return props.defaultAlbumType;
+    }
+
+    return albumTypeOptions.value[0] ?? '';
 };
 
 /**
@@ -530,7 +748,9 @@ const toggleCreateAlbumForm = () => {
     showCreateAlbumForm.value = !showCreateAlbumForm.value;
     createAlbumError.value = null;
 
-    if (!showCreateAlbumForm.value) {
+    if (showCreateAlbumForm.value) {
+        newAlbumType.value = getDefaultAlbumType();
+    } else {
         newAlbumName.value = '';
         newAlbumType.value = '';
     }
@@ -682,14 +902,13 @@ const confirmCrop = async () => {
         });
         
         const croppedMedia = response.data.data;
-        
-        emit('select', {
-            url: croppedMedia.url,
-            alt: croppedMedia.alt || croppedMedia.filename,
-            width: croppedMedia.width,
-            height: croppedMedia.height,
-            mediaId: croppedMedia.id,
-        });
+
+        emit('select', buildSelectionPayload({
+            ...croppedMedia,
+            id: croppedMedia.id,
+            type: 'image',
+            thumbnail_url: croppedMedia.thumbnail_url ?? croppedMedia.url,
+        }));
         
         closeModal();
     } catch (err) {
@@ -718,15 +937,14 @@ const cancelCrop = () => {
 const closeModal = () => {
     selectedAlbum.value = null;
     albumMedia.value = [];
+    clearSelectedMedia();
     showCropModal.value = false;
     imageToCrop.value = null;
     outputScale.value = 100;
     baseImageDisplaySize.value = { width: 0, height: 0 };
     currentImageDisplaySize.value = { width: 0, height: 0 };
     imageScale.value = { x: 1, y: 1 };
-    uploading.value = false;
-    uploadProgress.value = 0;
-    uploadError.value = null;
+    resetUploadState();
     showCreateAlbumForm.value = false;
     creatingAlbum.value = false;
     createAlbumError.value = null;
@@ -847,6 +1065,11 @@ onMounted(() => {
 // Recarregar quando modal abrir
 const handleShow = () => {
     if (props.show) {
+        clearSelectedMedia();
+        selectedAlbum.value = null;
+        albumMedia.value = [];
+        resetUploadState();
+        newAlbumType.value = getDefaultAlbumType();
         loadAlbums();
     }
 };
@@ -876,6 +1099,9 @@ watch(minOutputScale, (minScale) => {
 
 // Computed
 const dimensionsText = computed(() => {
+    if (isMultiSelect.value && isAllMediaSelection.value) return 'Selecione uma ou mais mídias da galeria';
+    if (isMultiSelect.value && isVideoSelection.value) return 'Selecione um ou mais vídeos da galeria';
+    if (isMultiSelect.value) return 'Selecione uma ou mais imagens da galeria';
     if (isVideoSelection.value) return 'Selecione um vídeo da galeria';
     if (isAllMediaSelection.value) return 'Selecione uma mídia da galeria';
     if (!props.maxWidth && !props.maxHeight) return 'Qualquer tamanho';
@@ -990,9 +1216,13 @@ onUnmounted(() => {
                                         :disabled="creatingAlbum"
                                     >
                                         <option value="">Selecione o tipo do álbum</option>
-                                        <option value="pre_casamento">Pré-Casamento</option>
-                                        <option value="pos_casamento">Pós-Casamento</option>
-                                        <option value="uso_site">Uso no Site</option>
+                                        <option
+                                            v-for="typeSlug in albumTypeOptions"
+                                            :key="typeSlug"
+                                            :value="typeSlug"
+                                        >
+                                            {{ ALBUM_TYPE_LABELS[typeSlug] || typeSlug }}
+                                        </option>
                                     </select>
                                     <input
                                         v-model="newAlbumName"
@@ -1017,7 +1247,7 @@ onUnmounted(() => {
                             </div>
 
                             <div
-                                v-for="album in albums"
+                                v-for="album in filteredAlbums"
                                 :key="album.id"
                                 @click="selectAlbum(album)"
                                 class="album-card"
@@ -1061,7 +1291,7 @@ onUnmounted(() => {
                                 </div>
                             </div>
 
-                            <div v-if="albums.length === 0" class="empty-state">
+                            <div v-if="filteredAlbums.length === 0" class="empty-state">
                                 <p>Nenhum álbum encontrado</p>
                             </div>
                         </div>
@@ -1073,6 +1303,7 @@ onUnmounted(() => {
                                 type="file"
                                 class="hidden"
                                 :accept="uploadAccept"
+                                multiple
                                 @change="handleUploadChange"
                             />
 
@@ -1096,7 +1327,8 @@ onUnmounted(() => {
 
                             <div class="media-toolbar-status">
                                 <p class="upload-hint">{{ uploadHintText }}</p>
-                                <p v-if="uploading" class="upload-progress">Upload: {{ uploadProgress }}%</p>
+                                <p v-if="isMultiSelect" class="upload-hint">Selecionadas: {{ selectedMediaCount }}</p>
+                                <p v-if="uploading" class="upload-progress">{{ uploadProgressText }}</p>
                                 <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
                             </div>
 
@@ -1106,6 +1338,7 @@ onUnmounted(() => {
                                     :key="media.id"
                                     @click="selectImage(media)"
                                     class="media-card"
+                                    :class="{ 'media-card-selected': isMultiSelect && isMediaSelected(media.id) }"
                                     @mouseenter="media.type === 'video' && onVideoHoverEnter(media.id, $event)"
                                     @mouseleave="media.type === 'video' && onVideoHoverLeave(media.id, $event)"
                                 >
@@ -1139,6 +1372,12 @@ onUnmounted(() => {
                                         </svg>
                                         Crop
                                     </div>
+                                    <div v-if="isMultiSelect && isMediaSelected(media.id)" class="selected-badge">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Selecionado
+                                    </div>
                                     <div class="media-meta">
                                         <p class="media-filename" :title="getMediaDisplayName(media)">
                                             {{ getMediaDisplayName(media) }}
@@ -1150,6 +1389,20 @@ onUnmounted(() => {
                                 <div v-if="filteredAlbumMedia.length === 0" class="empty-state">
                                     <p>{{ emptyAlbumMessage }}</p>
                                 </div>
+                            </div>
+
+                            <div v-if="isMultiSelect" class="media-selection-footer">
+                                <button type="button" class="button-secondary" @click="clearSelectedMedia">
+                                    Limpar seleção
+                                </button>
+                                <button
+                                    type="button"
+                                    class="button-primary"
+                                    :disabled="selectedMediaCount === 0"
+                                    @click="confirmMultipleSelection"
+                                >
+                                    Adicionar selecionadas ({{ selectedMediaCount }})
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1458,6 +1711,11 @@ onUnmounted(() => {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+.media-card-selected {
+    border-color: #b8998a;
+    box-shadow: 0 0 0 2px rgba(184, 153, 138, 0.2);
+}
+
 .media-image {
     width: 100%;
     height: 100%;
@@ -1490,6 +1748,20 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: 0.25rem;
+}
+
+.selected-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: rgba(16, 185, 129, 0.9);
+    color: white;
+    padding: 0.2rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
 }
 
 .media-meta {
@@ -1646,6 +1918,14 @@ onUnmounted(() => {
     margin-top: 0.5rem;
     font-size: 0.875rem;
     color: #dc2626;
+}
+
+.media-selection-footer {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .retry-button {

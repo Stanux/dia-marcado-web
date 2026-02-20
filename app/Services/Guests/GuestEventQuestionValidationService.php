@@ -105,6 +105,8 @@ class GuestEventQuestionValidationService
             $resolvedKey,
             trim((string) ($question['key'] ?? '')),
             $label,
+            // Backward compatibility with legacy frontend fallback (0-based).
+            'q_' . $index,
             'q_' . ($index + 1),
         ])
             ->filter(fn (string $value): bool => $value !== '')
@@ -159,7 +161,15 @@ class GuestEventQuestionValidationService
      */
     private function validateValueType(string $label, string $type, mixed $value, array $options): void
     {
-        if ($type === 'number' && !is_numeric($value)) {
+        if ($type === 'number') {
+            $normalizedValue = is_string($value)
+                ? str_replace(',', '.', trim($value))
+                : $value;
+
+            if (is_numeric($normalizedValue)) {
+                return;
+            }
+
             throw new RsvpSubmissionException("A resposta da pergunta '{$label}' deve ser numerica.", 422);
         }
 

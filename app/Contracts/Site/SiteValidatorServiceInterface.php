@@ -56,6 +56,7 @@ interface SiteValidatorServiceInterface
      * - Required fields filled
      * - WCAG AA contrast compliance
      * - Resource size within threshold
+     * - RSVP readiness (events, access mode, and response options)
      *
      * @param SiteLayout $site The site layout to check
      * @return QAResult The QA result with all check statuses

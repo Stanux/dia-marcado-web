@@ -16,6 +16,7 @@ use App\Http\Requests\Site\UpdateDraftRequest;
 use App\Http\Requests\Site\UpdateSettingsRequest;
 use App\Models\SiteLayout;
 use App\Models\SiteVersion;
+use App\Services\Site\SiteContentSchema;
 use App\Models\Wedding;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -323,7 +324,7 @@ class SiteLayoutController extends Controller
         }
 
         $wedding = $site->wedding;
-        $content = $site->draft_content ?? [];
+        $content = SiteContentSchema::normalize((array) ($site->draft_content ?? []));
 
         // Apply placeholder replacements
         $renderedContent = $this->placeholderService->replaceInArray($content, $wedding);
@@ -388,8 +389,13 @@ class SiteLayoutController extends Controller
         ];
 
         if ($includeContent) {
-            $data['draft_content'] = $site->draft_content;
-            $data['published_content'] = $site->published_content;
+            $data['draft_content'] = is_array($site->draft_content)
+                ? SiteContentSchema::normalize($site->draft_content)
+                : SiteContentSchema::getDefaultContent();
+
+            $data['published_content'] = is_array($site->published_content)
+                ? SiteContentSchema::normalize($site->published_content)
+                : null;
         }
 
         return $data;

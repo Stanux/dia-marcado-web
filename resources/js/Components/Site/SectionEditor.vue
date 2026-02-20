@@ -7,14 +7,7 @@
  * 
  * @Requirements: 8.1-14.6
  */
-import { computed, ref, watch } from 'vue';
-import HeaderEditor from './Editors/HeaderEditor.vue';
-import HeroEditor from './Editors/HeroEditor.vue';
-import SaveTheDateEditor from './Editors/SaveTheDateEditor.vue';
-import GiftRegistryEditor from './Editors/GiftRegistryEditor.vue';
-import RsvpEditor from './Editors/RsvpEditor.vue';
-import PhotoGalleryEditor from './Editors/PhotoGalleryEditor.vue';
-import FooterEditor from './Editors/FooterEditor.vue';
+import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import { useColorField } from '@/Composables/useColorField';
 
 const props = defineProps({
@@ -38,6 +31,14 @@ const props = defineProps({
 
 const emit = defineEmits(['change']);
 const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
+
+const HeaderEditor = defineAsyncComponent(() => import('./Editors/HeaderEditor.vue'));
+const HeroEditor = defineAsyncComponent(() => import('./Editors/HeroEditor.vue'));
+const SaveTheDateEditor = defineAsyncComponent(() => import('./Editors/SaveTheDateEditor.vue'));
+const GiftRegistryEditor = defineAsyncComponent(() => import('./Editors/GiftRegistryEditor.vue'));
+const RsvpEditor = defineAsyncComponent(() => import('./Editors/RsvpEditor.vue'));
+const PhotoGalleryEditor = defineAsyncComponent(() => import('./Editors/PhotoGalleryEditor.vue'));
+const FooterEditor = defineAsyncComponent(() => import('./Editors/FooterEditor.vue'));
 
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));

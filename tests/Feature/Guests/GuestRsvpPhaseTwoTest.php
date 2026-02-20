@@ -7,8 +7,10 @@ use App\Models\GuestAuditLog;
 use App\Models\GuestEvent;
 use App\Models\GuestHousehold;
 use App\Models\GuestInvite;
+use App\Models\SiteLayout;
 use App\Models\User;
 use App\Models\Wedding;
+use App\Services\Site\SiteContentSchema;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -148,6 +150,102 @@ class GuestRsvpPhaseTwoTest extends TestCase
             'guest_id' => $guest->id,
             'status' => 'confirmed',
         ]);
+    }
+
+    #[Test]
+    public function public_rsvp_requires_token_when_site_configures_token_only_access(): void
+    {
+        [$wedding, $event, , $guest] = $this->createGuestScenario();
+        $site = $this->createPublishedSiteWithRsvpSettings(
+            wedding: $wedding,
+            accessOverrides: [
+                'mode' => 'token_only',
+                'requireInviteToken' => true,
+            ],
+        );
+
+        $response = $this->postJson('/api/public/rsvp', [
+            'site_slug' => $site->slug,
+            'event_id' => $event->id,
+            'status' => 'confirmado',
+            'guest' => [
+                'name' => $guest->name,
+                'email' => $guest->email,
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'Este RSVP exige link de convite. Use o link recebido para confirmar presença.');
+
+        $this->assertDatabaseMissing('guest_rsvps', [
+            'event_id' => $event->id,
+            'guest_id' => $guest->id,
+        ]);
+    }
+
+    #[Test]
+    public function public_rsvp_blocks_second_submission_when_response_update_is_disabled_in_site(): void
+    {
+        [$wedding, $event, , $guest] = $this->createGuestScenario();
+        $site = $this->createPublishedSiteWithRsvpSettings(
+            wedding: $wedding,
+            accessOverrides: [
+                'mode' => 'restricted',
+                'allowResponseUpdate' => false,
+            ],
+        );
+
+        $payload = [
+            'site_slug' => $site->slug,
+            'event_id' => $event->id,
+            'status' => 'confirmado',
+            'guest' => [
+                'name' => $guest->name,
+                'email' => $guest->email,
+            ],
+        ];
+
+        $this->postJson('/api/public/rsvp', $payload)->assertOk();
+
+        $secondResponse = $this->postJson('/api/public/rsvp', [
+            ...$payload,
+            'status' => 'talvez',
+        ]);
+
+        $secondResponse->assertStatus(409)
+            ->assertJsonPath('message', 'Este convite já foi respondido e não permite alteração.');
+
+        $this->assertDatabaseHas('guest_rsvps', [
+            'event_id' => $event->id,
+            'guest_id' => $guest->id,
+            'status' => 'confirmed',
+        ]);
+    }
+
+    #[Test]
+    public function public_rsvp_enforces_required_email_defined_in_site_fields(): void
+    {
+        [$wedding, $event, , $guest] = $this->createGuestScenario();
+        $site = $this->createPublishedSiteWithRsvpSettings(
+            wedding: $wedding,
+            fieldOverrides: [
+                'collectEmail' => true,
+                'requireEmail' => true,
+            ],
+        );
+
+        $response = $this->postJson('/api/public/rsvp', [
+            'site_slug' => $site->slug,
+            'event_id' => $event->id,
+            'status' => 'confirmado',
+            'guest' => [
+                'name' => $guest->name,
+                'email' => null,
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'Informe e-mail para confirmar presença.');
     }
 
     #[Test]
@@ -330,5 +428,31 @@ class GuestRsvpPhaseTwoTest extends TestCase
         ]);
 
         return $couple;
+    }
+
+    private function createPublishedSiteWithRsvpSettings(
+        Wedding $wedding,
+        array $accessOverrides = [],
+        array $fieldOverrides = [],
+    ): SiteLayout {
+        $content = SiteContentSchema::getDefaultContent();
+        $content['sections']['rsvp']['enabled'] = true;
+        $content['sections']['rsvp']['access'] = array_replace(
+            $content['sections']['rsvp']['access'],
+            $accessOverrides,
+        );
+        $content['sections']['rsvp']['fields'] = array_replace(
+            $content['sections']['rsvp']['fields'],
+            $fieldOverrides,
+        );
+
+        return SiteLayout::factory()
+            ->published()
+            ->create([
+                'wedding_id' => $wedding->id,
+                'slug' => 'site-' . Str::lower(Str::random(8)),
+                'draft_content' => $content,
+                'published_content' => $content,
+            ]);
     }
 }

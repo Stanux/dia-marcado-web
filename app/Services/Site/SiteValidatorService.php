@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Site;
 
 use App\Contracts\Site\SiteValidatorServiceInterface;
+use App\Models\Guest;
+use App\Models\GuestEvent;
+use App\Models\GuestInvite;
 use App\Models\SiteLayout;
 use App\Models\SystemConfig;
 
@@ -132,6 +135,9 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         // Check 5: Resource size within threshold
         $this->checkResourceSizeQA($site, $result);
 
+        // Check 6: RSVP readiness
+        $this->checkRsvpReadinessQA($site, $content, $result);
+
         return $result;
     }
 
@@ -215,10 +221,14 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         $photosWithoutAlt = [];
 
         foreach ($albums as $albumName => $album) {
-            $photos = $album['photos'] ?? [];
-            foreach ($photos as $index => $photo) {
-                $alt = $photo['alt'] ?? '';
-                if (empty(trim($alt))) {
+            $items = $this->getGalleryAlbumItems(is_array($album) ? $album : []);
+            foreach ($items as $index => $item) {
+                if ($this->getGalleryItemType($item) !== 'image') {
+                    continue;
+                }
+
+                $alt = is_array($item) ? ($item['alt'] ?? '') : '';
+                if (empty(trim((string) $alt))) {
                     $photosWithoutAlt[] = "{$albumName}[{$index}]";
                 }
             }
@@ -306,15 +316,19 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         if (($sections['photoGallery']['enabled'] ?? false)) {
             $albums = $sections['photoGallery']['albums'] ?? [];
             foreach ($albums as $albumName => $album) {
-                $photos = $album['photos'] ?? [];
-                foreach ($photos as $index => $photo) {
-                    $alt = $photo['alt'] ?? '';
-                    if (empty(trim($alt))) {
+                $items = $this->getGalleryAlbumItems(is_array($album) ? $album : []);
+                foreach ($items as $index => $item) {
+                    if ($this->getGalleryItemType($item) !== 'image') {
+                        continue;
+                    }
+
+                    $alt = is_array($item) ? ($item['alt'] ?? '') : '';
+                    if (empty(trim((string) $alt))) {
                         $warnings[] = [
                             'type' => 'missing_alt',
                             'section' => 'photoGallery',
-                            'element' => "albums.{$albumName}.photos[{$index}]",
-                            'message' => "Foto {$index} no álbum '{$albumName}' não tem texto alternativo",
+                            'element' => "albums.{$albumName}.items[{$index}]",
+                            'message' => "Mídia {$index} (imagem) no álbum '{$albumName}' não tem texto alternativo",
                             'suggestion' => 'Adicione uma descrição da foto para acessibilidade',
                         ];
                     }
@@ -336,17 +350,48 @@ class SiteValidatorService implements SiteValidatorServiceInterface
 
         // Check header contrast
         if (($sections['header']['enabled'] ?? false)) {
-            $bgColor = $sections['header']['style']['backgroundColor'] ?? '#ffffff';
-            $textColor = $theme['primaryColor'] ?? '#000000';
-            
-            $ratio = $this->calculateContrastRatio($textColor, $bgColor);
-            if ($ratio < self::WCAG_AA_CONTRAST_RATIO) {
+            $header = is_array($sections['header'] ?? null) ? $sections['header'] : [];
+            $bgColor = (string) ($header['style']['backgroundColor'] ?? '#ffffff');
+            $candidates = $this->getHeaderContrastCandidates($header, is_array($theme) ? $theme : []);
+
+            $failingCandidates = [];
+
+            foreach ($candidates as $candidate) {
+                $ratio = $this->calculateContrastRatio((string) $candidate['color'], $bgColor);
+                $requiredRatio = $this->getRequiredContrastRatio(
+                    $candidate['fontSize'] ?? null,
+                    $candidate['fontWeight'] ?? null
+                );
+
+                if ($ratio < $requiredRatio) {
+                    $failingCandidates[] = [
+                        'label' => (string) ($candidate['label'] ?? 'Texto'),
+                        'ratio' => $ratio,
+                        'required' => $requiredRatio,
+                    ];
+                }
+            }
+
+            if (!empty($failingCandidates)) {
+                usort($failingCandidates, static fn (array $a, array $b): int => $a['ratio'] <=> $b['ratio']);
+                $worstCandidate = $failingCandidates[0];
+                $failingLabels = array_values(array_unique(array_map(
+                    static fn (array $candidate): string => (string) $candidate['label'],
+                    $failingCandidates
+                )));
+
                 $warnings[] = [
                     'type' => 'low_contrast',
                     'section' => 'header',
-                    'ratio' => round($ratio, 2),
-                    'required' => self::WCAG_AA_CONTRAST_RATIO,
-                    'message' => "Contraste insuficiente no cabeçalho ({$ratio}:1, mínimo {self::WCAG_AA_CONTRAST_RATIO}:1)",
+                    'ratio' => round($worstCandidate['ratio'], 2),
+                    'required' => $worstCandidate['required'],
+                    'elements' => $failingLabels,
+                    'message' => sprintf(
+                        'Contraste insuficiente no cabeçalho (%.2f:1, mínimo %.1f:1) em: %s',
+                        $worstCandidate['ratio'],
+                        $worstCandidate['required'],
+                        implode(', ', $failingLabels)
+                    ),
                     'suggestion' => 'Ajuste as cores do texto ou fundo para melhorar a legibilidade',
                 ];
             }
@@ -364,6 +409,7 @@ class SiteValidatorService implements SiteValidatorServiceInterface
                     'section' => 'footer',
                     'ratio' => round($ratio, 2),
                     'required' => self::WCAG_AA_CONTRAST_RATIO,
+                    'elements' => ['Texto do rodapé'],
                     'message' => "Contraste insuficiente no rodapé ({$ratio}:1, mínimo {self::WCAG_AA_CONTRAST_RATIO}:1)",
                     'suggestion' => 'Ajuste as cores do texto ou fundo para melhorar a legibilidade',
                 ];
@@ -460,12 +506,54 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             );
         } else {
             $count = count($lowContrast);
+            $details = [];
+
+            foreach ($lowContrast as $warning) {
+                $section = (string) ($warning['section'] ?? '');
+                $sectionLabel = $this->getSectionLabelForQa($section);
+                $elements = $warning['elements'] ?? [];
+
+                if (is_array($elements) && !empty($elements)) {
+                    $elementsText = implode(', ', array_map(static fn ($item): string => (string) $item, $elements));
+                    $details[] = "{$sectionLabel}: {$elementsText}";
+                    continue;
+                }
+
+                $fallback = trim((string) ($warning['message'] ?? ''));
+                if ($fallback !== '') {
+                    $details[] = "{$sectionLabel}: {$fallback}";
+                }
+            }
+
+            $details = array_values(array_unique($details));
+            $message = "{$count} seção(ões) com contraste abaixo do recomendado";
+            if ($details !== []) {
+                $message .= "\n\nItens com contraste baixo:\n• " . implode("\n• ", $details);
+            }
+
             $result->addWarningCheck(
                 'wcag_contrast',
-                "{$count} seção(ões) com contraste abaixo do recomendado",
+                $message,
                 $lowContrast[0]['section'] ?? null
             );
         }
+    }
+
+    /**
+     * Get user-friendly section label for QA messages.
+     */
+    private function getSectionLabelForQa(string $section): string
+    {
+        return match ($section) {
+            'header' => 'Cabeçalho',
+            'hero' => 'Destaque',
+            'saveTheDate' => 'Save the Date',
+            'giftRegistry' => 'Lista de Presentes',
+            'rsvp' => 'Confirme Presença',
+            'photoGallery' => 'Galeria de Fotos',
+            'footer' => 'Rodapé',
+            default => $section !== '' ? $section : 'Seção',
+        };
     }
 
     /**
@@ -505,6 +593,167 @@ class SiteValidatorService implements SiteValidatorServiceInterface
                 null
             );
         }
+    }
+
+    /**
+     * QA Check: RSVP readiness based on editor config + guest module data.
+     */
+    private function checkRsvpReadinessQA(SiteLayout $site, array $content, QAResult $result): void
+    {
+        $rsvpSection = $content['sections']['rsvp'] ?? [];
+
+        if (!(bool) ($rsvpSection['enabled'] ?? false)) {
+            $result->addPassedCheck(
+                'rsvp_readiness',
+                'Seção de confirmação desativada.',
+                'rsvp'
+            );
+
+            return;
+        }
+
+        $access = is_array($rsvpSection['access'] ?? null) ? $rsvpSection['access'] : [];
+        $fields = is_array($rsvpSection['fields'] ?? null) ? $rsvpSection['fields'] : [];
+        $eventSelection = is_array($rsvpSection['eventSelection'] ?? null) ? $rsvpSection['eventSelection'] : [];
+        $statusOptions = is_array($rsvpSection['statusOptions'] ?? null) ? $rsvpSection['statusOptions'] : [];
+
+        $failures = [];
+        $warnings = [];
+
+        $activeEventIds = GuestEvent::withoutGlobalScopes()
+            ->where('wedding_id', $site->wedding_id)
+            ->where('is_active', true)
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
+
+        if ($activeEventIds === []) {
+            $failures[] = 'Nenhum evento RSVP ativo encontrado.';
+        }
+
+        $selectionMode = (string) ($eventSelection['mode'] ?? 'all_active');
+        $selectedEventIds = collect($eventSelection['selectedEventIds'] ?? [])
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
+
+        $availableEventIds = $activeEventIds;
+
+        if ($selectionMode === 'selected') {
+            if ($selectedEventIds === []) {
+                $failures[] = 'Modo de eventos específicos sem nenhum evento selecionado.';
+                $availableEventIds = [];
+            } else {
+                $availableEventIds = array_values(array_intersect($activeEventIds, $selectedEventIds));
+
+                if ($availableEventIds === []) {
+                    $failures[] = 'Os eventos selecionados não estão ativos no módulo de convidados.';
+                }
+            }
+        }
+
+        $featuredEventId = $eventSelection['featuredEventId'] ?? null;
+        if ($featuredEventId !== null && $featuredEventId !== '' && !in_array((string) $featuredEventId, $availableEventIds, true)) {
+            $warnings[] = 'O evento principal pré-selecionado não está disponível para o formulário.';
+        }
+
+        $showConfirmed = (bool) ($statusOptions['showConfirmed'] ?? true);
+        $showMaybe = (bool) ($statusOptions['showMaybe'] ?? true);
+        $showDeclined = (bool) ($statusOptions['showDeclined'] ?? true);
+
+        if (!$showConfirmed && !$showMaybe && !$showDeclined) {
+            $failures[] = 'Nenhuma opção de resposta (confirmo/talvez/não vou) está habilitada.';
+        }
+
+        $collectEmail = (bool) ($fields['collectEmail'] ?? true);
+        $collectPhone = (bool) ($fields['collectPhone'] ?? true);
+        $requireEmail = (bool) ($fields['requireEmail'] ?? false);
+        $requirePhone = (bool) ($fields['requirePhone'] ?? false);
+
+        if ($requireEmail && !$collectEmail) {
+            $failures[] = 'E-mail obrigatório está ativo, mas o campo de e-mail está oculto.';
+        }
+
+        if ($requirePhone && !$collectPhone) {
+            $failures[] = 'Telefone obrigatório está ativo, mas o campo de telefone está oculto.';
+        }
+
+        $weddingAccess = $site->wedding?->settings['rsvp_access'] ?? 'open';
+        $configuredAccessMode = (string) ($access['mode'] ?? 'inherit');
+        $effectiveAccessMode = match ($configuredAccessMode) {
+            'open', 'restricted', 'token_only' => $configuredAccessMode,
+            default => ($weddingAccess === 'restricted' ? 'restricted' : 'open'),
+        };
+
+        $requireInviteToken = (bool) ($access['requireInviteToken'] ?? false) || $effectiveAccessMode === 'token_only';
+
+        if (in_array($effectiveAccessMode, ['restricted', 'token_only'], true)) {
+            $guestCount = Guest::withoutGlobalScopes()
+                ->where('wedding_id', $site->wedding_id)
+                ->count();
+
+            if ($guestCount === 0) {
+                $warnings[] = 'Acesso restrito/token ativo, mas não há convidados cadastrados.';
+            }
+        }
+
+        if ($requireInviteToken) {
+            $inviteCount = GuestInvite::withoutGlobalScopes()
+                ->whereHas('household', function ($query) use ($site): void {
+                    $query
+                        ->withoutGlobalScopes()
+                        ->where('wedding_id', $site->wedding_id);
+                })
+                ->count();
+
+            if ($inviteCount === 0) {
+                $warnings[] = 'Token obrigatório ativo, mas nenhum convite foi gerado.';
+            }
+        }
+
+        if ($failures !== []) {
+            $result->addFailedCheck(
+                'rsvp_readiness',
+                $this->formatChecklistIssues($failures),
+                'rsvp'
+            );
+
+            return;
+        }
+
+        if ($warnings !== []) {
+            $result->addWarningCheck(
+                'rsvp_readiness',
+                $this->formatChecklistIssues($warnings),
+                'rsvp'
+            );
+
+            return;
+        }
+
+        $result->addPassedCheck(
+            'rsvp_readiness',
+            'Fluxo de confirmação pronto para receber respostas.',
+            'rsvp'
+        );
+    }
+
+    /**
+     * Format QA issues as short readable bullet list.
+     */
+    private function formatChecklistIssues(array $issues): string
+    {
+        $normalized = array_values(array_filter(
+            array_map(static fn ($item) => trim((string) $item), $issues),
+            static fn ($item) => $item !== ''
+        ));
+
+        if ($normalized === []) {
+            return '';
+        }
+
+        return '• ' . implode("\n• ", $normalized);
     }
 
     /**
@@ -655,11 +904,11 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         if (($sections['photoGallery']['enabled'] ?? false)) {
             $albums = $sections['photoGallery']['albums'] ?? [];
             foreach ($albums as $album) {
-                $photos = $album['photos'] ?? [];
-                foreach ($photos as $photo) {
-                    $photoUrl = is_array($photo) ? ($photo['url'] ?? '') : $photo;
-                    if (!empty($photoUrl)) {
-                        $usedMediaUrls[] = $photoUrl;
+                $items = $this->getGalleryAlbumItems(is_array($album) ? $album : []);
+                foreach ($items as $item) {
+                    $itemUrl = $this->getGalleryItemUrl($item);
+                    if (!empty($itemUrl)) {
+                        $usedMediaUrls[] = $itemUrl;
                     }
                 }
             }
@@ -733,6 +982,57 @@ class SiteValidatorService implements SiteValidatorServiceInterface
     }
 
     /**
+     * Normalize gallery album items with backward compatibility for legacy "photos".
+     *
+     * @return array<int, mixed>
+     */
+    private function getGalleryAlbumItems(array $album): array
+    {
+        $items = $album['items'] ?? [];
+
+        if (!is_array($items) || empty($items)) {
+            $legacyPhotos = $album['photos'] ?? [];
+            if (!is_array($legacyPhotos)) {
+                return [];
+            }
+
+            return $legacyPhotos;
+        }
+
+        return $items;
+    }
+
+    /**
+     * Resolve gallery item type (image|video).
+     */
+    private function getGalleryItemType(mixed $item): string
+    {
+        if (!is_array($item)) {
+            return 'image';
+        }
+
+        $type = strtolower((string) ($item['type'] ?? 'image'));
+
+        return in_array($type, ['image', 'video'], true) ? $type : 'image';
+    }
+
+    /**
+     * Resolve URL for a gallery item.
+     */
+    private function getGalleryItemUrl(mixed $item): string
+    {
+        if (is_string($item)) {
+            return trim($item);
+        }
+
+        if (!is_array($item)) {
+            return '';
+        }
+
+        return trim((string) ($item['url'] ?? ''));
+    }
+
+    /**
      * Check if a URL is valid (HTTP or HTTPS).
      */
     private function isValidUrl(string $url): bool
@@ -790,6 +1090,167 @@ class SiteValidatorService implements SiteValidatorServiceInterface
     }
 
     /**
+     * Build list of header text elements that must be validated against header background.
+     *
+     * @return array<int, array{label: string, color: string, fontSize: mixed, fontWeight: mixed}>
+     */
+    private function getHeaderContrastCandidates(array $header, array $theme): array
+    {
+        $candidates = [];
+        $themePrimaryColor = (string) ($theme['primaryColor'] ?? '#333333');
+
+        $logo = is_array($header['logo'] ?? null) ? $header['logo'] : [];
+        $logoType = (string) ($logo['type'] ?? 'image');
+        $logoText = is_array($logo['text'] ?? null) ? $logo['text'] : [];
+        $logoInitials = is_array($logoText['initials'] ?? null) ? $logoText['initials'] : [];
+        $hasLogoInitials = array_filter(array_map(static fn ($initial): string => trim((string) $initial), $logoInitials)) !== [];
+
+        if ($logoType === 'text' && $hasLogoInitials) {
+            $logoTypography = is_array($logoText['typography'] ?? null) ? $logoText['typography'] : [];
+            $candidates[] = [
+                'label' => 'Logo',
+                'color' => (string) ($logoTypography['fontColor'] ?? $themePrimaryColor),
+                'fontSize' => $logoTypography['fontSize'] ?? 48,
+                'fontWeight' => $logoTypography['fontWeight'] ?? 700,
+            ];
+        }
+
+        $headerTitle = trim((string) ($header['title'] ?? ''));
+        if ($headerTitle !== '') {
+            $titleTypography = is_array($header['titleTypography'] ?? null) ? $header['titleTypography'] : [];
+            $candidates[] = [
+                'label' => 'Título',
+                'color' => (string) ($titleTypography['fontColor'] ?? $themePrimaryColor),
+                'fontSize' => $titleTypography['fontSize'] ?? 20,
+                'fontWeight' => $titleTypography['fontWeight'] ?? 600,
+            ];
+        }
+
+        $headerSubtitle = trim((string) ($header['subtitle'] ?? ''));
+        if ($headerSubtitle !== '') {
+            $subtitleTypography = is_array($header['subtitleTypography'] ?? null) ? $header['subtitleTypography'] : [];
+            $candidates[] = [
+                'label' => 'Subtítulo',
+                'color' => (string) ($subtitleTypography['fontColor'] ?? '#6b7280'),
+                'fontSize' => $subtitleTypography['fontSize'] ?? 14,
+                'fontWeight' => $subtitleTypography['fontWeight'] ?? 400,
+            ];
+        }
+
+        if ($this->headerHasVisibleNavigation($header)) {
+            $candidates[] = [
+                'label' => 'Menu',
+                'color' => '#374151',
+                'fontSize' => 14,
+                'fontWeight' => 400,
+            ];
+        }
+
+        // Fallback for legacy configurations that may not define title/logo typography.
+        if ($candidates === []) {
+            $candidates[] = [
+                'label' => 'Texto',
+                'color' => $themePrimaryColor,
+                'fontSize' => 14,
+                'fontWeight' => 400,
+            ];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Determine whether header has at least one visible navigation label.
+     */
+    private function headerHasVisibleNavigation(array $header): bool
+    {
+        $navigationItems = $header['navigation'] ?? [];
+
+        if (!is_array($navigationItems)) {
+            return false;
+        }
+
+        foreach ($navigationItems as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            if (!(bool) ($item['showInMenu'] ?? false)) {
+                continue;
+            }
+
+            if (trim((string) ($item['label'] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Resolve minimum required contrast ratio according to WCAG AA.
+     */
+    private function getRequiredContrastRatio(mixed $fontSize, mixed $fontWeight): float
+    {
+        $size = $this->parseTypographyFontSize($fontSize);
+        $weight = $this->parseTypographyFontWeight($fontWeight);
+
+        if ($size === null) {
+            return self::WCAG_AA_CONTRAST_RATIO;
+        }
+
+        $isLargeText = $size >= 24 || ($size >= 18.66 && $weight >= 700);
+
+        return $isLargeText
+            ? self::WCAG_AA_LARGE_TEXT_CONTRAST_RATIO
+            : self::WCAG_AA_CONTRAST_RATIO;
+    }
+
+    /**
+     * Parse typography font size to pixels.
+     */
+    private function parseTypographyFontSize(mixed $fontSize): ?float
+    {
+        if (is_numeric($fontSize)) {
+            return (float) $fontSize;
+        }
+
+        if (is_string($fontSize)) {
+            if (preg_match('/-?\d+(?:\.\d+)?/', $fontSize, $matches) === 1) {
+                return (float) $matches[0];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse typography weight to numeric format.
+     */
+    private function parseTypographyFontWeight(mixed $fontWeight): int
+    {
+        if (is_numeric($fontWeight)) {
+            return (int) $fontWeight;
+        }
+
+        if (!is_string($fontWeight)) {
+            return 400;
+        }
+
+        $normalized = strtolower(trim($fontWeight));
+
+        if ($normalized === 'bold') {
+            return 700;
+        }
+
+        if ($normalized === 'normal') {
+            return 400;
+        }
+
+        return is_numeric($normalized) ? (int) $normalized : 400;
+    }
+
+    /**
      * Calculate contrast ratio between two colors.
      * 
      * Uses WCAG 2.0 formula for relative luminance.
@@ -800,8 +1261,11 @@ class SiteValidatorService implements SiteValidatorServiceInterface
      */
     private function calculateContrastRatio(string $foreground, string $background): float
     {
-        $l1 = $this->getRelativeLuminance($foreground);
-        $l2 = $this->getRelativeLuminance($background);
+        $backgroundColor = $this->resolveEffectiveBackgroundColor($background);
+        $foregroundColor = $this->resolveEffectiveTextColor($foreground, $backgroundColor);
+
+        $l1 = $this->getRelativeLuminance($foregroundColor);
+        $l2 = $this->getRelativeLuminance($backgroundColor);
 
         $lighter = max($l1, $l2);
         $darker = min($l1, $l2);
@@ -812,40 +1276,156 @@ class SiteValidatorService implements SiteValidatorServiceInterface
     /**
      * Calculate relative luminance of a color.
      * 
-     * @param string $hexColor Hex color code
+     * @param array{r: int, g: int, b: int} $rgbColor
      * @return float Relative luminance (0-1)
      */
-    private function getRelativeLuminance(string $hexColor): float
+    private function getRelativeLuminance(array $rgbColor): float
     {
-        $rgb = $this->hexToRgb($hexColor);
-        
-        $r = $this->linearize($rgb['r'] / 255);
-        $g = $this->linearize($rgb['g'] / 255);
-        $b = $this->linearize($rgb['b'] / 255);
+        $r = $this->linearize($rgbColor['r'] / 255);
+        $g = $this->linearize($rgbColor['g'] / 255);
+        $b = $this->linearize($rgbColor['b'] / 255);
 
         return 0.2126 * $r + 0.7152 * $g + 0.0722 * $b;
     }
 
     /**
-     * Convert hex color to RGB.
+     * Resolve effective text color (including alpha compositing) over background.
      */
-    private function hexToRgb(string $hex): array
+    private function resolveEffectiveTextColor(string $foreground, array $background): array
     {
-        $hex = ltrim($hex, '#');
-        
-        if (strlen($hex) === 3) {
-            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        $parsedForeground = $this->parseColor($foreground) ?? ['r' => 0, 'g' => 0, 'b' => 0, 'a' => 1.0];
+
+        return $this->compositeColors($parsedForeground, $background);
+    }
+
+    /**
+     * Resolve effective opaque background color.
+     */
+    private function resolveEffectiveBackgroundColor(string $background): array
+    {
+        $parsedBackground = $this->parseColor($background) ?? ['r' => 255, 'g' => 255, 'b' => 255, 'a' => 1.0];
+
+        return $this->compositeColors($parsedBackground, ['r' => 255, 'g' => 255, 'b' => 255]);
+    }
+
+    /**
+     * Composite a source RGBA color over an opaque RGB destination.
+     *
+     * @param array{r: int, g: int, b: int, a: float} $source
+     * @param array{r: int, g: int, b: int} $destination
+     * @return array{r: int, g: int, b: int}
+     */
+    private function compositeColors(array $source, array $destination): array
+    {
+        $alpha = max(0.0, min(1.0, (float) ($source['a'] ?? 1.0)));
+        $inverseAlpha = 1 - $alpha;
+
+        return [
+            'r' => (int) round(($source['r'] * $alpha) + ($destination['r'] * $inverseAlpha)),
+            'g' => (int) round(($source['g'] * $alpha) + ($destination['g'] * $inverseAlpha)),
+            'b' => (int) round(($source['b'] * $alpha) + ($destination['b'] * $inverseAlpha)),
+        ];
+    }
+
+    /**
+     * Parse CSS color values (hex/rgb/rgba/transparent).
+     *
+     * @return array{r: int, g: int, b: int, a: float}|null
+     */
+    private function parseColor(string $color): ?array
+    {
+        $normalized = strtolower(trim($color));
+
+        if ($normalized === '') {
+            return null;
         }
 
-        if (strlen($hex) !== 6) {
-            return ['r' => 0, 'g' => 0, 'b' => 0];
+        if ($normalized === 'transparent') {
+            return ['r' => 0, 'g' => 0, 'b' => 0, 'a' => 0.0];
+        }
+
+        if (str_starts_with($normalized, '#')) {
+            return $this->parseHexColor($normalized);
+        }
+
+        if (preg_match(
+            '/^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*([+-]?\d*\.?\d+)\s*\)$/i',
+            $normalized,
+            $matches
+        ) === 1) {
+            return [
+                'r' => $this->clampRgbChannel((int) $matches[1]),
+                'g' => $this->clampRgbChannel((int) $matches[2]),
+                'b' => $this->clampRgbChannel((int) $matches[3]),
+                'a' => $this->clampAlpha($matches[4]),
+            ];
+        }
+
+        if (preg_match(
+            '/^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i',
+            $normalized,
+            $matches
+        ) === 1) {
+            return [
+                'r' => $this->clampRgbChannel((int) $matches[1]),
+                'g' => $this->clampRgbChannel((int) $matches[2]),
+                'b' => $this->clampRgbChannel((int) $matches[3]),
+                'a' => 1.0,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse hex colors in #rgb, #rgba, #rrggbb or #rrggbbaa formats.
+     *
+     * @return array{r: int, g: int, b: int, a: float}|null
+     */
+    private function parseHexColor(string $hexColor): ?array
+    {
+        $hex = ltrim($hexColor, '#');
+
+        if (strlen($hex) === 3 || strlen($hex) === 4) {
+            $hex = implode('', array_map(static fn (string $char): string => $char . $char, str_split($hex)));
+        }
+
+        if (strlen($hex) !== 6 && strlen($hex) !== 8) {
+            return null;
+        }
+
+        if (!ctype_xdigit($hex)) {
+            return null;
+        }
+
+        $alpha = 1.0;
+        if (strlen($hex) === 8) {
+            $alpha = round(hexdec(substr($hex, 6, 2)) / 255, 4);
         }
 
         return [
             'r' => hexdec(substr($hex, 0, 2)),
             'g' => hexdec(substr($hex, 2, 2)),
             'b' => hexdec(substr($hex, 4, 2)),
+            'a' => $alpha,
         ];
+    }
+
+    /**
+     * Clamp RGB channel to valid range.
+     */
+    private function clampRgbChannel(int $value): int
+    {
+        return max(0, min(255, $value));
+    }
+
+    /**
+     * Clamp alpha to valid range.
+     */
+    private function clampAlpha(string $value): float
+    {
+        $parsed = (float) $value;
+        return max(0.0, min(1.0, $parsed));
     }
 
     /**

@@ -43,11 +43,12 @@ class GuestRsvpController extends Controller
     {
         $validated = $request->validate([
             'token' => 'nullable|string',
+            'site_slug' => 'nullable|string|max:255',
             'event_id' => 'required|uuid|exists:guest_events,id',
             'status' => ['required', 'string', 'max:20', Rule::in(GuestRsvp::validationStatuses())],
             'responses' => 'nullable|array',
             'guest' => 'required|array',
-            'guest.name' => 'required|string|max:255',
+            'guest.name' => 'nullable|string|max:255',
             'guest.email' => 'nullable|email|max:255',
             'guest.phone' => 'nullable|string|max:30',
             'guest.is_child' => 'nullable|boolean',

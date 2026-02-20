@@ -1,10 +1,11 @@
 <script setup>
 /**
  * PublicRsvp Component
- * 
- * Renders the RSVP section with real submission.
+ *
+ * Renders the RSVP section with real submission on public pages
+ * and realistic simulation when used in editor preview.
  */
-import { computed, ref, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -20,22 +21,99 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    siteSlug: {
+        type: String,
+        default: null,
+    },
     inviteTokenState: {
+        type: String,
+        default: null,
+    },
+    isPreview: {
+        type: Boolean,
+        default: false,
+    },
+    previewScenario: {
         type: String,
         default: null,
     },
 });
 
-const style = computed(() => props.content.style || {});
-const events = computed(() => (props.wedding?.guest_events || []).filter((event) => event.is_active));
+const DEFAULTS = {
+    style: {
+        backgroundColor: '#f8f6f4',
+        layout: 'card',
+        containerMaxWidth: 'max-w-xl',
+        showCard: true,
+    },
+    access: {
+        mode: 'inherit',
+        allowResponseUpdate: true,
+        requireInviteToken: false,
+    },
+    fields: {
+        collectName: true,
+        collectEmail: true,
+        collectPhone: true,
+        requireEmail: false,
+        requirePhone: false,
+        showDynamicQuestions: true,
+    },
+    labels: {
+        name: 'Nome completo',
+        email: 'Email',
+        phone: 'Telefone',
+        event: 'Evento',
+        status: 'Confirmação',
+    },
+    messages: {
+        success: 'RSVP enviado com sucesso!',
+        genericError: 'Erro ao enviar RSVP.',
+        nameRequired: 'Informe seu nome.',
+        eventRequired: 'Selecione um evento.',
+        tokenLimitReached: 'Este token já atingiu o limite de uso. Solicite um novo link para alterar sua confirmação.',
+        tokenInvalid: 'Este link de convite é inválido.',
+        tokenExpired: 'Este link de convite expirou.',
+        tokenRevoked: 'Este link de convite foi revogado.',
+        tokenRequired: 'Este convite exige um link com token para confirmação.',
+        restrictedAccess: 'Não encontramos seu cadastro na lista de convidados para este evento.',
+        submitLabel: 'Confirmar Presença',
+        submitLoadingLabel: 'Enviando...',
+        submitDisabledTokenLabel: 'Token sem novos usos',
+    },
+    statusOptions: {
+        showConfirmed: true,
+        showMaybe: true,
+        showDeclined: true,
+        confirmedLabel: 'Confirmo presença',
+        maybeLabel: 'Talvez',
+        declinedLabel: 'Não poderei comparecer',
+    },
+    eventSelection: {
+        mode: 'all_active',
+        selectedEventIds: [],
+        featuredEventId: null,
+    },
+    preview: {
+        scenario: 'default',
+    },
+};
+
+const localContent = computed(() => mergeWithDefaults(DEFAULTS, props.content || {}));
+
+const style = computed(() => localContent.value.style || DEFAULTS.style);
+const fields = computed(() => localContent.value.fields || DEFAULTS.fields);
+const labels = computed(() => localContent.value.labels || DEFAULTS.labels);
+const messages = computed(() => localContent.value.messages || DEFAULTS.messages);
+const statusOptions = computed(() => localContent.value.statusOptions || DEFAULTS.statusOptions);
+const eventSelection = computed(() => localContent.value.eventSelection || DEFAULTS.eventSelection);
+const access = computed(() => localContent.value.access || DEFAULTS.access);
+
 const selectedEventId = ref('');
 const token = ref('');
-const isTokenLimitReached = computed(() => props.inviteTokenState === 'limit_reached');
-
 const isSubmitting = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
-const tokenLimitMessage = 'Este token já atingiu o limite de uso. Solicite um novo link para alterar sua confirmação.';
 
 const form = reactive({
     name: '',
@@ -45,83 +123,431 @@ const form = reactive({
     responses: {},
 });
 
-const selectedEvent = computed(() => events.value.find((event) => event.id === selectedEventId.value));
-const questions = computed(() => selectedEvent.value?.questions || []);
+const allActiveEvents = computed(() => {
+    const list = props.wedding?.guest_events;
+
+    if (!Array.isArray(list)) {
+        return [];
+    }
+
+    return list
+        .filter((event) => event.is_active)
+        .map((event) => ({ ...event, id: String(event.id) }));
+});
+
+const selectedEventIds = computed(() => {
+    const ids = eventSelection.value.selectedEventIds;
+    return Array.isArray(ids) ? ids.map(String) : [];
+});
+
+const events = computed(() => {
+    if (eventSelection.value.mode !== 'selected') {
+        return allActiveEvents.value;
+    }
+
+    const allowed = new Set(selectedEventIds.value);
+
+    return allActiveEvents.value.filter((event) => allowed.has(String(event.id)));
+});
+
+const selectedEvent = computed(() => {
+    return events.value.find((event) => String(event.id) === String(selectedEventId.value));
+});
+
+const showDynamicQuestions = computed(() => fields.value.showDynamicQuestions !== false);
+const questions = computed(() => {
+    if (!showDynamicQuestions.value) {
+        return [];
+    }
+
+    return selectedEvent.value?.questions || [];
+});
+
+const effectivePreviewScenario = computed(() => {
+    if (!props.isPreview) {
+        return null;
+    }
+
+    return props.previewScenario || localContent.value.preview?.scenario || 'default';
+});
+
+const simulatedInviteTokenState = computed(() => {
+    if (!props.isPreview) {
+        return null;
+    }
+
+    switch (effectivePreviewScenario.value) {
+        case 'valid_token':
+            return 'valid';
+        case 'invalid_token':
+            return 'invalid';
+        case 'token_limit_reached':
+            return 'limit_reached';
+        case 'restricted_denied':
+            return 'restricted_denied';
+        default:
+            return null;
+    }
+});
+
+const effectiveInviteTokenState = computed(() => {
+    return simulatedInviteTokenState.value || props.inviteTokenState;
+});
+
+const effectiveAccessMode = computed(() => {
+    const configuredMode = access.value.mode || 'inherit';
+
+    if (configuredMode === 'inherit') {
+        return props.wedding?.settings?.rsvp_access === 'restricted'
+            ? 'restricted'
+            : 'open';
+    }
+
+    return configuredMode;
+});
+
+const requiresInviteToken = computed(() => {
+    return access.value.requireInviteToken === true || effectiveAccessMode.value === 'token_only';
+});
+
+const isTokenMissingRequired = computed(() => {
+    if (!requiresInviteToken.value) {
+        return false;
+    }
+
+    return String(token.value || '').trim() === '';
+});
+
+const isTokenLimitReached = computed(() => effectiveInviteTokenState.value === 'limit_reached');
+const isTokenInvalid = computed(() => effectiveInviteTokenState.value === 'invalid');
+const isTokenExpired = computed(() => effectiveInviteTokenState.value === 'expired');
+const isTokenRevoked = computed(() => effectiveInviteTokenState.value === 'revoked');
+const isRestrictedDenied = computed(() => effectiveInviteTokenState.value === 'restricted_denied');
+const hasBlockingAccessState = computed(() => {
+    return isTokenLimitReached.value
+        || isTokenInvalid.value
+        || isTokenExpired.value
+        || isTokenRevoked.value
+        || isRestrictedDenied.value
+        || isTokenMissingRequired.value;
+});
+
+const showName = computed(() => fields.value.collectName !== false);
+const showEmail = computed(() => fields.value.collectEmail !== false);
+const showPhone = computed(() => fields.value.collectPhone !== false);
+const requireEmail = computed(() => showEmail.value && fields.value.requireEmail === true);
+const requirePhone = computed(() => showPhone.value && fields.value.requirePhone === true);
+
+const statusChoices = computed(() => {
+    const result = [];
+
+    if (statusOptions.value.showConfirmed !== false) {
+        result.push({ value: 'confirmed', label: statusOptions.value.confirmedLabel || 'Confirmo presença' });
+    }
+
+    if (statusOptions.value.showMaybe !== false) {
+        result.push({ value: 'maybe', label: statusOptions.value.maybeLabel || 'Talvez' });
+    }
+
+    if (statusOptions.value.showDeclined !== false) {
+        result.push({ value: 'declined', label: statusOptions.value.declinedLabel || 'Não poderei comparecer' });
+    }
+
+    if (result.length === 0) {
+        result.push({ value: 'confirmed', label: 'Confirmo presença' });
+    }
+
+    return result;
+});
+
+const sectionClass = computed(() => {
+    if (style.value.layout === 'compact') {
+        return 'py-12 px-4';
+    }
+
+    return 'py-20 px-4';
+});
+
+const sectionContainerClass = computed(() => {
+    return style.value.containerMaxWidth || 'max-w-xl';
+});
+
+const formContainerClass = computed(() => {
+    if (style.value.showCard === false) {
+        return style.value.layout === 'compact' ? 'p-0' : 'p-2';
+    }
+
+    switch (style.value.layout) {
+        case 'clean':
+            return 'bg-white border border-gray-200 rounded-xl p-6 md:p-8';
+        case 'compact':
+            return 'bg-white rounded-xl shadow-md p-5 md:p-6';
+        default:
+            return 'bg-white rounded-2xl shadow-xl p-8 md:p-10';
+    }
+});
+
+const submitDisabled = computed(() => {
+    return isSubmitting.value || hasBlockingAccessState.value;
+});
+
+const submitLabel = computed(() => {
+    if (
+        isTokenLimitReached.value
+        || isTokenInvalid.value
+        || isTokenExpired.value
+        || isTokenRevoked.value
+        || isRestrictedDenied.value
+    ) {
+        return messages.value.submitDisabledTokenLabel || 'Token sem novos usos';
+    }
+
+    if (isSubmitting.value) {
+        return messages.value.submitLoadingLabel || 'Enviando...';
+    }
+
+    return messages.value.submitLabel || 'Confirmar Presença';
+});
 
 const getQuestionKey = (question, index) => {
-    return question.key || question.id || `q_${index}`;
+    return resolveQuestionKey(question, index);
+};
+
+const resolveQuestionKey = (question, index) => {
+    const explicitKey = String(question?.key || '').trim();
+
+    if (explicitKey !== '') {
+        return explicitKey;
+    }
+
+    const label = String(question?.label || question?.title || '').trim();
+    const slug = slugifyQuestionLabel(label);
+
+    if (slug !== '') {
+        return slug;
+    }
+
+    // Keep parity with backend fallback in GuestEventQuestionValidationService.
+    return `q_${index + 1}`;
+};
+
+const slugifyQuestionLabel = (value) => {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+};
+
+const setStateMessage = () => {
+    if (isSubmitting.value) {
+        return;
+    }
+
+    successMessage.value = '';
+    errorMessage.value = '';
+
+    if (props.isPreview && effectivePreviewScenario.value === 'success') {
+        successMessage.value = messages.value.success;
+        return;
+    }
+
+    if (isTokenLimitReached.value) {
+        errorMessage.value = messages.value.tokenLimitReached;
+        return;
+    }
+
+    if (isTokenInvalid.value) {
+        errorMessage.value = messages.value.tokenInvalid;
+        return;
+    }
+
+    if (isTokenExpired.value) {
+        errorMessage.value = messages.value.tokenExpired;
+        return;
+    }
+
+    if (isTokenRevoked.value) {
+        errorMessage.value = messages.value.tokenRevoked;
+        return;
+    }
+
+    if (isRestrictedDenied.value) {
+        errorMessage.value = messages.value.restrictedAccess;
+        return;
+    }
+
+    if (isTokenMissingRequired.value) {
+        errorMessage.value = messages.value.tokenRequired;
+    }
+};
+
+const syncPreviewToken = () => {
+    if (!props.isPreview) {
+        return;
+    }
+
+    if (['valid_token', 'invalid_token', 'token_limit_reached'].includes(effectivePreviewScenario.value)) {
+        token.value = 'preview-token';
+        return;
+    }
+
+    token.value = '';
 };
 
 const submit = async () => {
     successMessage.value = '';
     errorMessage.value = '';
 
-    if (!form.name.trim()) {
-        errorMessage.value = 'Informe seu nome.';
+    if (hasBlockingAccessState.value) {
+        setStateMessage();
+        return;
+    }
+
+    if (showName.value && !form.name.trim()) {
+        errorMessage.value = messages.value.nameRequired;
+        return;
+    }
+
+    if (requireEmail.value && !form.email.trim()) {
+        errorMessage.value = 'Informe seu e-mail.';
+        return;
+    }
+
+    if (requirePhone.value && !form.phone.trim()) {
+        errorMessage.value = 'Informe seu telefone.';
         return;
     }
 
     if (!selectedEventId.value) {
-        errorMessage.value = 'Selecione um evento.';
+        errorMessage.value = messages.value.eventRequired;
         return;
     }
 
-    if (isTokenLimitReached.value) {
-        errorMessage.value = tokenLimitMessage;
+    if (props.isPreview) {
+        isSubmitting.value = true;
+
+        setTimeout(() => {
+            isSubmitting.value = false;
+            successMessage.value = messages.value.success;
+        }, 250);
+
         return;
     }
 
     isSubmitting.value = true;
 
     try {
+        const fallbackName = form.email?.trim() || form.phone?.trim() || 'Convidado';
+
         const payload = {
             token: token.value || null,
+            site_slug: props.siteSlug || null,
             event_id: selectedEventId.value,
             status: form.status,
             responses: form.responses,
             guest: {
-                name: form.name,
-                email: form.email || null,
-                phone: form.phone || null,
+                name: showName.value ? form.name.trim() : fallbackName,
+                email: showEmail.value ? (form.email || null) : null,
+                phone: showPhone.value ? (form.phone || null) : null,
             },
         };
 
         await axios.post('/api/public/rsvp', payload);
-        successMessage.value = 'RSVP enviado com sucesso!';
+        successMessage.value = messages.value.success;
     } catch (err) {
-        errorMessage.value = err?.response?.data?.message || 'Erro ao enviar RSVP.';
+        errorMessage.value = err?.response?.data?.message || messages.value.genericError;
     } finally {
         isSubmitting.value = false;
     }
 };
 
 watch(
-    () => events.value,
+    events,
     (next) => {
-        if (!selectedEventId.value && next.length > 0) {
-            selectedEventId.value = next[0].id;
+        if (next.length === 0) {
+            selectedEventId.value = '';
+            return;
+        }
+
+        const hasCurrent = next.some((event) => String(event.id) === String(selectedEventId.value));
+        if (hasCurrent) {
+            return;
+        }
+
+        const featured = eventSelection.value.featuredEventId
+            ? String(eventSelection.value.featuredEventId)
+            : null;
+
+        if (featured && next.some((event) => String(event.id) === featured)) {
+            selectedEventId.value = featured;
+            return;
+        }
+
+        selectedEventId.value = String(next[0].id);
+    },
+    { immediate: true }
+);
+
+watch(
+    statusChoices,
+    (choices) => {
+        if (!choices.some((choice) => choice.value === form.status)) {
+            form.status = choices[0]?.value || 'confirmed';
         }
     },
     { immediate: true }
 );
 
-if (typeof window !== 'undefined') {
+watch(
+    [effectiveInviteTokenState, effectivePreviewScenario, messages, requiresInviteToken, token],
+    () => {
+        setStateMessage();
+    },
+    { immediate: true, deep: true }
+);
+
+watch(
+    effectivePreviewScenario,
+    () => {
+        syncPreviewToken();
+    },
+    { immediate: true }
+);
+
+if (typeof window !== 'undefined' && !props.isPreview) {
     const params = new URLSearchParams(window.location.search);
     token.value = params.get('token') || '';
 }
 
-if (isTokenLimitReached.value) {
-    errorMessage.value = tokenLimitMessage;
+function mergeWithDefaults(defaults, value) {
+    if (Array.isArray(defaults)) {
+        return Array.isArray(value) ? value : [...defaults];
+    }
+
+    if (defaults && typeof defaults === 'object') {
+        const incoming = value && typeof value === 'object' ? value : {};
+        const merged = { ...incoming };
+
+        Object.keys(defaults).forEach((key) => {
+            merged[key] = mergeWithDefaults(defaults[key], incoming[key]);
+        });
+
+        return merged;
+    }
+
+    return value === undefined || value === null ? defaults : value;
 }
 </script>
 
 <template>
     <section
-        class="py-20 px-4"
+        :class="sectionClass"
         :style="{ backgroundColor: style.backgroundColor || '#f8f6f4' }"
         id="rsvp"
     >
-        <div class="max-w-xl mx-auto">
+        <div :class="['mx-auto', sectionContainerClass]">
             <div class="text-center mb-10">
                 <h2
                     class="text-3xl md:text-4xl font-bold mb-4 break-words [overflow-wrap:anywhere]"
@@ -134,10 +560,10 @@ if (isTokenLimitReached.value) {
                 </p>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-xl p-8 md:p-10">
+            <div :class="formContainerClass">
                 <form class="space-y-6" @submit.prevent="submit">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome completo</label>
+                    <div v-if="showName">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ labels.name || 'Nome completo' }}</label>
                         <input
                             v-model="form.name"
                             type="text"
@@ -146,9 +572,13 @@ if (isTokenLimitReached.value) {
                         />
                     </div>
 
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <div
+                        v-if="showEmail || showPhone"
+                        class="grid grid-cols-1 gap-4"
+                        :class="{ 'md:grid-cols-2': showEmail && showPhone }"
+                    >
+                        <div v-if="showEmail">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ labels.email || 'Email' }}</label>
                             <input
                                 v-model="form.email"
                                 type="email"
@@ -156,8 +586,8 @@ if (isTokenLimitReached.value) {
                                 placeholder="seu@email.com"
                             />
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
+                        <div v-if="showPhone">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ labels.phone || 'Telefone' }}</label>
                             <input
                                 v-model="form.phone"
                                 type="tel"
@@ -168,27 +598,28 @@ if (isTokenLimitReached.value) {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Evento</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ labels.event || 'Evento' }}</label>
                         <select
                             v-model="selectedEventId"
                             class="w-full px-4 py-3 border border-gray-200 rounded-lg"
+                            :disabled="events.length === 0"
                         >
                             <option value="" disabled>Selecione um evento</option>
-                            <option v-for="event in events" :key="event.id" :value="event.id">
+                            <option v-for="event in events" :key="event.id" :value="String(event.id)">
                                 {{ event.name }}
                             </option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Confirmação</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ labels.status || 'Confirmação' }}</label>
                         <select
                             v-model="form.status"
                             class="w-full px-4 py-3 border border-gray-200 rounded-lg"
                         >
-                            <option value="confirmed">Confirmo presença</option>
-                            <option value="declined">Não poderei comparecer</option>
-                            <option value="maybe">Talvez</option>
+                            <option v-for="choice in statusChoices" :key="choice.value" :value="choice.value">
+                                {{ choice.label }}
+                            </option>
                         </select>
                     </div>
 
@@ -241,11 +672,11 @@ if (isTokenLimitReached.value) {
 
                     <button
                         type="submit"
-                        :disabled="isSubmitting || isTokenLimitReached"
+                        :disabled="submitDisabled"
                         class="w-full px-6 py-4 text-white font-semibold rounded-lg"
-                        :style="{ backgroundColor: theme.primaryColor, opacity: (isSubmitting || isTokenLimitReached) ? 0.7 : 1 }"
+                        :style="{ backgroundColor: theme.primaryColor, opacity: submitDisabled ? 0.7 : 1 }"
                     >
-                        {{ isTokenLimitReached ? 'Token sem novos usos' : (isSubmitting ? 'Enviando...' : 'Confirmar Presença') }}
+                        {{ submitLabel }}
                     </button>
                 </form>
 
