@@ -35,6 +35,17 @@ const props = defineProps({
 
 // Computed properties
 const style = computed(() => props.content.style || {});
+const resolveBaseBackgroundColor = (value) => {
+    const fallback = props.theme?.baseBackgroundColor || '#ffffff';
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return fallback;
+    }
+    
+    return value.trim();
+};
+
+const sectionBackgroundColor = computed(() => resolveBaseBackgroundColor(style.value.backgroundColor));
 
 // Default config if not provided
 const giftConfig = computed(() => {
@@ -52,7 +63,7 @@ const giftConfig = computed(() => {
 <template>
     <section 
         class="py-20 px-4"
-        :style="{ backgroundColor: style.backgroundColor || '#ffffff' }"
+        :style="{ backgroundColor: sectionBackgroundColor }"
         id="gift-registry"
     >
         <div class="max-w-6xl mx-auto">

@@ -40,6 +40,22 @@ const props = defineProps({
 });
 
 const DEFAULTS = {
+    titleTypography: {
+        fontFamily: 'Playfair Display',
+        fontColor: '#b8998a',
+        fontSize: 36,
+        fontWeight: 700,
+        fontItalic: false,
+        fontUnderline: false,
+    },
+    subtitleTypography: {
+        fontFamily: 'Playfair Display',
+        fontColor: '#4b5563',
+        fontSize: 18,
+        fontWeight: 400,
+        fontItalic: false,
+        fontUnderline: false,
+    },
     style: {
         backgroundColor: '#f8f6f4',
         layout: 'card',
@@ -108,6 +124,25 @@ const messages = computed(() => localContent.value.messages || DEFAULTS.messages
 const statusOptions = computed(() => localContent.value.statusOptions || DEFAULTS.statusOptions);
 const eventSelection = computed(() => localContent.value.eventSelection || DEFAULTS.eventSelection);
 const access = computed(() => localContent.value.access || DEFAULTS.access);
+const titleTypography = computed(() => localContent.value.titleTypography || DEFAULTS.titleTypography);
+const subtitleTypography = computed(() => localContent.value.subtitleTypography || DEFAULTS.subtitleTypography);
+
+const resolveSurfaceBackgroundColor = (value) => {
+    const fallback = props.theme?.surfaceBackgroundColor || '#f8f6f4';
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return fallback;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === '#f8f6f4' || normalized === '#f5f5f5') {
+        return fallback;
+    }
+
+    return value;
+};
+
+const sectionBackgroundColor = computed(() => resolveSurfaceBackgroundColor(style.value.backgroundColor));
 
 const selectedEventId = ref('');
 const token = ref('');
@@ -283,9 +318,27 @@ const formContainerClass = computed(() => {
         case 'compact':
             return 'bg-white rounded-xl shadow-md p-5 md:p-6';
         default:
-            return 'bg-white rounded-2xl shadow-xl p-8 md:p-10';
+            return 'bg-white rounded-2xl shadow-lg p-8 md:p-10';
     }
 });
+
+const titleTextStyle = computed(() => ({
+    fontFamily: titleTypography.value.fontFamily || props.theme?.fontFamily || 'Playfair Display',
+    color: titleTypography.value.fontColor || props.theme?.primaryColor || '#b8998a',
+    fontSize: titleTypography.value.fontSize ? `${titleTypography.value.fontSize}px` : undefined,
+    fontWeight: titleTypography.value.fontWeight || 700,
+    fontStyle: titleTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: titleTypography.value.fontUnderline ? 'underline' : 'none',
+}));
+
+const subtitleTextStyle = computed(() => ({
+    fontFamily: subtitleTypography.value.fontFamily || props.theme?.fontFamily || 'Playfair Display',
+    color: subtitleTypography.value.fontColor || '#4b5563',
+    fontSize: subtitleTypography.value.fontSize ? `${subtitleTypography.value.fontSize}px` : undefined,
+    fontWeight: subtitleTypography.value.fontWeight || 400,
+    fontStyle: subtitleTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: subtitleTypography.value.fontUnderline ? 'underline' : 'none',
+}));
 
 const submitDisabled = computed(() => {
     return isSubmitting.value || hasBlockingAccessState.value;
@@ -544,18 +597,18 @@ function mergeWithDefaults(defaults, value) {
 <template>
     <section
         :class="sectionClass"
-        :style="{ backgroundColor: style.backgroundColor || '#f8f6f4' }"
+        :style="{ backgroundColor: sectionBackgroundColor }"
         id="rsvp"
     >
         <div :class="['mx-auto', sectionContainerClass]">
             <div class="text-center mb-10">
                 <h2
                     class="text-3xl md:text-4xl font-bold mb-4 break-words [overflow-wrap:anywhere]"
-                    :style="{ color: theme.primaryColor, fontFamily: theme.fontFamily }"
+                    :style="titleTextStyle"
                 >
                     {{ content.title || 'Confirme sua Presença' }}
                 </h2>
-                <p class="text-gray-600 text-lg break-words [overflow-wrap:anywhere]">
+                <p class="text-lg break-words [overflow-wrap:anywhere]" :style="subtitleTextStyle">
                     {{ content.description || 'Por favor, confirme sua presença para que possamos preparar tudo com carinho.' }}
                 </p>
             </div>

@@ -9,6 +9,7 @@
 import { computed, ref, watch } from 'vue';
 import MediaGalleryModal from '@/Components/Site/MediaGalleryModal.vue';
 import { useColorField } from '@/Composables/useColorField';
+import TypographyControl from '@/Components/Site/TypographyControl.vue';
 
 const props = defineProps({
     content: {
@@ -33,6 +34,45 @@ const getDefaultAlbums = () => ({
     },
 });
 
+const getDefaultDisplay = () => ({
+    showBefore: true,
+    showAfter: true,
+});
+
+const getDefaultTitleTypography = () => ({
+    fontFamily: 'Playfair Display',
+    fontColor: '#a18072',
+    fontSize: 40,
+    fontWeight: 700,
+    fontItalic: false,
+    fontUnderline: false,
+});
+
+const getDefaultTabsTypography = () => ({
+    fontFamily: 'Montserrat',
+    fontColor: '#6b7280',
+    fontSize: 14,
+    fontWeight: 500,
+    fontItalic: false,
+    fontUnderline: false,
+});
+
+const getDefaultTabsActiveTypography = () => ({
+    fontFamily: 'Montserrat',
+    fontColor: '#111827',
+    fontSize: 14,
+    fontWeight: 600,
+    fontItalic: false,
+    fontUnderline: false,
+});
+
+const getDefaultTabsStyle = () => ({
+    backgroundColor: '#f3f4f6',
+    activeBackgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+    activeBorderColor: '#b8998a',
+});
+
 const localContent = ref(JSON.parse(JSON.stringify(props.content || {})));
 const activeAlbum = ref('before');
 const showMediaGallery = ref(false);
@@ -55,6 +95,8 @@ const normalizeGalleryItem = (item, index = 0) => {
             mediaId: null,
             type: 'image',
             url: item,
+            originalUrl: item,
+            displayUrl: item,
             thumbnailUrl: item,
             alt: '',
             title: '',
@@ -70,11 +112,19 @@ const normalizeGalleryItem = (item, index = 0) => {
 
     const type = item.type === 'video' ? 'video' : 'image';
 
+    const originalUrl = item.originalUrl ?? item.original_url ?? item.url ?? '';
+    const displayUrl = type === 'video'
+        ? (item.displayUrl ?? item.display_url ?? originalUrl)
+        : (item.displayUrl ?? item.display_url ?? item.thumbnailUrl ?? item.thumbnail_url ?? originalUrl);
+    const thumbnailUrl = item.thumbnailUrl ?? item.thumbnail_url ?? (type === 'video' ? originalUrl : displayUrl);
+
     return {
         mediaId: item.mediaId ?? item.media_id ?? item.id ?? null,
         type,
         url: item.url ?? '',
-        thumbnailUrl: item.thumbnailUrl ?? item.thumbnail_url ?? item.url ?? '',
+        originalUrl,
+        displayUrl,
+        thumbnailUrl,
         alt: item.alt ?? '',
         title: item.title ?? '',
         caption: item.caption ?? '',
@@ -82,12 +132,16 @@ const normalizeGalleryItem = (item, index = 0) => {
         width: item.width ?? null,
         height: item.height ?? null,
         albumId: item.albumId ?? item.album_id ?? null,
-        isPrivate: item.isPrivate ?? false,
+        isPrivate: false,
         sortOrder: Number.isFinite(item.sortOrder) ? item.sortOrder : index,
     };
 };
 
 const ensureStructure = () => {
+    if (!localContent.value.title || typeof localContent.value.title !== 'string') {
+        localContent.value.title = 'Galeria de Fotos';
+    }
+
     if (!localContent.value.albums) {
         localContent.value.albums = getDefaultAlbums();
     }
@@ -137,6 +191,34 @@ const ensureStructure = () => {
             hoverDelayMs: 1000,
         };
     }
+
+    if (!localContent.value.display || typeof localContent.value.display !== 'object') {
+        localContent.value.display = getDefaultDisplay();
+    }
+
+    if (typeof localContent.value.display.showBefore !== 'boolean') {
+        localContent.value.display.showBefore = true;
+    }
+
+    if (typeof localContent.value.display.showAfter !== 'boolean') {
+        localContent.value.display.showAfter = true;
+    }
+
+    if (!localContent.value.titleTypography || typeof localContent.value.titleTypography !== 'object') {
+        localContent.value.titleTypography = getDefaultTitleTypography();
+    }
+
+    if (!localContent.value.tabsTypography || typeof localContent.value.tabsTypography !== 'object') {
+        localContent.value.tabsTypography = getDefaultTabsTypography();
+    }
+
+    if (!localContent.value.tabsActiveTypography || typeof localContent.value.tabsActiveTypography !== 'object') {
+        localContent.value.tabsActiveTypography = getDefaultTabsActiveTypography();
+    }
+
+    if (!localContent.value.tabsStyle || typeof localContent.value.tabsStyle !== 'object') {
+        localContent.value.tabsStyle = getDefaultTabsStyle();
+    }
 };
 
 ensureStructure();
@@ -151,7 +233,6 @@ const syncLegacyPhotosFromItems = () => {
                 title: item.title ?? '',
                 caption: item.caption ?? '',
                 alt: item.alt ?? '',
-                isPrivate: item.isPrivate ?? false,
             }));
     }
 };
@@ -177,6 +258,34 @@ const updateStyle = (field, value) => {
 
 const updateVideoConfig = (field, value) => {
     localContent.value.video[field] = value;
+    emitChange();
+};
+
+const updateDisplay = (field, value) => {
+    if (!localContent.value.display || typeof localContent.value.display !== 'object') {
+        localContent.value.display = getDefaultDisplay();
+    }
+
+    localContent.value.display[field] = value;
+    syncSectionEnabledByDisplay();
+    emitChange();
+};
+
+const updateTypography = (typographyKey, field, value) => {
+    if (!localContent.value[typographyKey] || typeof localContent.value[typographyKey] !== 'object') {
+        localContent.value[typographyKey] = {};
+    }
+
+    localContent.value[typographyKey][field] = value;
+    emitChange();
+};
+
+const updateTabsStyle = (field, value) => {
+    if (!localContent.value.tabsStyle || typeof localContent.value.tabsStyle !== 'object') {
+        localContent.value.tabsStyle = getDefaultTabsStyle();
+    }
+
+    localContent.value.tabsStyle[field] = value;
     emitChange();
 };
 
@@ -289,10 +398,90 @@ const photoGalleryBackgroundColorHex = computed(() => normalizeHexColor(style.va
 const pickPhotoGalleryBackgroundColor = () => {
     pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
 };
+
+const display = computed(() => localContent.value.display || getDefaultDisplay());
+const titleTypography = computed(() => localContent.value.titleTypography || getDefaultTitleTypography());
+const tabsTypography = computed(() => localContent.value.tabsTypography || getDefaultTabsTypography());
+const tabsActiveTypography = computed(() => localContent.value.tabsActiveTypography || getDefaultTabsActiveTypography());
+const tabsStyle = computed(() => localContent.value.tabsStyle || getDefaultTabsStyle());
+
+const syncSectionEnabledByDisplay = () => {
+    const hasVisibleAlbum = Boolean(display.value.showBefore) || Boolean(display.value.showAfter);
+
+    if (!hasVisibleAlbum) {
+        localContent.value.enabled = false;
+        return;
+    }
+
+    if (localContent.value.enabled === false) {
+        localContent.value.enabled = true;
+    }
+};
 </script>
 
 <template>
     <div class="space-y-6 h-full overflow-y-auto">
+        <div class="space-y-4">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Título da Seção</h3>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Texto do título</label>
+                <input
+                    type="text"
+                    :value="localContent.title"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                    placeholder="Galeria de Fotos"
+                    @input="updateField('title', $event.target.value)"
+                />
+            </div>
+
+            <TypographyControl
+                :font-family="titleTypography.fontFamily || 'Playfair Display'"
+                :font-color="titleTypography.fontColor || '#a18072'"
+                :font-size="titleTypography.fontSize || 40"
+                :font-weight="titleTypography.fontWeight || 700"
+                :font-italic="titleTypography.fontItalic || false"
+                :font-underline="titleTypography.fontUnderline || false"
+                :preview-background-color="photoGalleryBackgroundColorHex"
+                label="Tipografia do Título"
+                @update:font-family="updateTypography('titleTypography', 'fontFamily', $event)"
+                @update:font-color="updateTypography('titleTypography', 'fontColor', $event)"
+                @update:font-size="updateTypography('titleTypography', 'fontSize', $event)"
+                @update:font-weight="updateTypography('titleTypography', 'fontWeight', $event)"
+                @update:font-italic="updateTypography('titleTypography', 'fontItalic', $event)"
+                @update:font-underline="updateTypography('titleTypography', 'fontUnderline', $event)"
+            />
+        </div>
+
+        <div class="space-y-4 pt-6 border-t border-gray-200">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Exibição de Grupos</h3>
+            <p class="text-xs text-gray-500">
+                Controle quais grupos aparecem no site. Se ambos ficarem desativados, a seção será desativada automaticamente.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                        type="checkbox"
+                        class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
+                        :checked="display.showBefore"
+                        @change="updateDisplay('showBefore', $event.target.checked)"
+                    />
+                    Exibir grupo "Antes"
+                </label>
+
+                <label class="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                        type="checkbox"
+                        class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
+                        :checked="display.showAfter"
+                        @change="updateDisplay('showAfter', $event.target.checked)"
+                    />
+                    Exibir grupo "Depois"
+                </label>
+            </div>
+        </div>
+
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Layout</h3>
 
@@ -478,7 +667,7 @@ const pickPhotoGalleryBackgroundColor = () => {
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-[90px_1fr] gap-3 items-start">
+                    <div class="grid grid-cols-1 xl:grid-cols-[90px_minmax(180px,1fr)_minmax(180px,1fr)_minmax(220px,1.2fr)] gap-3 items-start">
                         <div class="w-[90px] h-[90px] rounded-lg overflow-hidden border border-gray-200 bg-white">
                             <video
                                 v-if="item.type === 'video'"
@@ -498,51 +687,37 @@ const pickPhotoGalleryBackgroundColor = () => {
                             />
                         </div>
 
-                        <div class="space-y-3">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Título</label>
-                                    <input
-                                        type="text"
-                                        :value="item.title"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                                        placeholder="Título opcional"
-                                        @input="updateMediaItemField(activeAlbum, index, 'title', $event.target.value)"
-                                    />
-                                </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Título</label>
+                            <input
+                                type="text"
+                                :value="item.title"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                placeholder="Título opcional"
+                                @input="updateMediaItemField(activeAlbum, index, 'title', $event.target.value)"
+                            />
+                        </div>
 
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Legenda</label>
-                                    <input
-                                        type="text"
-                                        :value="item.caption"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                                        placeholder="Legenda opcional"
-                                        @input="updateMediaItemField(activeAlbum, index, 'caption', $event.target.value)"
-                                    />
-                                </div>
-                            </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Legenda</label>
+                            <input
+                                type="text"
+                                :value="item.caption"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                placeholder="Legenda opcional"
+                                @input="updateMediaItemField(activeAlbum, index, 'caption', $event.target.value)"
+                            />
+                        </div>
 
-                            <div v-if="item.type === 'image'">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Texto alternativo (acessibilidade)</label>
-                                <input
-                                    type="text"
-                                    :value="item.alt"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                                    placeholder="Descreva a imagem"
-                                    @input="updateMediaItemField(activeAlbum, index, 'alt', $event.target.value)"
-                                />
-                            </div>
-
-                            <label class="inline-flex items-center">
-                                <input
-                                    type="checkbox"
-                                    :checked="item.isPrivate"
-                                    class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
-                                    @change="updateMediaItemField(activeAlbum, index, 'isPrivate', $event.target.checked)"
-                                />
-                                <span class="ml-2 text-sm text-gray-700">Não exibir publicamente</span>
-                            </label>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Texto alternativo (acessibilidade)</label>
+                            <input
+                                type="text"
+                                :value="item.alt"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                placeholder="Descreva a imagem"
+                                @input="updateMediaItemField(activeAlbum, index, 'alt', $event.target.value)"
+                            />
                         </div>
                     </div>
                 </div>
@@ -594,6 +769,90 @@ const pickPhotoGalleryBackgroundColor = () => {
                     <option :value="4">4 colunas</option>
                     <option :value="5">5 colunas</option>
                 </select>
+            </div>
+
+            <div class="pt-4 border-t border-gray-200 space-y-4">
+                <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Estilo das Abas (Antes/Depois)</h4>
+
+                <TypographyControl
+                    :font-family="tabsTypography.fontFamily || 'Montserrat'"
+                    :font-color="tabsTypography.fontColor || '#6b7280'"
+                    :font-size="tabsTypography.fontSize || 14"
+                    :font-weight="tabsTypography.fontWeight || 500"
+                    :font-italic="tabsTypography.fontItalic || false"
+                    :font-underline="tabsTypography.fontUnderline || false"
+                    :preview-background-color="tabsStyle.backgroundColor || '#f3f4f6'"
+                    label="Tipografia da Aba Inativa"
+                    @update:font-family="updateTypography('tabsTypography', 'fontFamily', $event)"
+                    @update:font-color="updateTypography('tabsTypography', 'fontColor', $event)"
+                    @update:font-size="updateTypography('tabsTypography', 'fontSize', $event)"
+                    @update:font-weight="updateTypography('tabsTypography', 'fontWeight', $event)"
+                    @update:font-italic="updateTypography('tabsTypography', 'fontItalic', $event)"
+                    @update:font-underline="updateTypography('tabsTypography', 'fontUnderline', $event)"
+                />
+
+                <TypographyControl
+                    :font-family="tabsActiveTypography.fontFamily || tabsTypography.fontFamily || 'Montserrat'"
+                    :font-color="tabsActiveTypography.fontColor || '#111827'"
+                    :font-size="tabsActiveTypography.fontSize || tabsTypography.fontSize || 14"
+                    :font-weight="tabsActiveTypography.fontWeight || 600"
+                    :font-italic="tabsActiveTypography.fontItalic || false"
+                    :font-underline="tabsActiveTypography.fontUnderline || false"
+                    :preview-background-color="tabsStyle.activeBackgroundColor || '#ffffff'"
+                    label="Tipografia da Aba Ativa"
+                    @update:font-family="updateTypography('tabsActiveTypography', 'fontFamily', $event)"
+                    @update:font-color="updateTypography('tabsActiveTypography', 'fontColor', $event)"
+                    @update:font-size="updateTypography('tabsActiveTypography', 'fontSize', $event)"
+                    @update:font-weight="updateTypography('tabsActiveTypography', 'fontWeight', $event)"
+                    @update:font-italic="updateTypography('tabsActiveTypography', 'fontItalic', $event)"
+                    @update:font-underline="updateTypography('tabsActiveTypography', 'fontUnderline', $event)"
+                />
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fundo da Aba Inativa</label>
+                        <input
+                            type="color"
+                            :value="tabsStyle.backgroundColor || '#f3f4f6'"
+                            class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            @input="updateTabsStyle('backgroundColor', $event.target.value)"
+                            @change="updateTabsStyle('backgroundColor', $event.target.value)"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fundo da Aba Ativa</label>
+                        <input
+                            type="color"
+                            :value="tabsStyle.activeBackgroundColor || '#ffffff'"
+                            class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            @input="updateTabsStyle('activeBackgroundColor', $event.target.value)"
+                            @change="updateTabsStyle('activeBackgroundColor', $event.target.value)"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Borda das Abas</label>
+                        <input
+                            type="color"
+                            :value="tabsStyle.borderColor || '#e5e7eb'"
+                            class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            @input="updateTabsStyle('borderColor', $event.target.value)"
+                            @change="updateTabsStyle('borderColor', $event.target.value)"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Borda da Aba Ativa</label>
+                        <input
+                            type="color"
+                            :value="tabsStyle.activeBorderColor || '#b8998a'"
+                            class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            @input="updateTabsStyle('activeBorderColor', $event.target.value)"
+                            @change="updateTabsStyle('activeBorderColor', $event.target.value)"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     </div>

@@ -9,6 +9,11 @@
  */
 import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import { useColorField } from '@/Composables/useColorField';
+import {
+    DEFAULT_THEME_PRESET_ID,
+    THEME_PRESETS,
+    getThemePresetById,
+} from '@/Components/Site/themePresets';
 
 const props = defineProps({
     sectionType: {
@@ -27,9 +32,13 @@ const props = defineProps({
         type: Array,
         default: () => ['', ''],
     },
+    isApplyingThemePreset: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const emit = defineEmits(['change']);
+const emit = defineEmits(['change', 'apply-theme-preset']);
 const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 const HeaderEditor = defineAsyncComponent(() => import('./Editors/HeaderEditor.vue'));
@@ -44,6 +53,13 @@ const FooterEditor = defineAsyncComponent(() => import('./Editors/FooterEditor.v
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
 const showPassword = ref(false);
 
+const emitChange = () => {
+    emit('change', {
+        sectionType: props.sectionType,
+        content: { ...localContent.value },
+    });
+};
+
 // Watch for external content changes
 watch(() => props.content, (newContent) => {
     localContent.value = JSON.parse(JSON.stringify(newContent));
@@ -54,7 +70,7 @@ watch(() => props.content, (newContent) => {
  */
 const handleChange = (data) => {
     localContent.value = { ...data };
-    emit('change', { ...localContent.value });
+    emitChange();
 };
 
 /**
@@ -62,11 +78,7 @@ const handleChange = (data) => {
  */
 const updateField = (field, value) => {
     localContent.value[field] = value;
-    emit('change', { ...localContent.value });
-};
-
-const emitSettingsSave = () => {
-    emit('change', { ...localContent.value, __saveSettings: true });
+    emitChange();
 };
 
 /**
@@ -77,7 +89,7 @@ const updateNestedField = (parent, field, value) => {
         localContent.value[parent] = {};
     }
     localContent.value[parent][field] = value;
-    emit('change', { ...localContent.value });
+    emitChange();
 };
 
 /**
@@ -85,21 +97,6 @@ const updateNestedField = (parent, field, value) => {
  */
 const updateStyle = (field, value) => {
     updateNestedField('style', field, value);
-};
-
-/**
- * Format date for display
- */
-const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
 };
 
 /**
@@ -122,6 +119,12 @@ const sectionTitle = computed(() => sectionTitles[props.sectionType] || 'Editor'
 const siteOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 const themePrimaryColorHex = computed(() => normalizeHexColor(localContent.value.primaryColor, '#d4a574'));
 const themeSecondaryColorHex = computed(() => normalizeHexColor(localContent.value.secondaryColor, '#8b7355'));
+const themeBaseBackgroundColorHex = computed(() => normalizeHexColor(localContent.value.baseBackgroundColor, '#ffffff'));
+const themeSurfaceBackgroundColorHex = computed(() => normalizeHexColor(localContent.value.surfaceBackgroundColor, '#f5ebe4'));
+const selectedThemePresetId = ref(DEFAULT_THEME_PRESET_ID);
+const showThemePresetConfirmDialog = ref(false);
+const themePresets = THEME_PRESETS;
+const selectedThemePreset = computed(() => getThemePresetById(selectedThemePresetId.value));
 
 const pickThemePrimaryColor = () => {
     pickColorFromScreen((hex) => updateField('primaryColor', hex));
@@ -130,6 +133,44 @@ const pickThemePrimaryColor = () => {
 const pickThemeSecondaryColor = () => {
     pickColorFromScreen((hex) => updateField('secondaryColor', hex));
 };
+
+const pickThemeBaseBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateField('baseBackgroundColor', hex));
+};
+
+const pickThemeSurfaceBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateField('surfaceBackgroundColor', hex));
+};
+
+const openThemePresetConfirmDialog = () => {
+    if (!selectedThemePreset.value || props.isApplyingThemePreset) {
+        return;
+    }
+
+    showThemePresetConfirmDialog.value = true;
+};
+
+const closeThemePresetConfirmDialog = () => {
+    showThemePresetConfirmDialog.value = false;
+};
+
+const confirmThemePresetApply = () => {
+    if (!selectedThemePreset.value || props.isApplyingThemePreset) {
+        return;
+    }
+
+    emit('apply-theme-preset', { presetId: selectedThemePreset.value.id });
+    showThemePresetConfirmDialog.value = false;
+};
+
+watch(
+    () => props.sectionType,
+    (sectionType) => {
+        if (sectionType !== 'theme') {
+            showThemePresetConfirmDialog.value = false;
+        }
+    },
+);
 
 /**
  * Map section types to their editor components
@@ -221,95 +262,264 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
 
             <!-- Theme Section Editor -->
             <template v-else-if="sectionType === 'theme'">
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-6 overflow-y-auto pr-1 min-h-0">
+                    <div class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Cor Primária</label>
-                            <div class="flex items-center space-x-2">
-                                <input
-                                    type="color"
-                                    :value="themePrimaryColorHex"
-                                    @input="updateField('primaryColor', $event.target.value)"
-                                    @change="updateField('primaryColor', $event.target.value)"
-                                    class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
-                                />
-                                <button
-                                    v-if="isEyeDropperSupported"
-                                    type="button"
-                                    @click="pickThemePrimaryColor"
-                                    class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                                    title="Capturar cor da tela"
-                                >
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
-                                    </svg>
-                                </button>
-                                <input
-                                    type="text"
-                                    :value="localContent.primaryColor || '#d4a574'"
-                                    @input="updateField('primaryColor', $event.target.value)"
-                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
-                                />
+                            <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-900">Temas prontos</h3>
+                            <p class="mt-1 text-xs text-gray-600">
+                                Selecione um conjunto completo de estilos para aplicar em todas as seções do site.
+                            </p>
+                        </div>
+
+                        <div class="grid gap-3 md:grid-cols-3">
+                            <button
+                                v-for="preset in themePresets"
+                                :key="preset.id"
+                                type="button"
+                                @click="selectedThemePresetId = preset.id"
+                                class="rounded-lg border bg-white p-3 text-left transition-all"
+                                :class="selectedThemePresetId === preset.id
+                                    ? 'border-amber-300 ring-2 ring-amber-100'
+                                    : 'border-gray-200 hover:border-gray-300'"
+                            >
+                                <p class="text-sm font-semibold text-gray-900">{{ preset.name }}</p>
+                                <p class="mt-1 text-xs text-gray-600">{{ preset.description }}</p>
+                                <div class="mt-3 flex items-center gap-1.5">
+                                    <span
+                                        v-for="swatch in preset.palette || []"
+                                        :key="`${preset.id}-${swatch.key}`"
+                                        class="h-5 w-5 rounded-full border border-gray-200"
+                                        :style="{ backgroundColor: swatch.color }"
+                                        :title="`${swatch.label}: ${swatch.color}`"
+                                    ></span>
+                                </div>
+                                <p class="mt-2 text-[11px] text-gray-500">
+                                    Primária, secundária, base e apoio.
+                                </p>
+                            </button>
+                        </div>
+
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-xs text-gray-600">
+                                O tema substitui a identidade visual atual e salva uma versão anterior para restauração.
+                            </p>
+                            <button
+                                type="button"
+                                @click="openThemePresetConfirmDialog"
+                                :disabled="!selectedThemePreset || isApplyingThemePreset"
+                                class="inline-flex items-center justify-center rounded-md bg-wedding-600 px-4 py-2 text-sm font-semibold text-white hover:bg-wedding-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {{ isApplyingThemePreset ? 'Aplicando...' : 'Aplicar tema selecionado' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-900">Ajustes finos</h3>
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cor Primária</label>
+                                <div class="flex items-center space-x-2">
+                                    <input
+                                        type="color"
+                                        :value="themePrimaryColorHex"
+                                        @input="updateField('primaryColor', $event.target.value)"
+                                        @change="updateField('primaryColor', $event.target.value)"
+                                        class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <button
+                                        v-if="isEyeDropperSupported"
+                                        type="button"
+                                        @click="pickThemePrimaryColor"
+                                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                        title="Capturar cor da tela"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                        </svg>
+                                    </button>
+                                    <input
+                                        type="text"
+                                        :value="localContent.primaryColor || '#d4a574'"
+                                        @input="updateField('primaryColor', $event.target.value)"
+                                        @change="updateField('primaryColor', $event.target.value)"
+                                        @blur="updateField('primaryColor', $event.target.value)"
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cor Secundária</label>
+                                <div class="flex items-center space-x-2">
+                                    <input
+                                        type="color"
+                                        :value="themeSecondaryColorHex"
+                                        @input="updateField('secondaryColor', $event.target.value)"
+                                        @change="updateField('secondaryColor', $event.target.value)"
+                                        class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <button
+                                        v-if="isEyeDropperSupported"
+                                        type="button"
+                                        @click="pickThemeSecondaryColor"
+                                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                        title="Capturar cor da tela"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                        </svg>
+                                    </button>
+                                    <input
+                                        type="text"
+                                        :value="localContent.secondaryColor || '#8b7355'"
+                                        @input="updateField('secondaryColor', $event.target.value)"
+                                        @change="updateField('secondaryColor', $event.target.value)"
+                                        @blur="updateField('secondaryColor', $event.target.value)"
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cor Base do Site</label>
+                                <div class="flex items-center space-x-2">
+                                    <input
+                                        type="color"
+                                        :value="themeBaseBackgroundColorHex"
+                                        @input="updateField('baseBackgroundColor', $event.target.value)"
+                                        @change="updateField('baseBackgroundColor', $event.target.value)"
+                                        class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <button
+                                        v-if="isEyeDropperSupported"
+                                        type="button"
+                                        @click="pickThemeBaseBackgroundColor"
+                                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                        title="Capturar cor da tela"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                        </svg>
+                                    </button>
+                                    <input
+                                        type="text"
+                                        :value="localContent.baseBackgroundColor || '#ffffff'"
+                                        @input="updateField('baseBackgroundColor', $event.target.value)"
+                                        @change="updateField('baseBackgroundColor', $event.target.value)"
+                                        @blur="updateField('baseBackgroundColor', $event.target.value)"
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cor de Apoio</label>
+                                <div class="flex items-center space-x-2">
+                                    <input
+                                        type="color"
+                                        :value="themeSurfaceBackgroundColorHex"
+                                        @input="updateField('surfaceBackgroundColor', $event.target.value)"
+                                        @change="updateField('surfaceBackgroundColor', $event.target.value)"
+                                        class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                                    />
+                                    <button
+                                        v-if="isEyeDropperSupported"
+                                        type="button"
+                                        @click="pickThemeSurfaceBackgroundColor"
+                                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                        title="Capturar cor da tela"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                        </svg>
+                                    </button>
+                                    <input
+                                        type="text"
+                                        :value="localContent.surfaceBackgroundColor || '#f5ebe4'"
+                                        @input="updateField('surfaceBackgroundColor', $event.target.value)"
+                                        @change="updateField('surfaceBackgroundColor', $event.target.value)"
+                                        @blur="updateField('surfaceBackgroundColor', $event.target.value)"
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                                    />
+                                </div>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Cor Secundária</label>
-                            <div class="flex items-center space-x-2">
-                                <input
-                                    type="color"
-                                    :value="themeSecondaryColorHex"
-                                    @input="updateField('secondaryColor', $event.target.value)"
-                                    @change="updateField('secondaryColor', $event.target.value)"
-                                    class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
-                                />
-                                <button
-                                    v-if="isEyeDropperSupported"
-                                    type="button"
-                                    @click="pickThemeSecondaryColor"
-                                    class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                                    title="Capturar cor da tela"
-                                >
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
-                                    </svg>
-                                </button>
-                                <input
-                                    type="text"
-                                    :value="localContent.secondaryColor || '#8b7355'"
-                                    @input="updateField('secondaryColor', $event.target.value)"
-                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
-                                />
-                            </div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Família de Fonte</label>
+                            <select
+                                :value="localContent.fontFamily || 'Playfair Display'"
+                                @change="updateField('fontFamily', $event.target.value)"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                            >
+                                <option value="Playfair Display">Playfair Display (Elegante)</option>
+                                <option value="Cormorant Garamond">Cormorant Garamond (Clássico)</option>
+                                <option value="Lora">Lora (Moderno)</option>
+                                <option value="Merriweather">Merriweather (Legível)</option>
+                                <option value="Roboto">Roboto (Clean)</option>
+                                <option value="Open Sans">Open Sans (Neutro)</option>
+                                <option value="Montserrat">Montserrat (Contemporâneo)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tamanho Base da Fonte</label>
+                            <select
+                                :value="localContent.fontSize || '16px'"
+                                @change="updateField('fontSize', $event.target.value)"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                            >
+                                <option value="14px">Pequeno (14px)</option>
+                                <option value="16px">Médio (16px)</option>
+                                <option value="18px">Grande (18px)</option>
+                                <option value="20px">Extra Grande (20px)</option>
+                            </select>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Família de Fonte</label>
-                        <select
-                            :value="localContent.fontFamily || 'Playfair Display'"
-                            @change="updateField('fontFamily', $event.target.value)"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                        >
-                            <option value="Playfair Display">Playfair Display (Elegante)</option>
-                            <option value="Cormorant Garamond">Cormorant Garamond (Clássico)</option>
-                            <option value="Lora">Lora (Moderno)</option>
-                            <option value="Merriweather">Merriweather (Legível)</option>
-                            <option value="Roboto">Roboto (Clean)</option>
-                            <option value="Open Sans">Open Sans (Neutro)</option>
-                            <option value="Montserrat">Montserrat (Contemporâneo)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tamanho Base da Fonte</label>
-                        <select
-                            :value="localContent.fontSize || '16px'"
-                            @change="updateField('fontSize', $event.target.value)"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                        >
-                            <option value="14px">Pequeno (14px)</option>
-                            <option value="16px">Médio (16px)</option>
-                            <option value="18px">Grande (18px)</option>
-                            <option value="20px">Extra Grande (20px)</option>
-                        </select>
+                </div>
+
+                <div
+                    v-if="showThemePresetConfirmDialog && selectedThemePreset"
+                    class="fixed inset-0 z-[80] flex items-center justify-center bg-gray-950/50 p-4"
+                    @click.self="closeThemePresetConfirmDialog"
+                >
+                    <div class="w-full max-w-xl overflow-hidden rounded-xl bg-white shadow-2xl">
+                        <div class="border-b border-gray-200 px-5 py-4">
+                            <h3 class="text-base font-semibold text-gray-900">Aplicar tema completo</h3>
+                            <p class="mt-1 text-sm text-gray-600">
+                                Você está prestes a aplicar o tema <span class="font-medium">{{ selectedThemePreset.name }}</span>.
+                            </p>
+                        </div>
+
+                        <div class="space-y-3 px-5 py-4 text-sm text-gray-700">
+                            <p>Esta ação vai substituir a configuração visual das seções cobertas pelo tema, sem mesclar com o estilo atual.</p>
+                            <p>Antes de aplicar, o sistema salva automaticamente uma versão de segurança para restauração.</p>
+                            <p>Após aplicar, um checklist de qualidade será executado automaticamente.</p>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-4">
+                            <button
+                                type="button"
+                                @click="closeThemePresetConfirmDialog"
+                                :disabled="isApplyingThemePreset"
+                                class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                @click="confirmThemePresetApply"
+                                :disabled="isApplyingThemePreset"
+                                class="inline-flex items-center rounded-md bg-wedding-600 px-4 py-2 text-sm font-semibold text-white hover:bg-wedding-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <svg
+                                    v-if="isApplyingThemePreset"
+                                    class="mr-2 h-4 w-4 animate-spin"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                {{ isApplyingThemePreset ? 'Aplicando...' : 'Aplicar tema agora' }}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </template>
@@ -389,30 +599,6 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                         </div>
                     </div>
 
-                    <!-- Status Section -->
-                    <div class="space-y-4 pt-6 border-t border-gray-200">
-                        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Status</h3>
-                        
-                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-700">Status de Publicação</span>
-                                <span 
-                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                    :class="localContent.is_published ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'"
-                                >
-                                    {{ localContent.is_published ? 'Publicado' : 'Rascunho' }}
-                                </span>
-                            </div>
-                            <p class="text-xs text-gray-500">Use o botão "Publicar" no topo da página para publicar o site</p>
-                            
-                            <div v-if="localContent.published_at" class="mt-3 pt-3 border-t border-gray-200">
-                                <p class="text-xs text-gray-600">
-                                    <strong>Publicado em:</strong> {{ formatDate(localContent.published_at) }}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Info Alert -->
                     <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div class="flex">
@@ -426,15 +612,6 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                         </div>
                     </div>
 
-                    <div class="pt-6 border-t border-gray-200">
-                        <button
-                            type="button"
-                            @click="emitSettingsSave"
-                            class="px-4 py-2 text-sm font-medium text-white bg-wedding-600 rounded-md hover:bg-wedding-700"
-                        >
-                            Salvar Configurações
-                        </button>
-                    </div>
                 </div>
             </template>
 

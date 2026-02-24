@@ -7,7 +7,7 @@
  * 
  * @Requirements: 8.1-14.6
  */
-import { computed } from 'vue';
+import { ref } from 'vue';
 
 const props = defineProps({
     sections: {
@@ -19,20 +19,33 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    mobile: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const emit = defineEmits(['select', 'toggle']);
+const emit = defineEmits(['select', 'toggle', 'reorder']);
 
 /**
  * Sections that cannot be disabled (always required)
  */
 const requiredSections = ['header', 'footer'];
+const draggingSectionKey = ref(null);
+const dropTargetSectionKey = ref(null);
 
 /**
  * Check if a section can be toggled
  */
 const canToggle = (sectionKey) => {
     return !requiredSections.includes(sectionKey);
+};
+
+/**
+ * Check if a section can be reordered via drag and drop.
+ */
+const canReorder = (sectionKey) => {
+    return canToggle(sectionKey);
 };
 
 /**
@@ -66,10 +79,74 @@ const handleToggle = (event, sectionKey) => {
     if (!canToggle(sectionKey)) return;
     emit('toggle', sectionKey);
 };
+
+/**
+ * Handle drag start from the drag handle.
+ */
+const handleDragStart = (event, sectionKey) => {
+    if (!canReorder(sectionKey)) return;
+    draggingSectionKey.value = sectionKey;
+    dropTargetSectionKey.value = null;
+
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', sectionKey);
+    }
+};
+
+/**
+ * Handle drag over a potential drop target.
+ */
+const handleDragOver = (event, sectionKey) => {
+    if (!canReorder(sectionKey)) return;
+    if (!draggingSectionKey.value || draggingSectionKey.value === sectionKey) return;
+
+    event.preventDefault();
+    dropTargetSectionKey.value = sectionKey;
+};
+
+/**
+ * Handle drop and emit new order for movable sections.
+ */
+const handleDrop = (event, targetSectionKey) => {
+    if (!canReorder(targetSectionKey)) return;
+    if (!draggingSectionKey.value || draggingSectionKey.value === targetSectionKey) return;
+
+    event.preventDefault();
+
+    const currentOrder = props.sections
+        .filter((section) => canReorder(section.key))
+        .map((section) => section.key);
+
+    const sourceIndex = currentOrder.indexOf(draggingSectionKey.value);
+    const targetIndex = currentOrder.indexOf(targetSectionKey);
+
+    if (sourceIndex === -1 || targetIndex === -1) {
+        draggingSectionKey.value = null;
+        dropTargetSectionKey.value = null;
+        return;
+    }
+
+    const [movedItem] = currentOrder.splice(sourceIndex, 1);
+    currentOrder.splice(targetIndex, 0, movedItem);
+
+    emit('reorder', currentOrder);
+
+    draggingSectionKey.value = null;
+    dropTargetSectionKey.value = null;
+};
+
+const handleDragEnd = () => {
+    draggingSectionKey.value = null;
+    dropTargetSectionKey.value = null;
+};
 </script>
 
 <template>
-    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <aside
+        class="bg-white border-r border-gray-200 flex flex-col h-full"
+        :class="mobile ? 'w-full' : 'w-64'"
+    >
         <!-- Header -->
         <div class="p-4 border-b border-gray-200">
             <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">
@@ -81,55 +158,87 @@ const handleToggle = (event, sectionKey) => {
         <nav class="flex-1 overflow-y-auto py-2">
             <ul class="space-y-1 px-2">
                 <li v-for="section in sections" :key="section.key">
-                    <button
-                        @click="handleSelect(section.key)"
-                        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors"
-                        :class="[
-                            activeSection === section.key
-                                ? 'bg-wedding-100 text-wedding-900'
-                                : 'text-gray-700 hover:bg-gray-100',
-                            !section.enabled && 'opacity-60'
-                        ]"
+                    <div
+                        class="w-full rounded-lg transition-colors"
+                        @dragover="(event) => handleDragOver(event, section.key)"
+                        @drop="(event) => handleDrop(event, section.key)"
                     >
-                        <div class="flex items-center min-w-0">
-                            <!-- Section Icon -->
-                            <svg
-                                class="w-5 h-5 mr-3 flex-shrink-0"
-                                :class="activeSection === section.key ? 'text-wedding-600' : 'text-gray-400'"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    :d="getIconPath(section.icon)"
-                                />
-                            </svg>
-
-                            <!-- Section Label -->
-                            <span class="truncate text-sm font-medium">
-                                {{ section.label }}
-                            </span>
-                        </div>
-
-                        <!-- Toggle Switch (hidden for required sections) -->
-                        <button
-                            v-if="canToggle(section.key)"
-                            @click="(e) => handleToggle(e, section.key)"
-                            class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-wedding-500 focus:ring-offset-2"
-                            :class="section.enabled ? 'bg-wedding-600' : 'bg-gray-200'"
-                            role="switch"
-                            :aria-checked="section.enabled"
-                            :aria-label="`${section.enabled ? 'Desativar' : 'Ativar'} ${section.label}`"
+                        <div
+                            @click="handleSelect(section.key)"
+                            class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors"
+                            :class="[
+                                activeSection === section.key
+                                    ? 'bg-wedding-100 text-wedding-900'
+                                    : 'text-gray-700 hover:bg-gray-100',
+                                !section.enabled && 'opacity-60',
+                                dropTargetSectionKey === section.key && draggingSectionKey !== section.key && canReorder(section.key)
+                                    ? 'ring-2 ring-wedding-500 ring-offset-1'
+                                    : ''
+                            ]"
                         >
-                            <span
-                                class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                                :class="section.enabled ? 'translate-x-4' : 'translate-x-0'"
-                            />
-                        </button>
-                    </button>
+                            <div class="flex items-center min-w-0">
+                                <!-- Drag Handle -->
+                                <button
+                                    v-if="canReorder(section.key)"
+                                    type="button"
+                                    draggable="true"
+                                    @click.stop
+                                    @dragstart="(event) => handleDragStart(event, section.key)"
+                                    @dragend="handleDragEnd"
+                                    class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+                                    :aria-label="`Reordenar ${section.label}`"
+                                    title="Arrastar para reordenar"
+                                >
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 12h16M4 16h16" />
+                                    </svg>
+                                </button>
+
+                                <span
+                                    v-else
+                                    class="mr-2 inline-block h-6 w-6 flex-shrink-0"
+                                    aria-hidden="true"
+                                ></span>
+
+                                <!-- Section Icon -->
+                                <svg
+                                    class="w-5 h-5 mr-3 flex-shrink-0"
+                                    :class="activeSection === section.key ? 'text-wedding-600' : 'text-gray-400'"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        :d="getIconPath(section.icon)"
+                                    />
+                                </svg>
+
+                                <!-- Section Label -->
+                                <span class="truncate text-sm font-medium">
+                                    {{ section.label }}
+                                </span>
+                            </div>
+
+                            <!-- Toggle Switch (hidden for required sections) -->
+                            <button
+                                v-if="canToggle(section.key)"
+                                @click="(e) => handleToggle(e, section.key)"
+                                class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-wedding-500 focus:ring-offset-2"
+                                :class="section.enabled ? 'bg-wedding-600' : 'bg-gray-200'"
+                                role="switch"
+                                :aria-checked="section.enabled"
+                                :aria-label="`${section.enabled ? 'Desativar' : 'Ativar'} ${section.label}`"
+                            >
+                                <span
+                                    class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                    :class="section.enabled ? 'translate-x-4' : 'translate-x-0'"
+                                />
+                            </button>
+                        </div>
+                    </div>
                 </li>
             </ul>
         </nav>

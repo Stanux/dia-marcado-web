@@ -40,6 +40,41 @@ const sectionTypography = computed(() => props.content.sectionTypography || {});
 const descriptionTypography = computed(() => props.content.descriptionTypography || {});
 const countdownNumbersTypography = computed(() => props.content.countdownNumbersTypography || {});
 const countdownLabelsTypography = computed(() => props.content.countdownLabelsTypography || {});
+const calendarButtonTypography = computed(() => ({
+    fontFamily: 'Montserrat',
+    fontColor: '#ffffff',
+    fontSize: 14,
+    fontWeight: 600,
+    fontItalic: false,
+    fontUnderline: false,
+    ...(props.content.calendarButtonTypography || {}),
+}));
+const calendarButtonStyle = computed(() => ({
+    backgroundColor: props.theme.primaryColor || '#d4a574',
+    borderColor: '#d4a574',
+    borderWidth: 0,
+    borderRadius: 8,
+    paddingX: 24,
+    paddingY: 12,
+    ...(props.content.calendarButtonStyle || {}),
+}));
+
+const resolveSurfaceBackgroundColor = (value) => {
+    const fallback = props.theme?.surfaceBackgroundColor || '#f8f6f4';
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return fallback;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === '#f8f6f4' || normalized === '#f5f5f5') {
+        return fallback;
+    }
+
+    return value;
+};
+
+const sectionBackgroundColor = computed(() => resolveSurfaceBackgroundColor(style.value.backgroundColor));
 
 // Wedding date
 const weddingDate = computed(() => {
@@ -161,7 +196,7 @@ const layoutClasses = computed(() => {
         return 'flex flex-col lg:flex-row items-start gap-12';
     }
 
-    return 'max-w-xl mx-auto bg-white rounded-2xl shadow-2xl p-8 md:p-12';
+    return 'max-w-xl mx-auto bg-white rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.08)] p-8 md:p-12';
 });
 
 // Description style
@@ -232,12 +267,27 @@ const calendarUrl = computed(() => {
     if (!props.wedding.id) return '#';
     return `/sites/${props.wedding.site_slug || 'site'}/calendar`;
 });
+
+const calendarButtonTextStyle = computed(() => ({
+    fontFamily: calendarButtonTypography.value.fontFamily,
+    color: calendarButtonTypography.value.fontColor,
+    fontSize: `${calendarButtonTypography.value.fontSize}px`,
+    fontWeight: calendarButtonTypography.value.fontWeight,
+    fontStyle: calendarButtonTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: calendarButtonTypography.value.fontUnderline ? 'underline' : 'none',
+    backgroundColor: calendarButtonStyle.value.backgroundColor,
+    borderColor: calendarButtonStyle.value.borderColor,
+    borderWidth: `${calendarButtonStyle.value.borderWidth}px`,
+    borderStyle: Number(calendarButtonStyle.value.borderWidth) > 0 ? 'solid' : 'none',
+    borderRadius: `${calendarButtonStyle.value.borderRadius}px`,
+    padding: `${calendarButtonStyle.value.paddingY}px ${calendarButtonStyle.value.paddingX}px`,
+}));
 </script>
 
 <template>
-    <section 
-        class="py-20 px-4"
-        :style="{ backgroundColor: style.backgroundColor || '#f8f6f4' }"
+    <section
+        class="py-16 md:py-20 px-4"
+        :style="{ backgroundColor: sectionBackgroundColor }"
         id="save-the-date"
     >
         <div class="max-w-6xl mx-auto">
@@ -408,8 +458,8 @@ const calendarUrl = computed(() => {
             >
                 <a
                     :href="calendarUrl"
-                    class="inline-flex items-center px-6 py-3 text-sm font-semibold rounded-lg text-white transition-all duration-200 hover:scale-105 hover:shadow-lg"
-                    :style="{ backgroundColor: theme.primaryColor }"
+                    class="inline-flex items-center transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                    :style="calendarButtonTextStyle"
                 >
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

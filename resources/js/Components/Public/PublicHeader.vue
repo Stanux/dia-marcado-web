@@ -138,6 +138,8 @@ const actionButton = computed(() => {
 const style = computed(() => props.content.style || {});
 const titleTypography = computed(() => props.content.titleTypography || {});
 const subtitleTypography = computed(() => props.content.subtitleTypography || {});
+const menuTypography = computed(() => props.content.menuTypography || {});
+const menuHoverTypography = computed(() => props.content.menuHoverTypography || {});
 
 const clampRgbChannel = (value) => {
     const parsed = Number.parseInt(value, 10);
@@ -149,18 +151,25 @@ const clampRgbChannel = (value) => {
     return Math.max(0, Math.min(255, parsed));
 };
 
-const resolveHeaderBackgroundColor = (value) => {
+const getThemeBaseBackgroundColor = () => props.theme?.baseBackgroundColor || '#ffffff';
+
+const resolveHeaderBackgroundColor = (value, fallback) => {
     if (typeof value !== 'string' || !value.trim()) {
-        return '#ffffff';
+        return fallback;
     }
 
     const normalized = value.trim();
 
     if (normalized.toLowerCase() === 'transparent') {
-        return '#ffffff';
+        return fallback;
     }
 
     if (/^#[0-9a-f]{6}$/i.test(normalized) || /^#[0-9a-f]{3}$/i.test(normalized)) {
+        const normalizedHex = normalized.toLowerCase();
+        if (normalizedHex === '#ffffff' || normalizedHex === '#fff') {
+            return fallback;
+        }
+
         return normalized;
     }
 
@@ -169,13 +178,17 @@ const resolveHeaderBackgroundColor = (value) => {
         const alpha = Number.parseFloat(rgbaMatch[4]);
 
         if (Number.isNaN(alpha) || alpha <= 0.01) {
-            return '#ffffff';
+            return fallback;
         }
 
         const r = clampRgbChannel(rgbaMatch[1]);
         const g = clampRgbChannel(rgbaMatch[2]);
         const b = clampRgbChannel(rgbaMatch[3]);
         const a = Math.max(0, Math.min(1, alpha));
+
+        if (r === 255 && g === 255 && b === 255 && a >= 0.99) {
+            return fallback;
+        }
 
         return `rgba(${r}, ${g}, ${b}, ${a})`;
     }
@@ -186,13 +199,17 @@ const resolveHeaderBackgroundColor = (value) => {
         const g = clampRgbChannel(rgbMatch[2]);
         const b = clampRgbChannel(rgbMatch[3]);
 
+        if (r === 255 && g === 255 && b === 255) {
+            return fallback;
+        }
+
         return `rgb(${r}, ${g}, ${b})`;
     }
 
-    return '#ffffff';
+    return fallback;
 };
 
-const safeHeaderBackgroundColor = computed(() => resolveHeaderBackgroundColor(style.value.backgroundColor));
+const safeHeaderBackgroundColor = computed(() => resolveHeaderBackgroundColor(style.value.backgroundColor, getThemeBaseBackgroundColor()));
 const isWideScreen = ref(true);
 const isMobileScreen = ref(false);
 let desktopMediaQuery = null;
@@ -274,7 +291,7 @@ const logoTextStyle = computed(() => ({
     fontSize: responsiveSize(logo.value.text?.typography?.fontSize, 48, 24, 8),
     fontWeight: logo.value.text?.typography?.fontWeight || 700,
     fontStyle: logo.value.text?.typography?.fontItalic ? 'italic' : 'normal',
-    lineHeight: 1,
+    lineHeight: 1.15,
     whiteSpace: 'nowrap',
 }));
 
@@ -299,6 +316,29 @@ const subtitleStyle = computed(() => ({
     overflowWrap: 'anywhere',
     wordBreak: 'break-word',
 }));
+
+const menuLinkStyle = computed(() => {
+    const normal = menuTypography.value;
+    const hover = menuHoverTypography.value;
+    const fallbackFamily = props.theme.fontFamily || 'Montserrat';
+    const fallbackColor = '#374151';
+    const fallbackHoverColor = props.theme.primaryColor || '#d4a574';
+
+    return {
+        '--dm-menu-font-family': normal.fontFamily || fallbackFamily,
+        '--dm-menu-font-color': normal.fontColor || fallbackColor,
+        '--dm-menu-font-size': `${parsePixels(normal.fontSize, 14)}px`,
+        '--dm-menu-font-weight': String(normal.fontWeight || 400),
+        '--dm-menu-font-style': normal.fontItalic ? 'italic' : 'normal',
+        '--dm-menu-font-decoration': normal.fontUnderline ? 'underline' : 'none',
+        '--dm-menu-hover-font-family': hover.fontFamily || normal.fontFamily || fallbackFamily,
+        '--dm-menu-hover-font-color': hover.fontColor || fallbackHoverColor,
+        '--dm-menu-hover-font-size': `${parsePixels(hover.fontSize, parsePixels(normal.fontSize, 14))}px`,
+        '--dm-menu-hover-font-weight': String(hover.fontWeight || normal.fontWeight || 500),
+        '--dm-menu-hover-font-style': hover.fontItalic ? 'italic' : 'normal',
+        '--dm-menu-hover-font-decoration': hover.fontUnderline ? 'underline' : 'none',
+    };
+});
 
 const syncViewportBreakpoint = () => {
     if (typeof window === 'undefined') {
@@ -427,6 +467,10 @@ const headerStyles = computed(() => ({
     zIndex: isStickyEnabled.value ? 50 : undefined,
 }));
 
+const headerRowStyles = computed(() => ({
+    minHeight: style.value.height || '80px',
+}));
+
 const headerRowClass = computed(() => {
     if (hideHeaderTextOnMobile.value) {
         return 'justify-between';
@@ -530,7 +574,7 @@ const navigateTo = (target, type) => {
         :style="headerStyles"
     >
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-full">
-            <div class="flex items-center h-full py-3 md:py-4 gap-2 md:gap-4" :class="headerRowClass">
+            <div class="flex items-center gap-2 md:gap-4" :class="headerRowClass" :style="headerRowStyles">
                 <!-- Logo -->
                 <div v-if="logo.type === 'image' && logo.url" class="flex-shrink-0 max-w-[96px] sm:max-w-[140px]">
                     <img 
@@ -584,8 +628,8 @@ const navigateTo = (target, type) => {
                         v-for="(item, index) in navigation"
                         :key="index"
                         :href="item.target || '#'"
-                        class="text-sm text-gray-700 hover:opacity-80 transition-opacity cursor-pointer"
-                        :style="{ ':hover': { color: theme.primaryColor } }"
+                        class="public-header-nav-link cursor-pointer"
+                        :style="menuLinkStyle"
                         @click.prevent="navigateTo(item.target, item.type)"
                     >
                         {{ item.label }}
@@ -646,7 +690,8 @@ const navigateTo = (target, type) => {
                         v-for="(item, index) in navigation"
                         :key="index"
                         :href="item.target || '#'"
-                        class="block px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                        class="public-header-nav-link public-header-nav-link-mobile block px-4 py-3 rounded-md"
+                        :style="menuLinkStyle"
                         @click.prevent="navigateTo(item.target, item.type)"
                     >
                         {{ item.label }}
@@ -672,5 +717,32 @@ const navigateTo = (target, type) => {
 /* Smooth transitions */
 header {
     transition: box-shadow 0.2s ease;
+}
+
+.public-header-nav-link {
+    color: var(--dm-menu-font-color);
+    font-family: var(--dm-menu-font-family);
+    font-size: var(--dm-menu-font-size);
+    font-weight: var(--dm-menu-font-weight);
+    font-style: var(--dm-menu-font-style);
+    text-decoration: var(--dm-menu-font-decoration);
+    line-height: 1.25;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.public-header-nav-link:hover,
+.public-header-nav-link:focus-visible {
+    color: var(--dm-menu-hover-font-color);
+    font-family: var(--dm-menu-hover-font-family);
+    font-size: var(--dm-menu-hover-font-size);
+    font-weight: var(--dm-menu-hover-font-weight);
+    font-style: var(--dm-menu-hover-font-style);
+    text-decoration: var(--dm-menu-hover-font-decoration);
+    opacity: 0.95;
+}
+
+.public-header-nav-link-mobile:hover,
+.public-header-nav-link-mobile:focus-visible {
+    background-color: rgba(0, 0, 0, 0.04);
 }
 </style>

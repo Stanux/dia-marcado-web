@@ -22,9 +22,11 @@ const currentYear = new Date().getFullYear();
         <header class="sticky top-0 z-50 border-b border-black/5 bg-white/70 backdrop-blur">
             <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
                 <a href="/" class="flex items-center gap-3">
-                    <div class="ring-soft grid h-9 w-9 place-items-center rounded-xl bg-white">
-                        <span class="font-semibold brand-rose">DM</span>
-                    </div>
+                    <img
+                        src="/images/logo-dia-marcado-icon.png"
+                        alt="Logo Dia Marcado"
+                        class="h-11 w-11 rounded-xl object-cover"
+                    >
                     <span class="font-semibold tracking-tight">Dia Marcado</span>
                 </a>
 

@@ -374,6 +374,58 @@ class PublicAccessTest extends TestCase
     /**
      * @test
      */
+    public function changing_password_invalidates_existing_site_session(): void
+    {
+        // Arrange
+        Cache::flush();
+
+        $wedding = Wedding::factory()->create();
+
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = 'Site Protegido Sessão';
+
+        $site = SiteLayout::withoutGlobalScopes()->create([
+            'wedding_id' => $wedding->id,
+            'slug' => 'protected-site-session-rotation',
+            'draft_content' => $content,
+            'published_content' => $content,
+            'is_published' => true,
+            'published_at' => now(),
+        ]);
+
+        $initialPassword = '123456';
+        $rotatedPassword = '123123';
+
+        $this->accessTokenService->setToken($site, $initialPassword);
+
+        // Authenticate with the initial password.
+        $this->post("/site/{$site->slug}/auth", [
+            'password' => $initialPassword,
+        ])->assertRedirect("/site/{$site->slug}");
+
+        // Session is valid right after authentication.
+        $this->get("/site/{$site->slug}")->assertStatus(200);
+
+        // Rotate the site password.
+        $site = $site->fresh();
+        $this->accessTokenService->setToken($site, $rotatedPassword);
+
+        // Existing session must be invalidated and password form shown again.
+        $response = $this->get("/site/{$site->slug}");
+        $response->assertStatus(200);
+        $response->assertSee('senha');
+
+        // New password should grant access.
+        $this->post("/site/{$site->slug}/auth", [
+            'password' => $rotatedPassword,
+        ])->assertRedirect("/site/{$site->slug}");
+
+        $this->get("/site/{$site->slug}")->assertStatus(200);
+    }
+
+    /**
+     * @test
+     */
     public function wrong_password_shows_error(): void
     {
         // Arrange

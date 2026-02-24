@@ -416,6 +416,56 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             }
         }
 
+        // Check Save the Date contrast
+        if (($sections['saveTheDate']['enabled'] ?? false)) {
+            $saveTheDate = is_array($sections['saveTheDate'] ?? null) ? $sections['saveTheDate'] : [];
+            $effectiveTheme = is_array($theme) ? $theme : [];
+            $bgColor = $this->resolveSaveTheDateTextBackgroundColor($saveTheDate, $effectiveTheme);
+            $candidates = $this->getSaveTheDateContrastCandidates($saveTheDate, $effectiveTheme);
+
+            $failingCandidates = [];
+
+            foreach ($candidates as $candidate) {
+                $ratio = $this->calculateContrastRatio((string) $candidate['color'], $bgColor);
+                $requiredRatio = $this->getRequiredContrastRatio(
+                    $candidate['fontSize'] ?? null,
+                    $candidate['fontWeight'] ?? null
+                );
+
+                if ($ratio < $requiredRatio) {
+                    $failingCandidates[] = [
+                        'label' => (string) ($candidate['label'] ?? 'Texto'),
+                        'ratio' => $ratio,
+                        'required' => $requiredRatio,
+                    ];
+                }
+            }
+
+            if (!empty($failingCandidates)) {
+                usort($failingCandidates, static fn (array $a, array $b): int => $a['ratio'] <=> $b['ratio']);
+                $worstCandidate = $failingCandidates[0];
+                $failingLabels = array_values(array_unique(array_map(
+                    static fn (array $candidate): string => (string) $candidate['label'],
+                    $failingCandidates
+                )));
+
+                $warnings[] = [
+                    'type' => 'low_contrast',
+                    'section' => 'saveTheDate',
+                    'ratio' => round($worstCandidate['ratio'], 2),
+                    'required' => $worstCandidate['required'],
+                    'elements' => $failingLabels,
+                    'message' => sprintf(
+                        'Contraste insuficiente no Save the Date (%.2f:1, mínimo %.1f:1) em: %s',
+                        $worstCandidate['ratio'],
+                        $worstCandidate['required'],
+                        implode(', ', $failingLabels)
+                    ),
+                    'suggestion' => 'Ajuste as cores da tipografia ou do fundo para melhorar a legibilidade',
+                ];
+            }
+        }
+
         return $warnings;
     }
 
@@ -926,39 +976,22 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         
         // Get media records that match the used URLs
         $media = $site->media()
-            ->select('id', 'original_name', 'path', 'disk', 'size')
+            ->select('id', 'original_name', 'path', 'disk', 'size', 'variants')
             ->get();
         
         $totalSize = 0;
         $filesWithSize = [];
         
         foreach ($media as $item) {
-            // Check if this media is actually used in the content
-            $mediaUrl = \Storage::disk($item->disk)->url($item->path);
-            $isUsed = false;
-            
-            foreach ($usedMediaUrls as $usedUrl) {
-                if (str_contains($usedUrl, $item->path) || $usedUrl === $mediaUrl) {
-                    $isUsed = true;
-                    break;
-                }
-            }
-            
-            if (!$isUsed) {
+            // Check if this media (or one of its variants) is actually used in the content
+            $matchedPath = $this->resolveMatchedMediaPath($item, $usedMediaUrls);
+
+            if ($matchedPath === null) {
                 continue;
             }
-            
-            // Use size from database if available, otherwise get from file
-            $fileSize = $item->size;
-            
-            if (!$fileSize || $fileSize <= 0) {
-                try {
-                    $fileSize = \Storage::disk($item->disk)->size($item->path);
-                } catch (\Exception $e) {
-                    $fileSize = 0;
-                }
-            }
-            
+
+            $fileSize = $this->resolveMediaPathSize($item, $matchedPath);
+
             $totalSize += $fileSize;
             
             $filesWithSize[] = [
@@ -1029,7 +1062,93 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             return '';
         }
 
-        return trim((string) ($item['url'] ?? ''));
+        $type = $this->getGalleryItemType($item);
+
+        if ($type === 'video') {
+            return trim((string) (
+                $item['displayUrl']
+                ?? $item['display_url']
+                ?? $item['url']
+                ?? ''
+            ));
+        }
+
+        return trim((string) (
+            $item['displayUrl']
+            ?? $item['display_url']
+            ?? $item['thumbnailUrl']
+            ?? $item['thumbnail_url']
+            ?? $item['url']
+            ?? ''
+        ));
+    }
+
+    /**
+     * Resolve which path (original or variant) matches any used URL.
+     */
+    private function resolveMatchedMediaPath(mixed $media, array $usedMediaUrls): ?string
+    {
+        $originalPath = (string) ($media->path ?? '');
+        $disk = (string) ($media->disk ?? 'public');
+        $variants = is_array($media->variants ?? null) ? $media->variants : [];
+
+        $candidatePaths = [];
+        if ($originalPath !== '') {
+            $candidatePaths[] = $originalPath;
+        }
+
+        foreach ($variants as $variantPath) {
+            if (is_string($variantPath) && $variantPath !== '') {
+                $candidatePaths[] = $variantPath;
+            }
+        }
+
+        if ($candidatePaths === []) {
+            return null;
+        }
+
+        $candidatePaths = array_values(array_unique($candidatePaths));
+
+        foreach ($usedMediaUrls as $usedUrl) {
+            foreach ($candidatePaths as $candidatePath) {
+                if (str_contains($usedUrl, $candidatePath)) {
+                    return $candidatePath;
+                }
+
+                try {
+                    $candidateUrl = \Storage::disk($disk)->url($candidatePath);
+                    if ($usedUrl === $candidateUrl) {
+                        return $candidatePath;
+                    }
+                } catch (\Throwable) {
+                    // Ignore URL generation failures for this candidate.
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve file size for a matched media path.
+     */
+    private function resolveMediaPathSize(mixed $media, string $matchedPath): int
+    {
+        $originalPath = (string) ($media->path ?? '');
+        $disk = (string) ($media->disk ?? 'public');
+
+        if ($matchedPath === $originalPath) {
+            $size = (int) ($media->size ?? 0);
+            if ($size > 0) {
+                return $size;
+            }
+        }
+
+        try {
+            return (int) \Storage::disk($disk)->size($matchedPath);
+        } catch (\Throwable) {
+            return max(0, (int) ($media->size ?? 0));
+        }
     }
 
     /**
@@ -1138,11 +1257,21 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         }
 
         if ($this->headerHasVisibleNavigation($header)) {
+            $menuTypography = is_array($header['menuTypography'] ?? null) ? $header['menuTypography'] : [];
+            $menuHoverTypography = is_array($header['menuHoverTypography'] ?? null) ? $header['menuHoverTypography'] : [];
+
             $candidates[] = [
                 'label' => 'Menu',
-                'color' => '#374151',
-                'fontSize' => 14,
-                'fontWeight' => 400,
+                'color' => (string) ($menuTypography['fontColor'] ?? '#374151'),
+                'fontSize' => $menuTypography['fontSize'] ?? 14,
+                'fontWeight' => $menuTypography['fontWeight'] ?? 400,
+            ];
+
+            $candidates[] = [
+                'label' => 'Menu (hover)',
+                'color' => (string) ($menuHoverTypography['fontColor'] ?? $themePrimaryColor),
+                'fontSize' => $menuHoverTypography['fontSize'] ?? ($menuTypography['fontSize'] ?? 14),
+                'fontWeight' => $menuHoverTypography['fontWeight'] ?? ($menuTypography['fontWeight'] ?? 500),
             ];
         }
 
@@ -1185,6 +1314,105 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         }
 
         return false;
+    }
+
+    /**
+     * Resolve effective text background for Save the Date section.
+     *
+     * Inline layout: text is rendered directly over section background.
+     * Modal/column layout: text is rendered inside a fixed white box.
+     */
+    private function resolveSaveTheDateTextBackgroundColor(array $saveTheDate, array $theme): string
+    {
+        $style = is_array($saveTheDate['style'] ?? null) ? $saveTheDate['style'] : [];
+        $layout = strtolower(trim((string) ($style['layout'] ?? 'modal')));
+
+        if ($layout === 'inline') {
+            return $this->resolveSaveTheDateSectionBackgroundColor(
+                (string) ($style['backgroundColor'] ?? ''),
+                $theme
+            );
+        }
+
+        return '#ffffff';
+    }
+
+    /**
+     * Match Save the Date runtime background normalization used by the public component.
+     */
+    private function resolveSaveTheDateSectionBackgroundColor(string $backgroundColor, array $theme): string
+    {
+        $fallback = (string) ($theme['surfaceBackgroundColor'] ?? '#f8f6f4');
+        $normalized = strtolower(trim($backgroundColor));
+
+        if ($normalized === '') {
+            return $fallback;
+        }
+
+        if ($normalized === '#f8f6f4' || $normalized === '#f5f5f5') {
+            return $fallback;
+        }
+
+        return $backgroundColor;
+    }
+
+    /**
+     * Build list of Save the Date text elements validated against the effective text background.
+     *
+     * @return array<int, array{label: string, color: string, fontSize: mixed, fontWeight: mixed}>
+     */
+    private function getSaveTheDateContrastCandidates(array $saveTheDate, array $theme): array
+    {
+        $candidates = [];
+        $themePrimaryColor = (string) ($theme['primaryColor'] ?? '#d4a574');
+
+        $sectionTypography = is_array($saveTheDate['sectionTypography'] ?? null) ? $saveTheDate['sectionTypography'] : [];
+        $descriptionTypography = is_array($saveTheDate['descriptionTypography'] ?? null) ? $saveTheDate['descriptionTypography'] : [];
+        $countdownNumbersTypography = is_array($saveTheDate['countdownNumbersTypography'] ?? null) ? $saveTheDate['countdownNumbersTypography'] : [];
+        $countdownLabelsTypography = is_array($saveTheDate['countdownLabelsTypography'] ?? null) ? $saveTheDate['countdownLabelsTypography'] : [];
+
+        // "Save the Date" heading has fixed class size (text-3xl) in public rendering.
+        $candidates[] = [
+            'label' => 'Título',
+            'color' => (string) ($sectionTypography['fontColor'] ?? $themePrimaryColor),
+            'fontSize' => 30,
+            'fontWeight' => $sectionTypography['fontWeight'] ?? 700,
+        ];
+
+        // Date/location/address use the section typography styles.
+        $candidates[] = [
+            'label' => 'Data e Local',
+            'color' => (string) ($sectionTypography['fontColor'] ?? $themePrimaryColor),
+            'fontSize' => $sectionTypography['fontSize'] ?? 18,
+            'fontWeight' => $sectionTypography['fontWeight'] ?? 400,
+        ];
+
+        if (trim((string) ($saveTheDate['description'] ?? '')) !== '') {
+            $candidates[] = [
+                'label' => 'Descrição',
+                'color' => (string) ($descriptionTypography['fontColor'] ?? '#666666'),
+                'fontSize' => $descriptionTypography['fontSize'] ?? 16,
+                'fontWeight' => $descriptionTypography['fontWeight'] ?? 400,
+            ];
+        }
+
+        if ((bool) ($saveTheDate['showCountdown'] ?? true)) {
+            $candidates[] = [
+                'label' => 'Contador (números)',
+                'color' => (string) ($countdownNumbersTypography['fontColor'] ?? $themePrimaryColor),
+                'fontSize' => $countdownNumbersTypography['fontSize'] ?? 48,
+                'fontWeight' => $countdownNumbersTypography['fontWeight'] ?? 700,
+            ];
+
+            $candidates[] = [
+                'label' => 'Contador (labels)',
+                'color' => (string) ($countdownLabelsTypography['fontColor'] ?? '#999999'),
+                'fontSize' => $countdownLabelsTypography['fontSize'] ?? 12,
+                'fontWeight' => $countdownLabelsTypography['fontWeight'] ?? 400,
+            ];
+        }
+
+        return $candidates;
     }
 
     /**

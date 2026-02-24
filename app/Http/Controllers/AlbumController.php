@@ -154,6 +154,12 @@ class AlbumController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($media) {
+                    $thumbnailUrl = $media->getVariantUrl('thumbnail') ?? $media->getUrl();
+                    $displayUrl = $media->getVariantUrl('1x')
+                        ?? $thumbnailUrl
+                        ?? $media->getUrl();
+                    $originalUrl = $media->getVariantUrl('2x') ?? $media->getUrl();
+
                     return [
                         'id' => $media->id,
                         'filename' => $media->original_name,
@@ -163,7 +169,9 @@ class AlbumController extends Controller
                         'width' => $media->width,
                         'height' => $media->height,
                         'url' => $media->getUrl(),
-                        'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
+                        'thumbnail_url' => $thumbnailUrl,
+                        'display_url' => $displayUrl,
+                        'original_url' => $originalUrl,
                         'alt' => $media->alt,
                         'created_at' => $media->created_at->toISOString(),
                         'updated_at' => $media->updated_at->toISOString(),
@@ -339,6 +347,12 @@ class AlbumController extends Controller
                     'description' => $album->description,
                     'media_count' => $album->media()->count(),
                     'media' => $album->media()->where('status', 'completed')->get()->map(function ($media) {
+                        $thumbnailUrl = $media->getVariantUrl('thumbnail') ?? $media->getUrl();
+                        $displayUrl = $media->getVariantUrl('1x')
+                            ?? $thumbnailUrl
+                            ?? $media->getUrl();
+                        $originalUrl = $media->getVariantUrl('2x') ?? $media->getUrl();
+
                         return [
                             'id' => $media->id,
                             'filename' => $media->original_name,
@@ -346,7 +360,9 @@ class AlbumController extends Controller
                             'mime_type' => $media->mime_type,
                             'size' => $media->size,
                             'url' => $media->getUrl(),
-                            'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
+                            'thumbnail_url' => $thumbnailUrl,
+                            'display_url' => $displayUrl,
+                            'original_url' => $originalUrl,
                             'created_at' => $media->created_at->toISOString(),
                             'updated_at' => $media->updated_at->toISOString(),
                         ];
@@ -451,6 +467,12 @@ class AlbumController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($media) {
+                    $thumbnailUrl = $media->getVariantUrl('thumbnail') ?? $media->getUrl();
+                    $displayUrl = $media->getVariantUrl('1x')
+                        ?? $thumbnailUrl
+                        ?? $media->getUrl();
+                    $originalUrl = $media->getVariantUrl('2x') ?? $media->getUrl();
+
                     return [
                         'id' => $media->id,
                         'filename' => $media->original_name,
@@ -460,7 +482,9 @@ class AlbumController extends Controller
                         'width' => $media->width,
                         'height' => $media->height,
                         'url' => $media->getUrl(),
-                        'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
+                        'thumbnail_url' => $thumbnailUrl,
+                        'display_url' => $displayUrl,
+                        'original_url' => $originalUrl,
                         'alt' => $media->alt,
                         'created_at' => $media->created_at->toISOString(),
                         'updated_at' => $media->updated_at->toISOString(),

@@ -98,6 +98,7 @@ class PublicSiteController extends Controller
             $normalizedContent,
             $wedding
         );
+        $content = $this->rewriteLocalUrlsToCurrentHost($content, $request);
 
         $siteData = $site->makeHidden(['draft_content', 'published_content'])->toArray();
 
@@ -191,6 +192,51 @@ class PublicSiteController extends Controller
             && $site->access_token === null
             && !$inviteToken
             && $inviteTokenState === 'missing';
+    }
+
+    private function rewriteLocalUrlsToCurrentHost(array $content, Request $request): array
+    {
+        $currentOrigin = rtrim($request->getSchemeAndHttpHost(), '/');
+        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        $localHosts = array_values(array_filter(array_unique([
+            '127.0.0.1',
+            'localhost',
+            $appHost,
+        ])));
+
+        return $this->rewriteContentValue($content, $currentOrigin, $localHosts);
+    }
+
+    private function rewriteContentValue(mixed $value, string $currentOrigin, array $localHosts): mixed
+    {
+        if (is_array($value)) {
+            foreach ($value as $key => $child) {
+                $value[$key] = $this->rewriteContentValue($child, $currentOrigin, $localHosts);
+            }
+
+            return $value;
+        }
+
+        if (!is_string($value) || !filter_var($value, FILTER_VALIDATE_URL)) {
+            return $value;
+        }
+
+        $parts = parse_url($value);
+        if ($parts === false) {
+            return $value;
+        }
+
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if ($host === '' || !in_array($host, $localHosts, true)) {
+            return $value;
+        }
+
+        $path = $parts['path'] ?? '';
+        $query = isset($parts['query']) ? '?' . $parts['query'] : '';
+        $fragment = isset($parts['fragment']) ? '#' . $parts['fragment'] : '';
+
+        return $currentOrigin . $path . $query . $fragment;
     }
 
     private function generatePublicEtag(SiteLayout $site): string
@@ -385,8 +431,26 @@ class PublicSiteController extends Controller
      */
     private function isAuthenticated(SiteLayout $site): bool
     {
+        if ($site->access_token === null) {
+            return true;
+        }
+
         $sessionKey = self::SESSION_KEY_PREFIX . $site->id;
-        return Session::get($sessionKey, false) === true;
+        $sessionData = Session::get($sessionKey);
+
+        if (!is_array($sessionData) || !isset($sessionData['fingerprint']) || !is_string($sessionData['fingerprint'])) {
+            Session::forget($sessionKey);
+            return false;
+        }
+
+        $currentFingerprint = $this->buildAccessTokenFingerprint($site);
+        $isValid = hash_equals($currentFingerprint, $sessionData['fingerprint']);
+
+        if (!$isValid) {
+            Session::forget($sessionKey);
+        }
+
+        return $isValid;
     }
 
     /**
@@ -397,8 +461,27 @@ class PublicSiteController extends Controller
      */
     private function setAuthenticated(SiteLayout $site): void
     {
+        if ($site->access_token === null) {
+            return;
+        }
+
         $sessionKey = self::SESSION_KEY_PREFIX . $site->id;
-        Session::put($sessionKey, true);
+        Session::put($sessionKey, [
+            'fingerprint' => $this->buildAccessTokenFingerprint($site),
+            'authenticated_at' => now()->timestamp,
+        ]);
+    }
+
+    /**
+     * Build a deterministic fingerprint for the current site password.
+     * If the password changes, the fingerprint changes and prior sessions are invalidated.
+     */
+    private function buildAccessTokenFingerprint(SiteLayout $site): string
+    {
+        $appKey = (string) (config('app.key') ?: 'dia-marcado-site-auth');
+        $token = (string) $site->access_token;
+
+        return hash_hmac('sha256', "{$site->id}|{$token}", $appKey);
     }
 
     /**

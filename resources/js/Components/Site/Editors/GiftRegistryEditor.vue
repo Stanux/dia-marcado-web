@@ -228,6 +228,7 @@ const pickGiftRegistryBackgroundColor = () => {
                 :font-weight="titleTypography.fontWeight"
                 :font-italic="titleTypography.fontItalic"
                 :font-underline="titleTypography.fontUnderline"
+                :preview-background-color="giftRegistryBackgroundColorHex"
                 @update:font-family="updateTitleTypography('fontFamily', $event)"
                 @update:font-color="updateTitleTypography('fontColor', $event)"
                 @update:font-size="updateTitleTypography('fontSize', $event)"

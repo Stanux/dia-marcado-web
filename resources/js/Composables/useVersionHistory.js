@@ -24,6 +24,12 @@ export default function useVersionHistory(siteId) {
     const currentSiteId = ref(siteId);
 
     /**
+     * Build endpoint URL for version operations.
+     * Uses admin web routes to keep the same auth context as the editor.
+     */
+    const endpoint = (path) => `/admin/sites/${currentSiteId.value}${path}`;
+
+    /**
      * Load versions from the server
      * 
      * @Requirements: 4.1
@@ -38,7 +44,7 @@ export default function useVersionHistory(siteId) {
         error.value = null;
 
         try {
-            const response = await axios.get(`/api/sites/${currentSiteId.value}/versions`);
+            const response = await axios.get(endpoint('/versions'));
             versions.value = response.data.data || [];
             return versions.value;
         } catch (err) {
@@ -66,7 +72,7 @@ export default function useVersionHistory(siteId) {
         error.value = null;
 
         try {
-            const response = await axios.post(`/api/sites/${currentSiteId.value}/restore`, {
+            const response = await axios.post(endpoint('/restore'), {
                 version_id: versionId,
             });
 

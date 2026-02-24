@@ -26,6 +26,18 @@ class SiteContentSchema
     ];
 
     /**
+     * Sections that can be reordered in the site editor.
+     * Header and footer remain fixed.
+     */
+    public const MOVABLE_SECTIONS = [
+        'hero',
+        'saveTheDate',
+        'giftRegistry',
+        'rsvp',
+        'photoGallery',
+    ];
+
+    /**
      * Get the default content structure for a new site.
      *
      * @return array The complete default content structure
@@ -34,6 +46,7 @@ class SiteContentSchema
     {
         return [
             'version' => self::VERSION,
+            'sectionOrder' => self::MOVABLE_SECTIONS,
             'sections' => [
                 'header' => self::getHeaderSection(),
                 'hero' => self::getHeroSection(),
@@ -52,6 +65,8 @@ class SiteContentSchema
             'theme' => [
                 'primaryColor' => '#d4a574',
                 'secondaryColor' => '#8b7355',
+                'baseBackgroundColor' => '#ffffff',
+                'surfaceBackgroundColor' => '#f5ebe4',
                 'fontFamily' => 'Playfair Display',
                 'fontSize' => '16px',
             ],
@@ -77,6 +92,22 @@ class SiteContentSchema
             'title' => '',
             'subtitle' => '',
             'showDate' => true,
+            'menuTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#374151',
+                'fontSize' => 14,
+                'fontWeight' => 400,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'menuHoverTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#d4a574',
+                'fontSize' => 14,
+                'fontWeight' => 500,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
             'navigation' => [],
             'actionButton' => [
                 'label' => '',
@@ -187,6 +218,22 @@ class SiteContentSchema
                 'fontUnderline' => false,
             ],
             'showCalendarButton' => true,
+            'calendarButtonTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#ffffff',
+                'fontSize' => 14,
+                'fontWeight' => 600,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'calendarButtonStyle' => [
+                'backgroundColor' => '#d4a574',
+                'borderColor' => '#d4a574',
+                'borderWidth' => 0,
+                'borderRadius' => 8,
+                'paddingX' => 24,
+                'paddingY' => 12,
+            ],
             'style' => [
                 'backgroundColor' => '#f5f5f5',
                 'layout' => 'modal',
@@ -226,6 +273,22 @@ class SiteContentSchema
             ],
             'title' => 'Confirme sua Presença',
             'description' => '',
+            'titleTypography' => [
+                'fontFamily' => 'Playfair Display',
+                'fontColor' => '#b8998a',
+                'fontSize' => 36,
+                'fontWeight' => 700,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'subtitleTypography' => [
+                'fontFamily' => 'Playfair Display',
+                'fontColor' => '#4b5563',
+                'fontSize' => 18,
+                'fontWeight' => 400,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
             'access' => [
                 // inherit | open | restricted | token_only
                 'mode' => 'inherit',
@@ -306,6 +369,7 @@ class SiteContentSchema
                 'label' => 'Galeria de Fotos',
                 'showInMenu' => true,
             ],
+            'title' => 'Galeria de Fotos',
             'albums' => [
                 'before' => [
                     'title' => 'Nossa História',
@@ -327,6 +391,40 @@ class SiteContentSchema
             'video' => [
                 'hoverPreview' => true,
                 'hoverDelayMs' => 1000,
+            ],
+            'display' => [
+                'showBefore' => true,
+                'showAfter' => true,
+            ],
+            'titleTypography' => [
+                'fontFamily' => 'Playfair Display',
+                'fontColor' => '#a18072',
+                'fontSize' => 40,
+                'fontWeight' => 700,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'tabsTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#6b7280',
+                'fontSize' => 14,
+                'fontWeight' => 500,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'tabsActiveTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#111827',
+                'fontSize' => 14,
+                'fontWeight' => 600,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'tabsStyle' => [
+                'backgroundColor' => '#f3f4f6',
+                'activeBackgroundColor' => '#ffffff',
+                'borderColor' => '#e5e7eb',
+                'activeBorderColor' => '#b8998a',
             ],
             'style' => [
                 'backgroundColor' => '#ffffff',
@@ -383,6 +481,18 @@ class SiteContentSchema
         foreach (self::REQUIRED_SECTIONS as $section) {
             if (isset($content['sections'][$section]) && !isset($content['sections'][$section]['enabled'])) {
                 $errors[] = "Section '{$section}' must have an 'enabled' field";
+            }
+        }
+
+        if (isset($content['sectionOrder'])) {
+            if (!is_array($content['sectionOrder'])) {
+                $errors[] = 'The "sectionOrder" field must be an array when provided';
+            } else {
+                foreach ($content['sectionOrder'] as $index => $sectionKey) {
+                    if (!is_string($sectionKey)) {
+                        $errors[] = "The \"sectionOrder\" item at index {$index} must be a string";
+                    }
+                }
             }
         }
 

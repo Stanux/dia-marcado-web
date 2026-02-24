@@ -50,6 +50,126 @@ function deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
 
+const DEFAULT_THEME_SETTINGS = {
+    primaryColor: '#d4a574',
+    secondaryColor: '#8b7355',
+    baseBackgroundColor: '#ffffff',
+    surfaceBackgroundColor: '#f5ebe4',
+    fontFamily: 'Playfair Display',
+    fontSize: '16px',
+};
+
+const LEGACY_BASE_BACKGROUND_COLORS = new Set([
+    '#ffffff',
+    '#fff',
+]);
+
+const LEGACY_SURFACE_BACKGROUND_COLORS = new Set([
+    '#f5ebe4',
+    '#f8f6f4',
+    '#f5f5f5',
+    '#ffffff',
+    '#fff',
+]);
+
+const THEME_BACKGROUND_BINDINGS = [
+    { section: 'header', path: ['style', 'backgroundColor'], role: 'baseBackgroundColor' },
+    { section: 'saveTheDate', path: ['style', 'backgroundColor'], role: 'surfaceBackgroundColor' },
+    { section: 'giftRegistry', path: ['style', 'backgroundColor'], role: 'baseBackgroundColor' },
+    { section: 'rsvp', path: ['style', 'backgroundColor'], role: 'surfaceBackgroundColor' },
+    { section: 'photoGallery', path: ['style', 'backgroundColor'], role: 'baseBackgroundColor' },
+];
+
+const normalizeColorToken = (value) => {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    return normalized.length > 0 ? normalized : null;
+};
+
+const ensureThemeDefaults = (content = {}) => {
+    const normalized = deepClone(content || {});
+    normalized.theme = {
+        ...DEFAULT_THEME_SETTINGS,
+        ...(normalized.theme || {}),
+    };
+
+    return normalized;
+};
+
+const getNestedValue = (source, path) => {
+    return path.reduce((cursor, segment) => {
+        if (!cursor || typeof cursor !== 'object') {
+            return undefined;
+        }
+
+        return cursor[segment];
+    }, source);
+};
+
+const setNestedValue = (target, path, value) => {
+    if (!target || typeof target !== 'object') {
+        return;
+    }
+
+    let cursor = target;
+    for (let index = 0; index < path.length - 1; index += 1) {
+        const segment = path[index];
+        if (!cursor[segment] || typeof cursor[segment] !== 'object') {
+            cursor[segment] = {};
+        }
+
+        cursor = cursor[segment];
+    }
+
+    cursor[path[path.length - 1]] = value;
+};
+
+const shouldSyncThemeBackground = (currentValue, previousValue, role) => {
+    const normalizedCurrent = normalizeColorToken(currentValue);
+    if (!normalizedCurrent) {
+        return true;
+    }
+
+    const normalizedPrevious = normalizeColorToken(previousValue);
+    if (normalizedPrevious && normalizedCurrent === normalizedPrevious) {
+        return true;
+    }
+
+    const legacySet = role === 'baseBackgroundColor'
+        ? LEGACY_BASE_BACKGROUND_COLORS
+        : LEGACY_SURFACE_BACKGROUND_COLORS;
+
+    return legacySet.has(normalizedCurrent);
+};
+
+const syncThemeBackgroundBindings = (draft, previousTheme, nextTheme) => {
+    if (!draft?.sections || typeof draft.sections !== 'object') {
+        return;
+    }
+
+    THEME_BACKGROUND_BINDINGS.forEach(({ section, path, role }) => {
+        const sectionContent = draft.sections[section];
+        if (!sectionContent || typeof sectionContent !== 'object') {
+            return;
+        }
+
+        const currentBackground = getNestedValue(sectionContent, path);
+        const previousBackground = previousTheme?.[role];
+        const nextBackground = nextTheme?.[role];
+
+        if (!nextBackground) {
+            return;
+        }
+
+        if (shouldSyncThemeBackground(currentBackground, previousBackground, role)) {
+            setNestedValue(sectionContent, path, nextBackground);
+        }
+    });
+};
+
 /**
  * Site Editor composable
  * 
@@ -59,8 +179,8 @@ function deepClone(obj) {
 export default function useSiteEditor(initialSite) {
     // Reactive state
     const site = ref(deepClone(initialSite));
-    const draftContent = ref(deepClone(initialSite.draft_content || {}));
-    const originalContent = ref(deepClone(initialSite.draft_content || {}));
+    const draftContent = ref(ensureThemeDefaults(initialSite.draft_content || {}));
+    const originalContent = ref(deepClone(draftContent.value));
     
     // Status flags
     const isDirty = ref(false);
@@ -68,12 +188,201 @@ export default function useSiteEditor(initialSite) {
     const isPublishing = ref(false);
     const lastSaved = ref(null);
     const error = ref(null);
+    const localMutationToken = ref(0);
 
     /**
      * Check if content has changed from original
      */
     const checkDirty = () => {
         isDirty.value = JSON.stringify(draftContent.value) !== JSON.stringify(originalContent.value);
+    };
+
+    /**
+     * Hydrate local editor state from server site payload.
+     *
+     * @param {Object} nextSiteData
+     * @param {Object} options
+     * @param {boolean} options.touchLastSaved
+     */
+    const applyServerSiteData = (nextSiteData, { touchLastSaved = true } = {}) => {
+        if (!nextSiteData || typeof nextSiteData !== 'object') {
+            return;
+        }
+
+        site.value = deepClone({
+            ...site.value,
+            ...nextSiteData,
+        });
+
+        const nextDraftContent = ensureThemeDefaults(nextSiteData.draft_content || {});
+        draftContent.value = nextDraftContent;
+        originalContent.value = deepClone(nextDraftContent);
+        isDirty.value = false;
+
+        if (touchLastSaved) {
+            lastSaved.value = new Date().toISOString();
+        }
+    };
+
+    const buildSiteSettingsPayload = () => {
+        const settings = draftContent.value?.settings || {};
+        const payload = {};
+
+        if (Object.prototype.hasOwnProperty.call(settings, 'slug')) {
+            const slugValue = settings.slug;
+            if (slugValue !== null && slugValue !== undefined && slugValue !== '') {
+                payload.slug = String(slugValue).trim();
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(settings, 'custom_domain')) {
+            const domainValue = settings.custom_domain;
+            payload.custom_domain = domainValue === '' || domainValue === undefined
+                ? null
+                : domainValue;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(settings, 'access_token')) {
+            const passwordValue = settings.access_token;
+            if (passwordValue === null) {
+                payload.access_token = null;
+            } else if (passwordValue !== '' && passwordValue !== undefined) {
+                payload.access_token = passwordValue;
+            }
+        }
+
+        return payload;
+    };
+
+    const hasPendingSiteSettingsChanges = (payload) => {
+        if (Object.keys(payload).length === 0) {
+            return false;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(payload, 'slug')) {
+            if ((site.value?.slug ?? null) !== payload.slug) {
+                return true;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(payload, 'custom_domain')) {
+            if ((site.value?.custom_domain ?? null) !== payload.custom_domain) {
+                return true;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(payload, 'access_token')) {
+            if (payload.access_token === null) {
+                return Boolean(site.value?.has_password);
+            }
+
+            // We don't have the plain password in frontend state, so treat non-empty values as pending.
+            return true;
+        }
+
+        return false;
+    };
+
+    const syncSiteSettings = async ({ silentValidation = false } = {}) => {
+        const payload = buildSiteSettingsPayload();
+
+        if (!hasPendingSiteSettingsChanges(payload)) {
+            return true;
+        }
+
+        try {
+            const response = await axios.put(`/admin/sites/${site.value.id}/settings`, payload);
+
+            if (response.data?.data) {
+                site.value = { ...site.value, ...response.data.data };
+            }
+
+            return true;
+        } catch (err) {
+            const status = err.response?.status;
+
+            if (silentValidation && status === 422) {
+                return false;
+            }
+
+            if (status === 422 && err.response?.data?.errors) {
+                const firstErrorGroup = Object.values(err.response.data.errors)[0];
+                error.value = Array.isArray(firstErrorGroup)
+                    ? (firstErrorGroup[0] || 'Erro de validação nas configurações do site.')
+                    : 'Erro de validação nas configurações do site.';
+            } else {
+                error.value = err.response?.data?.message || 'Erro ao salvar configurações do site';
+            }
+
+            console.error('Settings save error:', err);
+            return false;
+        }
+    };
+
+    const persistDraft = async ({ createVersion, summary = null }) => {
+        const requestMutationToken = localMutationToken.value;
+        const payloadContent = deepClone(draftContent.value);
+        const payload = {
+            content: payloadContent,
+            create_version: createVersion,
+        };
+
+        if (summary) {
+            payload.summary = summary;
+        }
+
+        const response = await axios.put(`/admin/sites/${site.value.id}/draft`, payload);
+
+        // Guard against race conditions:
+        // if local content changed while this request was in-flight,
+        // do not overwrite the latest editor state with an older response.
+        if (localMutationToken.value !== requestMutationToken) {
+            site.value = deepClone({
+                ...site.value,
+                ...response.data.data,
+            });
+            return false;
+        }
+
+        applyServerSiteData(response.data.data);
+        return true;
+    };
+
+    /**
+     * Create a version snapshot even when there are no content changes.
+     *
+     * Useful for "before/after" milestones such as applying a theme preset.
+     *
+     * @param {string} summary - Version summary shown in history
+     * @returns {Promise<boolean>} Success status
+     */
+    const createVersionSnapshot = async (summary = 'Snapshot manual') => {
+        if (isSaving.value) {
+            return false;
+        }
+
+        isSaving.value = true;
+        error.value = null;
+
+        try {
+            const settingsSaved = await syncSiteSettings({ silentValidation: false });
+            if (!settingsSaved) {
+                return false;
+            }
+
+            await persistDraft({
+                createVersion: true,
+                summary,
+            });
+
+            return true;
+        } catch (err) {
+            error.value = err.response?.data?.message || 'Erro ao criar snapshot';
+            console.error('Snapshot error:', err);
+            return false;
+        } finally {
+            isSaving.value = false;
+        }
     };
 
     /**
@@ -87,6 +396,7 @@ export default function useSiteEditor(initialSite) {
             draftContent.value.sections = {};
         }
         draftContent.value.sections[sectionKey] = deepClone(data);
+        localMutationToken.value += 1;
         checkDirty();
     };
 
@@ -97,6 +407,7 @@ export default function useSiteEditor(initialSite) {
      */
     const updateMeta = (meta) => {
         draftContent.value.meta = { ...draftContent.value.meta, ...meta };
+        localMutationToken.value += 1;
         checkDirty();
     };
 
@@ -106,7 +417,24 @@ export default function useSiteEditor(initialSite) {
      * @param {Object} theme - The new theme data
      */
     const updateTheme = (theme) => {
-        draftContent.value.theme = { ...draftContent.value.theme, ...theme };
+        const previousTheme = {
+            ...DEFAULT_THEME_SETTINGS,
+            ...(draftContent.value.theme || {}),
+        };
+
+        const nextTheme = {
+            ...previousTheme,
+            ...(theme || {}),
+        };
+
+        draftContent.value.theme = nextTheme;
+        syncThemeBackgroundBindings(draftContent.value, previousTheme, nextTheme);
+        localMutationToken.value += 1;
+        checkDirty();
+    };
+
+    const touchMutation = () => {
+        localMutationToken.value += 1;
         checkDirty();
     };
 
@@ -125,22 +453,15 @@ export default function useSiteEditor(initialSite) {
         error.value = null;
 
         try {
-            const response = await axios.put(`/admin/sites/${site.value.id}/draft`, {
-                content: draftContent.value,
-                create_version: true,
-            });
-
-            // Update local state with server response
-            site.value = response.data.data;
-            
-            // Sync draft content with server response to ensure consistency
-            if (response.data.data.draft_content) {
-                draftContent.value = deepClone(response.data.data.draft_content);
+            const settingsSaved = await syncSiteSettings({ silentValidation: false });
+            if (!settingsSaved) {
+                return false;
             }
-            
-            originalContent.value = deepClone(draftContent.value);
-            isDirty.value = false;
-            lastSaved.value = new Date().toISOString();
+
+            const applied = await persistDraft({ createVersion: true });
+            if (!applied) {
+                return false;
+            }
 
             return true;
         } catch (err) {
@@ -176,12 +497,7 @@ export default function useSiteEditor(initialSite) {
 
         try {
             const response = await axios.post(`/admin/sites/${site.value.id}/publish`);
-
-            // Update local state with server response
-            site.value = response.data.data;
-            draftContent.value = deepClone(response.data.data.draft_content);
-            originalContent.value = deepClone(response.data.data.draft_content);
-            isDirty.value = false;
+            applyServerSiteData(response.data.data);
 
             // Show success message
             alert('Site publicado com sucesso!');
@@ -229,13 +545,7 @@ export default function useSiteEditor(initialSite) {
 
         try {
             const response = await axios.post(`/admin/sites/${site.value.id}/rollback`);
-
-            // Update local state with server response
-            site.value = response.data.data;
-            draftContent.value = deepClone(response.data.data.draft_content);
-            originalContent.value = deepClone(response.data.data.draft_content);
-            isDirty.value = false;
-            lastSaved.value = new Date().toISOString();
+            applyServerSiteData(response.data.data);
 
             return true;
         } catch (err) {
@@ -262,23 +572,17 @@ export default function useSiteEditor(initialSite) {
     const debouncedSave = debounce(() => {
         if (isDirty.value && !isSaving.value) {
             isSaving.value = true;
-            axios.put(`/admin/sites/${site.value.id}/draft`, {
-                content: draftContent.value,
-                create_version: false,
-            }).then((response) => {
-                site.value = response.data.data;
-                if (response.data.data.draft_content) {
-                    draftContent.value = deepClone(response.data.data.draft_content);
+            (async () => {
+                try {
+                    await syncSiteSettings({ silentValidation: true });
+                    await persistDraft({ createVersion: false });
+                } catch (err) {
+                    error.value = err.response?.data?.message || 'Erro ao salvar rascunho';
+                    console.error('Auto-save error:', err);
+                } finally {
+                    isSaving.value = false;
                 }
-                originalContent.value = deepClone(draftContent.value);
-                isDirty.value = false;
-                lastSaved.value = new Date().toISOString();
-            }).catch((err) => {
-                error.value = err.response?.data?.message || 'Erro ao salvar rascunho';
-                console.error('Auto-save error:', err);
-            }).finally(() => {
-                isSaving.value = false;
-            });
+            })();
         }
     }, 5000);
 
@@ -308,7 +612,10 @@ export default function useSiteEditor(initialSite) {
         updateSection,
         updateMeta,
         updateTheme,
+        touchMutation,
         save,
+        createVersionSnapshot,
+        applyServerSiteData,
         publish,
         rollback,
         discardChanges,

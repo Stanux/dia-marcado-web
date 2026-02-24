@@ -106,6 +106,8 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
     Route::put('/sites/{site}/settings', [\App\Http\Controllers\Api\SiteLayoutController::class, 'updateSettings'])->name('sites.update-settings');
     Route::get('/sites/{site}/preview', [\App\Http\Controllers\Api\SiteLayoutController::class, 'preview'])->name('sites.preview');
     Route::get('/sites/{site}/qa', [\App\Http\Controllers\Api\SiteLayoutController::class, 'qa'])->name('sites.qa');
+    Route::get('/sites/{site}/versions', [\App\Http\Controllers\Api\SiteLayoutController::class, 'versions'])->name('sites.versions');
+    Route::post('/sites/{site}/restore', [\App\Http\Controllers\Api\SiteLayoutController::class, 'restore'])->name('sites.restore');
     Route::post('/sites/{site}/publish', [\App\Http\Controllers\Api\SiteLayoutController::class, 'publish'])->name('sites.publish');
     Route::post('/sites/{site}/rollback', [\App\Http\Controllers\Api\SiteLayoutController::class, 'rollback'])->name('sites.rollback');
     

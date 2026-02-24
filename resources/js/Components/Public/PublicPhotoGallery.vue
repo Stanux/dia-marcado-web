@@ -19,7 +19,62 @@ const props = defineProps({
     },
 });
 
+const DEFAULT_TITLE_TYPOGRAPHY = {
+    fontFamily: 'Playfair Display',
+    fontColor: '#a18072',
+    fontSize: 40,
+    fontWeight: 700,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_TABS_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#6b7280',
+    fontSize: 14,
+    fontWeight: 500,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_TABS_ACTIVE_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#111827',
+    fontSize: 14,
+    fontWeight: 600,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_TABS_STYLE = {
+    backgroundColor: '#f3f4f6',
+    activeBackgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+    activeBorderColor: '#b8998a',
+};
+
+const DEFAULT_DISPLAY = {
+    showBefore: true,
+    showAfter: true,
+};
+
 const style = computed(() => props.content.style || {});
+const resolveBaseBackgroundColor = (value) => {
+    const fallback = props.theme?.baseBackgroundColor || '#ffffff';
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return fallback;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (normalized === '#ffffff' || normalized === '#fff') {
+        return fallback;
+    }
+
+    return value;
+};
+
+const sectionBackgroundColor = computed(() => resolveBaseBackgroundColor(style.value.backgroundColor));
 const layout = computed(() => props.content.layout || 'masonry');
 const showLightbox = computed(() => props.content.showLightbox ?? true);
 const allowDownload = computed(() => props.content.allowDownload ?? true);
@@ -45,6 +100,8 @@ const normalizeGalleryItem = (item, index = 0) => {
             mediaId: null,
             type: 'image',
             url: item,
+            originalUrl: item,
+            displayUrl: item,
             thumbnailUrl: item,
             alt: '',
             title: '',
@@ -60,17 +117,25 @@ const normalizeGalleryItem = (item, index = 0) => {
 
     const type = item.type === 'video' ? 'video' : 'image';
 
+    const originalUrl = item.originalUrl ?? item.original_url ?? item.url ?? '';
+    const displayUrl = type === 'video'
+        ? (item.displayUrl ?? item.display_url ?? originalUrl)
+        : (item.displayUrl ?? item.display_url ?? item.thumbnailUrl ?? item.thumbnail_url ?? originalUrl);
+    const thumbnailUrl = item.thumbnailUrl ?? item.thumbnail_url ?? (type === 'video' ? originalUrl : displayUrl);
+
     return {
         mediaId: item.mediaId ?? item.media_id ?? item.id ?? null,
         type,
         url: item.url ?? '',
-        thumbnailUrl: item.thumbnailUrl ?? item.thumbnail_url ?? item.url ?? '',
+        originalUrl,
+        displayUrl,
+        thumbnailUrl,
         alt: item.alt ?? '',
         title: item.title ?? '',
         caption: item.caption ?? '',
         width: item.width ?? null,
         height: item.height ?? null,
-        isPrivate: item.isPrivate ?? false,
+        isPrivate: false,
         sortOrder: Number.isFinite(item.sortOrder) ? item.sortOrder : index,
     };
 };
@@ -98,6 +163,79 @@ const albums = computed(() => {
         after: normalizeAlbum(source.after, 'O Grande Dia'),
     };
 });
+
+const display = computed(() => ({
+    ...DEFAULT_DISPLAY,
+    ...(props.content?.display || {}),
+}));
+
+const titleTypography = computed(() => ({
+    ...DEFAULT_TITLE_TYPOGRAPHY,
+    ...(props.content?.titleTypography || {}),
+}));
+
+const tabsTypography = computed(() => ({
+    ...DEFAULT_TABS_TYPOGRAPHY,
+    ...(props.content?.tabsTypography || {}),
+}));
+
+const tabsActiveTypography = computed(() => ({
+    ...DEFAULT_TABS_ACTIVE_TYPOGRAPHY,
+    ...(props.content?.tabsActiveTypography || {}),
+}));
+
+const tabsStyle = computed(() => ({
+    ...DEFAULT_TABS_STYLE,
+    ...(props.content?.tabsStyle || {}),
+}));
+
+const titleTextStyle = computed(() => ({
+    fontFamily: titleTypography.value.fontFamily || props.theme?.fontFamily || 'Playfair Display',
+    color: titleTypography.value.fontColor || props.theme?.primaryColor || '#a18072',
+    fontSize: titleTypography.value.fontSize ? `${titleTypography.value.fontSize}px` : undefined,
+    fontWeight: titleTypography.value.fontWeight || 700,
+    fontStyle: titleTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: titleTypography.value.fontUnderline ? 'underline' : 'none',
+}));
+
+const tabTextStyle = computed(() => ({
+    fontFamily: tabsTypography.value.fontFamily || 'Montserrat',
+    color: tabsTypography.value.fontColor || '#6b7280',
+    fontSize: tabsTypography.value.fontSize ? `${tabsTypography.value.fontSize}px` : undefined,
+    fontWeight: tabsTypography.value.fontWeight || 500,
+    fontStyle: tabsTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: tabsTypography.value.fontUnderline ? 'underline' : 'none',
+}));
+
+const tabActiveTextStyle = computed(() => ({
+    fontFamily: tabsActiveTypography.value.fontFamily || tabsTypography.value.fontFamily || 'Montserrat',
+    color: tabsActiveTypography.value.fontColor || '#111827',
+    fontSize: tabsActiveTypography.value.fontSize ? `${tabsActiveTypography.value.fontSize}px` : undefined,
+    fontWeight: tabsActiveTypography.value.fontWeight || 600,
+    fontStyle: tabsActiveTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: tabsActiveTypography.value.fontUnderline ? 'underline' : 'none',
+}));
+
+const availableAlbumKeys = computed(() => {
+    const keys = [];
+
+    if (display.value.showBefore) {
+        keys.push('before');
+    }
+
+    if (display.value.showAfter) {
+        keys.push('after');
+    }
+
+    return keys;
+});
+
+const visibleAlbums = computed(() => availableAlbumKeys.value.map((key) => ({
+    key,
+    title: albums.value[key]?.title || (key === 'before' ? 'Nossa História' : 'O Grande Dia'),
+})));
+
+const hasVisibleAlbums = computed(() => visibleAlbums.value.length > 0);
 
 const activeAlbum = ref('before');
 const visibleCountByAlbum = ref({
@@ -128,8 +266,11 @@ let slideshowInterval = null;
 const videoHoverTimeouts = new Map();
 
 const getCurrentAlbumItems = (albumKey) => {
-    const items = albums.value[albumKey]?.items || [];
-    return items.filter((item) => !item.isPrivate);
+    if (!availableAlbumKeys.value.includes(albumKey)) {
+        return [];
+    }
+
+    return albums.value[albumKey]?.items || [];
 };
 
 const currentItems = computed(() => getCurrentAlbumItems(activeAlbum.value));
@@ -173,7 +314,21 @@ const placeholderImage = (index) => {
     return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='${color}' width='400' height='400'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EMídia ${index + 1}%3C/text%3E%3C/svg%3E`;
 };
 
-const getMediaCacheKey = (item, index) => `${item?.mediaId || 'no-id'}|${item?.url || 'no-url'}|${index}`;
+const resolveOriginalSource = (item, index) => {
+    return item?.originalUrl || item?.url || placeholderImage(index);
+};
+
+const resolveDisplaySource = (item, index) => {
+    if (item?.type === 'video') {
+        return item?.displayUrl || resolveOriginalSource(item, index);
+    }
+
+    return item?.displayUrl || item?.thumbnailUrl || resolveOriginalSource(item, index);
+};
+
+const getMediaCacheKey = (item, index) => {
+    return `${item?.mediaId || 'no-id'}|${item?.displayUrl || item?.thumbnailUrl || item?.url || 'no-url'}|${index}`;
+};
 
 const resolvePreviewSource = (item, index) => {
     const cacheKey = getMediaCacheKey(item, index);
@@ -183,7 +338,7 @@ const resolvePreviewSource = (item, index) => {
         return cached;
     }
 
-    const resolved = item?.thumbnailUrl || item?.url || placeholderImage(index);
+    const resolved = resolveDisplaySource(item, index);
     previewSourceCache.value.set(cacheKey, resolved);
 
     return resolved;
@@ -195,7 +350,7 @@ const onMediaPreviewError = (item, index, event) => {
         return;
     }
 
-    const fallback = item?.url || placeholderImage(index);
+    const fallback = resolveOriginalSource(item, index);
     const cacheKey = getMediaCacheKey(item, index);
 
     if (target.src !== fallback) {
@@ -251,6 +406,14 @@ const persistGalleryCache = () => {
     }
 };
 
+const ensureActiveAlbumVisible = () => {
+    if (availableAlbumKeys.value.includes(activeAlbum.value)) {
+        return;
+    }
+
+    activeAlbum.value = availableAlbumKeys.value[0] || 'before';
+};
+
 const restoreGalleryCache = () => {
     const cacheKey = getCacheStorageKey();
     if (!cacheKey) {
@@ -274,12 +437,17 @@ const restoreGalleryCache = () => {
             };
         }
 
-        if (cachedActiveAlbum === 'before' || cachedActiveAlbum === 'after') {
+        if (
+            (cachedActiveAlbum === 'before' || cachedActiveAlbum === 'after')
+            && availableAlbumKeys.value.includes(cachedActiveAlbum)
+        ) {
             activeAlbum.value = cachedActiveAlbum;
         }
     } catch (_error) {
         // noop: cache is best effort
     }
+
+    ensureActiveAlbumVisible();
 };
 
 const currentSlideshowItem = computed(() => currentItems.value[slideshowIndex.value] || null);
@@ -397,7 +565,7 @@ const onVideoHoverEnter = (item, event) => {
         return;
     }
 
-    const mediaKey = item.mediaId || item.url;
+    const mediaKey = item.mediaId || item.originalUrl || item.url;
     clearVideoHoverTimeout(mediaKey);
 
     const video = getVideoElementFromEvent(event);
@@ -427,7 +595,7 @@ const onVideoHoverLeave = (item, event) => {
         return;
     }
 
-    const mediaKey = item.mediaId || item.url;
+    const mediaKey = item.mediaId || item.originalUrl || item.url;
     clearVideoHoverTimeout(mediaKey);
 
     const video = getVideoElementFromEvent(event);
@@ -451,12 +619,27 @@ watch(perPage, (value) => {
 });
 
 watch(activeAlbum, () => {
+    ensureActiveAlbumVisible();
     syncVisibleCountForAlbum(activeAlbum.value);
     slideshowIndex.value = 0;
     observeSentinel();
     persistGalleryCache();
     prefetchUpcomingMedia();
 });
+
+watch(
+    availableAlbumKeys,
+    (keys) => {
+        if (!keys.includes(activeAlbum.value)) {
+            activeAlbum.value = keys[0] || 'before';
+            return;
+        }
+
+        syncVisibleCountForAlbum(activeAlbum.value);
+        observeSentinel();
+    },
+    { immediate: true },
+);
 
 watch(
     () => albums.value,
@@ -491,6 +674,7 @@ watch(currentVisibleCount, () => {
 
 onMounted(() => {
     restoreGalleryCache();
+    ensureActiveAlbumVisible();
 
     observer = new IntersectionObserver(
         (entries) => {
@@ -526,38 +710,60 @@ onUnmounted(() => {
 
 <template>
     <section
+        v-if="hasVisibleAlbums"
         id="photo-gallery"
         class="py-20 px-4"
-        :style="{ backgroundColor: style.backgroundColor || '#ffffff' }"
+        :style="{ backgroundColor: sectionBackgroundColor }"
     >
         <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-10">
+            <div class="text-center mb-6">
                 <h2
                     class="text-3xl md:text-4xl font-bold mb-4"
-                    :style="{ color: theme.primaryColor, fontFamily: theme.fontFamily }"
+                    :style="titleTextStyle"
                 >
-                    Galeria de Fotos
+                    {{ content.title || 'Galeria de Fotos' }}
                 </h2>
             </div>
 
-            <div class="flex justify-center mb-10">
-                <div class="flex w-full max-w-md sm:max-w-none sm:w-auto flex-col sm:flex-row bg-gray-100 rounded-xl p-1.5 gap-1">
+            <div v-if="visibleAlbums.length > 1" class="flex justify-center mb-10">
+                <div
+                    class="flex w-full max-w-md sm:max-w-none sm:w-auto flex-col sm:flex-row rounded-xl p-1.5 gap-1"
+                    :style="{ backgroundColor: tabsStyle.backgroundColor, border: `1px solid ${tabsStyle.borderColor}` }"
+                >
                     <button
+                        v-for="album in visibleAlbums"
+                        :key="album.key"
                         type="button"
-                        class="w-full sm:w-auto px-4 sm:px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 break-words"
-                        :class="activeAlbum === 'before' ? 'bg-white shadow-md text-gray-900' : 'text-gray-600 hover:text-gray-900'"
-                        @click="activeAlbum = 'before'"
+                        class="w-full sm:w-auto px-4 sm:px-6 py-2.5 rounded-lg transition-all duration-200 break-words"
+                        :style="activeAlbum === album.key
+                            ? {
+                                ...tabActiveTextStyle,
+                                backgroundColor: tabsStyle.activeBackgroundColor,
+                                border: `1px solid ${tabsStyle.activeBorderColor}`,
+                                boxShadow: '0 3px 10px rgba(0, 0, 0, 0.08)'
+                            }
+                            : {
+                                ...tabTextStyle,
+                                backgroundColor: 'transparent',
+                                border: '1px solid transparent'
+                            }"
+                        @click="activeAlbum = album.key"
                     >
-                        {{ albums.before.title }}
+                        {{ album.title }}
                     </button>
-                    <button
-                        type="button"
-                        class="w-full sm:w-auto px-4 sm:px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 break-words"
-                        :class="activeAlbum === 'after' ? 'bg-white shadow-md text-gray-900' : 'text-gray-600 hover:text-gray-900'"
-                        @click="activeAlbum = 'after'"
-                    >
-                        {{ albums.after.title }}
-                    </button>
+                </div>
+            </div>
+            <div v-else-if="visibleAlbums.length === 1" class="flex justify-center mb-10">
+                <div
+                    class="px-4 sm:px-6 py-2.5 rounded-lg break-words text-center max-w-full"
+                    :style="{
+                        ...tabActiveTextStyle,
+                        backgroundColor: tabsStyle.activeBackgroundColor,
+                        border: `1px solid ${tabsStyle.activeBorderColor}`,
+                        boxShadow: '0 3px 10px rgba(0, 0, 0, 0.08)'
+                    }"
+                >
+                    {{ visibleAlbums[0].title }}
                 </div>
             </div>
 
@@ -587,7 +793,7 @@ onUnmounted(() => {
                 >
                     <video
                         v-if="item.type === 'video'"
-                        :src="item.url"
+                        :src="resolveDisplaySource(item, index)"
                         :poster="resolvePreviewSource(item, index)"
                         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         :class="layout === 'masonry' && index % 5 === 0 ? 'aspect-[3/4]' : 'aspect-square'"
@@ -638,7 +844,7 @@ onUnmounted(() => {
                 <div class="aspect-video bg-gray-100 rounded-2xl overflow-hidden shadow-xl cursor-pointer" @click="openLightbox(slideshowIndex)">
                     <video
                         v-if="currentSlideshowItem?.type === 'video'"
-                        :src="currentSlideshowItem.url"
+                        :src="resolveDisplaySource(currentSlideshowItem, slideshowIndex)"
                         :poster="resolvePreviewSource(currentSlideshowItem, slideshowIndex)"
                         class="w-full h-full object-cover"
                         muted

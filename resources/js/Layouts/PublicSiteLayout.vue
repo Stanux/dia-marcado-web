@@ -15,6 +15,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    content: {
+        type: Object,
+        default: () => ({}),
+    },
     wedding: {
         type: Object,
         required: true,
@@ -22,20 +26,30 @@ const props = defineProps({
 });
 
 // Extract theme from site content
+const resolvedContent = computed(() => {
+    if (props.content && Object.keys(props.content).length > 0) {
+        return props.content;
+    }
+
+    return props.site.published_content || props.site.draft_content || {};
+});
+
 const theme = computed(() => {
-    const content = props.site.published_content || props.site.draft_content || {};
-    return content.theme || {
+    const content = resolvedContent.value;
+    return {
         primaryColor: '#d4a574',
         secondaryColor: '#8b7355',
+        baseBackgroundColor: '#ffffff',
+        surfaceBackgroundColor: '#f5ebe4',
         fontFamily: 'Georgia, serif',
         fontSize: '16px',
+        ...(content.theme || {}),
     };
 });
 
 // Extract meta from site content
 const meta = computed(() => {
-    const content = props.site.published_content || props.site.draft_content || {};
-    return content.meta || {};
+    return resolvedContent.value.meta || {};
 });
 
 // Page title
@@ -52,6 +66,8 @@ provide('site', props.site);
 const themeStyles = computed(() => ({
     '--primary-color': theme.value.primaryColor,
     '--secondary-color': theme.value.secondaryColor,
+    '--base-background-color': theme.value.baseBackgroundColor || '#ffffff',
+    '--surface-background-color': theme.value.surfaceBackgroundColor || '#f5ebe4',
     '--font-family': theme.value.fontFamily,
     '--font-size': theme.value.fontSize,
 }));
@@ -91,6 +107,7 @@ const themeStyles = computed(() => ({
     font-size: var(--font-size);
     line-height: 1.6;
     color: #333;
+    background-color: var(--base-background-color);
     min-height: 100vh;
 }
 

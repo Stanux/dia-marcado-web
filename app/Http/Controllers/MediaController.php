@@ -101,6 +101,12 @@ class MediaController extends Controller
             ]);
 
             // Return media data as JSON
+            $thumbnailUrl = $media->getVariantUrl('thumbnail') ?? $media->getUrl();
+            $displayUrl = $media->getVariantUrl('1x')
+                ?? $thumbnailUrl
+                ?? $media->getUrl();
+            $originalUrl = $media->getVariantUrl('2x') ?? $media->getUrl();
+
             return response()->json([
                 'id' => $media->id,
                 'album_id' => $media->album_id,
@@ -109,7 +115,9 @@ class MediaController extends Controller
                 'mime_type' => $media->mime_type,
                 'size' => $media->size,
                 'url' => $media->getUrl(),
-                'thumbnail_url' => $media->getVariantUrl('thumbnail') ?? $media->getUrl(),
+                'thumbnail_url' => $thumbnailUrl,
+                'display_url' => $displayUrl,
+                'original_url' => $originalUrl,
                 'created_at' => $media->created_at->toISOString(),
                 'updated_at' => $media->updated_at->toISOString(),
             ], 201);
@@ -619,6 +627,9 @@ class MediaController extends Controller
                     'height' => $newMedia->height,
                     'url' => $newMedia->getUrl(),
                     'thumbnail_url' => $newMedia->getVariantUrl('thumbnail') ?? $newMedia->getUrl(),
+                    'display_url' => $newMedia->getVariantUrl('1x')
+                        ?? ($newMedia->getVariantUrl('thumbnail') ?? $newMedia->getUrl()),
+                    'original_url' => $newMedia->getVariantUrl('2x') ?? $newMedia->getUrl(),
                     'alt' => $newMedia->alt,
                     'created_at' => $newMedia->created_at->toISOString(),
                 ]

@@ -21,6 +21,24 @@ const props = defineProps({
 const emit = defineEmits(['change']);
 const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
+const defaultCalendarButtonTypography = {
+    fontFamily: 'Montserrat',
+    fontColor: '#ffffff',
+    fontSize: 14,
+    fontWeight: 600,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const defaultCalendarButtonStyle = {
+    backgroundColor: '#d4a574',
+    borderColor: '#d4a574',
+    borderWidth: 0,
+    borderRadius: 8,
+    paddingX: 24,
+    paddingY: 12,
+};
+
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
 
@@ -85,6 +103,14 @@ const sectionTypography = computed(() => localContent.value.sectionTypography ||
 const descriptionTypography = computed(() => localContent.value.descriptionTypography || {});
 const countdownNumbersTypography = computed(() => localContent.value.countdownNumbersTypography || {});
 const countdownLabelsTypography = computed(() => localContent.value.countdownLabelsTypography || {});
+const calendarButtonTypography = computed(() => ({
+    ...defaultCalendarButtonTypography,
+    ...(localContent.value.calendarButtonTypography || {}),
+}));
+const calendarButtonStyle = computed(() => ({
+    ...defaultCalendarButtonStyle,
+    ...(localContent.value.calendarButtonStyle || {}),
+}));
 const selectedLayout = computed(() => {
     if (style.value.layout === 'inline') {
         return 'inline';
@@ -94,8 +120,47 @@ const selectedLayout = computed(() => {
     return 'modal';
 });
 
+const saveTheDateTypographyPreviewBackgroundColor = computed(() => {
+    return selectedLayout.value === 'inline'
+        ? saveTheDateBackgroundColorHex.value
+        : '#ffffff';
+});
+const calendarButtonBackgroundColorHex = computed(() => normalizeHexColor(calendarButtonStyle.value.backgroundColor, '#d4a574'));
+const calendarButtonBorderColorHex = computed(() => normalizeHexColor(calendarButtonStyle.value.borderColor, '#000000'));
+const calendarButtonPreviewStyle = computed(() => ({
+    fontFamily: calendarButtonTypography.value.fontFamily,
+    color: calendarButtonTypography.value.fontColor,
+    fontSize: `${calendarButtonTypography.value.fontSize}px`,
+    fontWeight: calendarButtonTypography.value.fontWeight,
+    fontStyle: calendarButtonTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: calendarButtonTypography.value.fontUnderline ? 'underline' : 'none',
+    backgroundColor: calendarButtonStyle.value.backgroundColor,
+    borderColor: calendarButtonStyle.value.borderColor,
+    borderWidth: `${calendarButtonStyle.value.borderWidth}px`,
+    borderStyle: Number(calendarButtonStyle.value.borderWidth) > 0 ? 'solid' : 'none',
+    borderRadius: `${calendarButtonStyle.value.borderRadius}px`,
+    padding: `${calendarButtonStyle.value.paddingY}px ${calendarButtonStyle.value.paddingX}px`,
+}));
+
 const pickSaveTheDateBackgroundColor = () => {
     pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
+};
+
+const updateCalendarButtonStyle = (field, value) => {
+    if (!localContent.value.calendarButtonStyle) {
+        localContent.value.calendarButtonStyle = {};
+    }
+
+    localContent.value.calendarButtonStyle[field] = value;
+    emitChange();
+};
+
+const pickCalendarButtonBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateCalendarButtonStyle('backgroundColor', hex));
+};
+
+const pickCalendarButtonBorderColor = () => {
+    pickColorFromScreen((hex) => updateCalendarButtonStyle('borderColor', hex));
 };
 </script>
 
@@ -113,6 +178,7 @@ const pickSaveTheDateBackgroundColor = () => {
                 :font-weight="sectionTypography.fontWeight || 400"
                 :font-italic="sectionTypography.fontItalic || false"
                 :font-underline="sectionTypography.fontUnderline || false"
+                :preview-background-color="saveTheDateTypographyPreviewBackgroundColor"
                 label="Formatação Geral"
                 :show-size="true"
                 @update:font-family="updateTypography('sectionTypography', 'fontFamily', $event)"
@@ -195,6 +261,7 @@ const pickSaveTheDateBackgroundColor = () => {
                     :font-weight="descriptionTypography.fontWeight || 400"
                     :font-italic="descriptionTypography.fontItalic || false"
                     :font-underline="descriptionTypography.fontUnderline || false"
+                    :preview-background-color="saveTheDateTypographyPreviewBackgroundColor"
                     label="Formatação da Descrição"
                     @update:font-family="updateTypography('descriptionTypography', 'fontFamily', $event)"
                     @update:font-color="updateTypography('descriptionTypography', 'fontColor', $event)"
@@ -244,6 +311,7 @@ const pickSaveTheDateBackgroundColor = () => {
                         :font-weight="countdownNumbersTypography.fontWeight || 700"
                         :font-italic="countdownNumbersTypography.fontItalic || false"
                         :font-underline="countdownNumbersTypography.fontUnderline || false"
+                        :preview-background-color="saveTheDateTypographyPreviewBackgroundColor"
                         label="Formatação dos Números"
                         @update:font-family="updateTypography('countdownNumbersTypography', 'fontFamily', $event)"
                         @update:font-color="updateTypography('countdownNumbersTypography', 'fontColor', $event)"
@@ -263,6 +331,7 @@ const pickSaveTheDateBackgroundColor = () => {
                         :font-weight="countdownLabelsTypography.fontWeight || 400"
                         :font-italic="countdownLabelsTypography.fontItalic || false"
                         :font-underline="countdownLabelsTypography.fontUnderline || false"
+                        :preview-background-color="saveTheDateTypographyPreviewBackgroundColor"
                         label="Formatação das Labels"
                         @update:font-family="updateTypography('countdownLabelsTypography', 'fontFamily', $event)"
                         @update:font-color="updateTypography('countdownLabelsTypography', 'fontColor', $event)"
@@ -350,6 +419,130 @@ const pickSaveTheDateBackgroundColor = () => {
                 <label class="ml-2 text-sm text-gray-700">Exibir botão "Adicionar ao calendário"</label>
             </div>
             <p class="text-xs text-gray-500">Gera arquivo .ics automaticamente com os dados do evento</p>
+
+            <template v-if="localContent.showCalendarButton">
+                <TypographyControl
+                    :font-family="calendarButtonTypography.fontFamily"
+                    :font-color="calendarButtonTypography.fontColor"
+                    :font-size="calendarButtonTypography.fontSize"
+                    :font-weight="calendarButtonTypography.fontWeight"
+                    :font-italic="calendarButtonTypography.fontItalic"
+                    :font-underline="calendarButtonTypography.fontUnderline"
+                    :preview-background-color="saveTheDateTypographyPreviewBackgroundColor"
+                    label="Tipografia do Botão"
+                    @update:font-family="updateTypography('calendarButtonTypography', 'fontFamily', $event)"
+                    @update:font-color="updateTypography('calendarButtonTypography', 'fontColor', $event)"
+                    @update:font-size="updateTypography('calendarButtonTypography', 'fontSize', $event)"
+                    @update:font-weight="updateTypography('calendarButtonTypography', 'fontWeight', $event)"
+                    @update:font-italic="updateTypography('calendarButtonTypography', 'fontItalic', $event)"
+                    @update:font-underline="updateTypography('calendarButtonTypography', 'fontUnderline', $event)"
+                />
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Fundo do Botão</label>
+                        <div class="flex items-center space-x-2">
+                            <input
+                                type="color"
+                                :value="calendarButtonBackgroundColorHex"
+                                @input="updateCalendarButtonStyle('backgroundColor', $event.target.value)"
+                                @change="updateCalendarButtonStyle('backgroundColor', $event.target.value)"
+                                class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <button
+                                v-if="isEyeDropperSupported"
+                                type="button"
+                                @click="pickCalendarButtonBackgroundColor"
+                                class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                title="Capturar cor da tela"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Borda do Botão</label>
+                        <div class="flex items-center space-x-2">
+                            <input
+                                type="color"
+                                :value="calendarButtonBorderColorHex"
+                                @input="updateCalendarButtonStyle('borderColor', $event.target.value)"
+                                @change="updateCalendarButtonStyle('borderColor', $event.target.value)"
+                                class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <button
+                                v-if="isEyeDropperSupported"
+                                type="button"
+                                @click="pickCalendarButtonBorderColor"
+                                class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                                title="Capturar cor da tela"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Espessura da Borda (px)</label>
+                        <input
+                            type="number"
+                            min="0"
+                            max="8"
+                            :value="calendarButtonStyle.borderWidth"
+                            @input="updateCalendarButtonStyle('borderWidth', Math.max(0, Number.parseInt($event.target.value, 10) || 0))"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Arredondamento (px)</label>
+                        <input
+                            type="number"
+                            min="0"
+                            max="40"
+                            :value="calendarButtonStyle.borderRadius"
+                            @input="updateCalendarButtonStyle('borderRadius', Math.max(0, Number.parseInt($event.target.value, 10) || 0))"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Padding Horizontal (px)</label>
+                        <input
+                            type="number"
+                            min="8"
+                            max="48"
+                            :value="calendarButtonStyle.paddingX"
+                            @input="updateCalendarButtonStyle('paddingX', Math.max(0, Number.parseInt($event.target.value, 10) || 0))"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Padding Vertical (px)</label>
+                        <input
+                            type="number"
+                            min="6"
+                            max="24"
+                            :value="calendarButtonStyle.paddingY"
+                            @input="updateCalendarButtonStyle('paddingY', Math.max(0, Number.parseInt($event.target.value, 10) || 0))"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                        />
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <p class="text-xs text-gray-500 mb-2">Preview do botão</p>
+                    <div class="inline-flex items-center transition-all duration-200" :style="calendarButtonPreviewStyle">
+                        Adicionar ao Calendário
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 </template>

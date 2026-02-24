@@ -448,14 +448,37 @@ const needsCrop = (media) => {
 /**
  * Build standard selection payload for single and multiple modes.
  */
+const resolveMediaOriginalUrl = (media) => {
+    if (!media || typeof media !== 'object') {
+        return '';
+    }
+
+    return media.original_url || media.originalUrl || media.url || '';
+};
+
+const resolveMediaDisplayUrl = (media) => {
+    if (!media || typeof media !== 'object') {
+        return '';
+    }
+
+    return media.display_url
+        || media.displayUrl
+        || media.variant_1x
+        || media.variant1x
+        || media.url
+        || '';
+};
+
 const buildSelectionPayload = (media) => ({
-    url: media.url,
+    url: resolveMediaOriginalUrl(media),
+    originalUrl: resolveMediaOriginalUrl(media),
+    displayUrl: resolveMediaDisplayUrl(media),
     alt: media.alt || media.filename,
     width: media.width,
     height: media.height,
     mediaId: media.id,
     type: media.type || 'image',
-    thumbnailUrl: media.thumbnail_url || media.url,
+    thumbnailUrl: media.thumbnail_url || media.thumbnailUrl || media.url,
     filename: media.filename || '',
     albumId: selectedAlbum.value?.id || null,
 });

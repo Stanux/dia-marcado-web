@@ -413,6 +413,44 @@ const updateSubtitleTypography = (field, value) => {
     emitChange();
 };
 
+/**
+ * Atualizar tipografia do menu
+ */
+const updateMenuTypography = (field, value) => {
+    if (!localContent.value.menuTypography) {
+        localContent.value.menuTypography = {
+            fontFamily: 'Montserrat',
+            fontColor: '#374151',
+            fontSize: 14,
+            fontWeight: 400,
+            fontItalic: false,
+            fontUnderline: false,
+        };
+    }
+
+    localContent.value.menuTypography[field] = value;
+    emitChange();
+};
+
+/**
+ * Atualizar tipografia de hover do menu
+ */
+const updateMenuHoverTypography = (field, value) => {
+    if (!localContent.value.menuHoverTypography) {
+        localContent.value.menuHoverTypography = {
+            fontFamily: 'Montserrat',
+            fontColor: '#d4a574',
+            fontSize: 14,
+            fontWeight: 500,
+            fontItalic: false,
+            fontUnderline: false,
+        };
+    }
+
+    localContent.value.menuHoverTypography[field] = value;
+    emitChange();
+};
+
 const normalizeHexColor = (color, fallback = '#ffffff') => {
     if (typeof color !== 'string' || !color.trim()) {
         return fallback;
@@ -471,6 +509,22 @@ const subtitleTypography = computed(() => localContent.value.subtitleTypography 
     fontSize: 24,
     fontWeight: 400,
     fontItalic: true,
+    fontUnderline: false,
+});
+const menuTypography = computed(() => localContent.value.menuTypography || {
+    fontFamily: 'Montserrat',
+    fontColor: '#374151',
+    fontSize: 14,
+    fontWeight: 400,
+    fontItalic: false,
+    fontUnderline: false,
+});
+const menuHoverTypography = computed(() => localContent.value.menuHoverTypography || {
+    fontFamily: 'Montserrat',
+    fontColor: '#d4a574',
+    fontSize: 14,
+    fontWeight: 500,
+    fontItalic: false,
     fontUnderline: false,
 });
 const style = computed(() => localContent.value.style || {});
@@ -610,6 +664,7 @@ onMounted(() => {
                     :font-weight="logoTextTypography.fontWeight"
                     :font-italic="logoTextTypography.fontItalic"
                     :font-underline="logoTextTypography.fontUnderline"
+                    :preview-background-color="headerBackgroundColorHex"
                     @update:font-family="updateLogoTextTypography('fontFamily', $event)"
                     @update:font-color="updateLogoTextTypography('fontColor', $event)"
                     @update:font-size="updateLogoTextTypography('fontSize', $event)"
@@ -705,6 +760,7 @@ onMounted(() => {
                 :font-weight="titleTypography.fontWeight"
                 :font-italic="titleTypography.fontItalic"
                 :font-underline="titleTypography.fontUnderline"
+                :preview-background-color="headerBackgroundColorHex"
                 @update:font-family="updateTitleTypography('fontFamily', $event)"
                 @update:font-color="updateTitleTypography('fontColor', $event)"
                 @update:font-size="updateTitleTypography('fontSize', $event)"
@@ -733,6 +789,7 @@ onMounted(() => {
                 :font-weight="subtitleTypography.fontWeight"
                 :font-italic="subtitleTypography.fontItalic"
                 :font-underline="subtitleTypography.fontUnderline"
+                :preview-background-color="headerBackgroundColorHex"
                 @update:font-family="updateSubtitleTypography('fontFamily', $event)"
                 @update:font-color="updateSubtitleTypography('fontColor', $event)"
                 @update:font-size="updateSubtitleTypography('fontSize', $event)"
@@ -748,6 +805,40 @@ onMounted(() => {
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Menu de Navegação</h3>
             
             <p class="text-sm text-gray-600">Configure quais seções aparecerão no menu de navegação e personalize seus rótulos.</p>
+
+            <TypographyControl
+                :font-family="menuTypography.fontFamily"
+                :font-color="menuTypography.fontColor"
+                :font-size="menuTypography.fontSize"
+                :font-weight="menuTypography.fontWeight"
+                :font-italic="menuTypography.fontItalic"
+                :font-underline="menuTypography.fontUnderline"
+                :preview-background-color="headerBackgroundColorHex"
+                @update:font-family="updateMenuTypography('fontFamily', $event)"
+                @update:font-color="updateMenuTypography('fontColor', $event)"
+                @update:font-size="updateMenuTypography('fontSize', $event)"
+                @update:font-weight="updateMenuTypography('fontWeight', $event)"
+                @update:font-italic="updateMenuTypography('fontItalic', $event)"
+                @update:font-underline="updateMenuTypography('fontUnderline', $event)"
+                label="Tipografia do Menu"
+            />
+
+            <TypographyControl
+                :font-family="menuHoverTypography.fontFamily"
+                :font-color="menuHoverTypography.fontColor"
+                :font-size="menuHoverTypography.fontSize"
+                :font-weight="menuHoverTypography.fontWeight"
+                :font-italic="menuHoverTypography.fontItalic"
+                :font-underline="menuHoverTypography.fontUnderline"
+                :preview-background-color="headerBackgroundColorHex"
+                @update:font-family="updateMenuHoverTypography('fontFamily', $event)"
+                @update:font-color="updateMenuHoverTypography('fontColor', $event)"
+                @update:font-size="updateMenuHoverTypography('fontSize', $event)"
+                @update:font-weight="updateMenuHoverTypography('fontWeight', $event)"
+                @update:font-italic="updateMenuHoverTypography('fontItalic', $event)"
+                @update:font-underline="updateMenuHoverTypography('fontUnderline', $event)"
+                label="Tipografia do Menu (Hover)"
+            />
 
             <div class="space-y-2">
                 <div

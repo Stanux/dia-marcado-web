@@ -27,17 +27,22 @@ const props = defineProps({
 });
 
 const page = usePage();
+const FIXED_SECTION_KEYS = ['header', 'footer'];
+const DEFAULT_MOVABLE_SECTION_ORDER = ['hero', 'saveTheDate', 'giftRegistry', 'rsvp', 'photoGallery'];
 
 // Extract sections from content
 const sections = computed(() => props.content.sections || {});
 
 // Extract theme from content
-const theme = computed(() => props.content.theme || {
+const theme = computed(() => ({
     primaryColor: '#d4a574',
     secondaryColor: '#8b7355',
+    baseBackgroundColor: '#ffffff',
+    surfaceBackgroundColor: '#f5ebe4',
     fontFamily: 'Georgia, serif',
     fontSize: '16px',
-});
+    ...(props.content.theme || {}),
+}));
 
 // Mock wedding data for preview (uses actual wedding data from page props if available)
 const wedding = computed(() => page.props.wedding || {});
@@ -61,6 +66,58 @@ const enabledSections = computed(() => {
     return result;
 });
 
+const sanitizeMovableSectionOrder = (rawOrder, availableSectionKeys) => {
+    const availableMovableKeys = availableSectionKeys.filter((key) => !FIXED_SECTION_KEYS.includes(key));
+    const requestedOrder = Array.isArray(rawOrder) ? rawOrder : [];
+
+    const sanitized = [];
+
+    requestedOrder.forEach((key) => {
+        if (!availableMovableKeys.includes(key)) {
+            return;
+        }
+
+        if (!sanitized.includes(key)) {
+            sanitized.push(key);
+        }
+    });
+
+    DEFAULT_MOVABLE_SECTION_ORDER.forEach((key) => {
+        if (availableMovableKeys.includes(key) && !sanitized.includes(key)) {
+            sanitized.push(key);
+        }
+    });
+
+    availableMovableKeys.forEach((key) => {
+        if (!sanitized.includes(key)) {
+            sanitized.push(key);
+        }
+    });
+
+    return sanitized;
+};
+
+const orderedSectionKeys = computed(() => {
+    const availableSectionKeys = Object.keys(sections.value);
+    const movableOrder = sanitizeMovableSectionOrder(props.content?.sectionOrder, availableSectionKeys);
+
+    return [
+        ...(availableSectionKeys.includes('header') ? ['header'] : []),
+        ...movableOrder,
+        ...(availableSectionKeys.includes('footer') ? ['footer'] : []),
+    ];
+});
+
+const sectionComponentMap = {
+    header: PublicHeader,
+    hero: PublicHero,
+    saveTheDate: PublicSaveTheDate,
+    giftRegistry: PublicGiftRegistry,
+    rsvp: PublicRsvp,
+    photoGallery: PublicPhotoGallery,
+    footer: PublicFooter,
+};
+
 const rsvpPreviewScenario = computed(() => {
     return sections.value?.rsvp?.preview?.scenario || 'default';
 });
@@ -79,6 +136,80 @@ const rsvpPreviewInviteTokenState = computed(() => {
             return null;
     }
 });
+
+const renderedSections = computed(() => {
+    return orderedSectionKeys.value
+        .filter((sectionKey) => isSectionEnabled(sectionKey))
+        .map((sectionKey) => {
+            const component = sectionComponentMap[sectionKey];
+            if (!component) {
+                return null;
+            }
+
+            const content = getSectionContent(sectionKey);
+            const baseProps = {
+                content,
+                theme: theme.value,
+            };
+
+            if (sectionKey === 'header') {
+                return {
+                    key: sectionKey,
+                    component,
+                    props: {
+                        ...baseProps,
+                        enabledSections: enabledSections.value,
+                        viewportMode: props.mode,
+                    },
+                };
+            }
+
+            if (sectionKey === 'saveTheDate') {
+                return {
+                    key: sectionKey,
+                    component,
+                    props: {
+                        ...baseProps,
+                        wedding: wedding.value,
+                    },
+                };
+            }
+
+            if (sectionKey === 'giftRegistry') {
+                return {
+                    key: sectionKey,
+                    component,
+                    props: {
+                        ...baseProps,
+                        eventId: wedding.value.id,
+                        config: wedding.value.gift_registry_config,
+                        isPreview: true,
+                    },
+                };
+            }
+
+            if (sectionKey === 'rsvp') {
+                return {
+                    key: sectionKey,
+                    component,
+                    props: {
+                        ...baseProps,
+                        wedding: wedding.value,
+                        isPreview: true,
+                        previewScenario: rsvpPreviewScenario.value,
+                        inviteTokenState: rsvpPreviewInviteTokenState.value,
+                    },
+                };
+            }
+
+            return {
+                key: sectionKey,
+                component,
+                props: baseProps,
+            };
+        })
+        .filter(Boolean);
+});
 </script>
 
 <template>
@@ -87,74 +218,23 @@ const rsvpPreviewInviteTokenState = computed(() => {
         :style="{ 
             fontFamily: theme.fontFamily + ', serif', 
             fontSize: theme.fontSize,
+            backgroundColor: theme.baseBackgroundColor || '#ffffff',
             width: '100%',
             margin: 0,
             padding: 0,
             boxSizing: 'border-box',
         }"
     >
-        <!-- Header Section -->
-        <PublicHeader
-            v-if="isSectionEnabled('header')"
-            :content="getSectionContent('header')"
-            :theme="theme"
-            :enabled-sections="enabledSections"
-            :viewport-mode="mode"
-        />
-
-        <!-- Hero Section -->
-        <PublicHero
-            v-if="isSectionEnabled('hero')"
-            :content="getSectionContent('hero')"
-            :theme="theme"
-        />
-
-        <!-- Save the Date Section -->
-        <PublicSaveTheDate
-            v-if="isSectionEnabled('saveTheDate')"
-            :content="getSectionContent('saveTheDate')"
-            :theme="theme"
-            :wedding="wedding"
-        />
-
-        <!-- Gift Registry Section -->
-        <PublicGiftRegistry
-            v-if="isSectionEnabled('giftRegistry')"
-            :content="getSectionContent('giftRegistry')"
-            :theme="theme"
-            :event-id="wedding.id"
-            :config="wedding.gift_registry_config"
-            :is-preview="true"
-        />
-
-        <!-- RSVP Section -->
-        <PublicRsvp
-            v-if="isSectionEnabled('rsvp')"
-            :content="getSectionContent('rsvp')"
-            :theme="theme"
-            :wedding="wedding"
-            :is-preview="true"
-            :preview-scenario="rsvpPreviewScenario"
-            :invite-token-state="rsvpPreviewInviteTokenState"
-        />
-
-        <!-- Photo Gallery Section -->
-        <PublicPhotoGallery
-            v-if="isSectionEnabled('photoGallery')"
-            :content="getSectionContent('photoGallery')"
-            :theme="theme"
-        />
-
-        <!-- Footer Section -->
-        <PublicFooter
-            v-if="isSectionEnabled('footer')"
-            :content="getSectionContent('footer')"
-            :theme="theme"
+        <component
+            :is="section.component"
+            v-for="section in renderedSections"
+            :key="section.key"
+            v-bind="section.props"
         />
 
         <!-- Empty State -->
         <div 
-            v-if="!isSectionEnabled('header') && !isSectionEnabled('hero') && !isSectionEnabled('saveTheDate') && !isSectionEnabled('giftRegistry') && !isSectionEnabled('rsvp') && !isSectionEnabled('photoGallery') && !isSectionEnabled('footer')" 
+            v-if="renderedSections.length === 0" 
             class="flex items-center justify-center min-h-[400px] bg-gray-50"
         >
             <div class="text-center text-gray-400">

@@ -26,7 +26,7 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['close', 'published', 'error']);
+const emit = defineEmits(['close', 'published', 'error', 'navigate-to-section']);
 
 // State
 const isLoading = ref(false);
@@ -117,6 +117,15 @@ const publish = async () => {
 
 const enableOverride = () => {
     showOverrideWarning.value = true;
+};
+
+const navigateToSection = (section) => {
+    if (!section) {
+        return;
+    }
+
+    emit('navigate-to-section', section);
+    closeDialog();
 };
 
 const closeDialog = () => {
@@ -249,6 +258,7 @@ watch(() => props.isOpen, (isOpen) => {
                             <QAPanel 
                                 :checks="qaResult.checks || []"
                                 :show-all="true"
+                                @navigate-to-section="navigateToSection"
                             />
 
                             <!-- Override Warning -->

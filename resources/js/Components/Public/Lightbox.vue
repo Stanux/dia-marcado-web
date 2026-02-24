@@ -35,6 +35,32 @@ const isCurrentVideo = computed(() => currentItem.value?.type === 'video');
 const hasPrevious = computed(() => currentIndex.value > 0);
 const hasNext = computed(() => currentIndex.value < allItems.value.length - 1);
 
+const getOriginalSource = (item) => {
+    if (!item || typeof item !== 'object') {
+        return '';
+    }
+
+    return item.originalUrl || item.original_url || item.url || '';
+};
+
+const getDisplaySource = (item) => {
+    if (!item || typeof item !== 'object') {
+        return '';
+    }
+
+    if (item.type === 'video') {
+        return item.displayUrl || item.display_url || getOriginalSource(item);
+    }
+
+    return item.displayUrl
+        || item.display_url
+        || item.thumbnailUrl
+        || item.thumbnail_url
+        || getOriginalSource(item);
+};
+
+const currentOriginalSource = computed(() => getOriginalSource(currentItem.value));
+
 const resetZoom = () => {
     zoomLevel.value = 1;
     isZoomed.value = false;
@@ -131,12 +157,12 @@ const handleKeydown = (event) => {
 };
 
 const downloadCurrentItem = () => {
-    if (!currentItem.value?.url) {
+    if (!currentOriginalSource.value) {
         return;
     }
 
     const link = document.createElement('a');
-    link.href = currentItem.value.url;
+    link.href = currentOriginalSource.value;
     link.download = currentItem.value.filename || currentItem.value.title || `midia-${currentIndex.value + 1}`;
     link.target = '_blank';
     document.body.appendChild(link);
@@ -205,7 +231,7 @@ onUnmounted(() => {
                 <video
                     v-if="currentItem && isCurrentVideo"
                     :key="`video-${currentItem.mediaId || currentItem.url}`"
-                    :src="currentItem.url"
+                    :src="currentOriginalSource"
                     :poster="currentItem.thumbnailUrl || undefined"
                     class="max-w-full max-h-[85vh] object-contain"
                     controls
@@ -217,7 +243,7 @@ onUnmounted(() => {
 
                 <img
                     v-else-if="currentItem"
-                    :src="currentItem.url"
+                    :src="currentOriginalSource"
                     :alt="currentItem.alt || currentItem.title || 'Mídia'"
                     class="max-w-full max-h-[85vh] object-contain transition-transform duration-200 cursor-zoom-in"
                     :class="{ 'cursor-zoom-out': isZoomed }"
@@ -289,7 +315,7 @@ onUnmounted(() => {
                         >
                             <video
                                 v-if="item.type === 'video'"
-                                :src="item.url"
+                                :src="getDisplaySource(item)"
                                 :poster="item.thumbnailUrl || undefined"
                                 class="w-full h-full object-cover"
                                 muted
@@ -298,7 +324,7 @@ onUnmounted(() => {
                             ></video>
                             <img
                                 v-else
-                                :src="item.thumbnailUrl || item.url"
+                                :src="item.thumbnailUrl || getDisplaySource(item)"
                                 :alt="`Thumbnail ${index + 1}`"
                                 class="w-full h-full object-cover"
                             />

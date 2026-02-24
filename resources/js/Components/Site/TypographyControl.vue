@@ -70,6 +70,11 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    // Cor de fundo do preview
+    previewBackgroundColor: {
+        type: String,
+        default: '#f9fafb',
+    },
     // Tamanhos predefinidos
     fontSizes: {
         type: Array,
@@ -224,6 +229,10 @@ const configSummary = computed(() => {
     
     return parts.join(' • ');
 });
+
+const previewContainerStyle = computed(() => ({
+    backgroundColor: props.previewBackgroundColor || '#f9fafb',
+}));
 </script>
 
 <template>
@@ -245,7 +254,7 @@ const configSummary = computed(() => {
         </div>
         
         <!-- Preview compacto -->
-        <div v-if="!isExpanded" class="preview-compact">
+        <div v-if="!isExpanded" class="preview-compact" :style="previewContainerStyle">
             <div class="preview-text" :style="previewStyle">Aa</div>
             <div class="preview-summary">{{ configSummary }}</div>
         </div>
@@ -389,7 +398,7 @@ const configSummary = computed(() => {
             <div class="controls-row">
                 <div class="control-group">
                     <label class="control-label-small">Preview</label>
-                    <div class="preview-box">
+                    <div class="preview-box" :style="previewContainerStyle">
                         <p :style="previewStyle">
                             O rato roeu a roupa do rei de Roma
                         </p>

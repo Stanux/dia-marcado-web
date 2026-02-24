@@ -144,7 +144,9 @@ class SiteLayoutController extends Controller
     public function updateDraft(UpdateDraftRequest $request, SiteLayout $site): JsonResponse
     {
         $user = $request->user();
-        $content = $request->validated('content');
+        // Keep the full content payload after validation passes.
+        // Using validated('content') would drop unknown nested keys (e.g. sectionOrder).
+        $content = (array) $request->input('content', []);
         $createVersion = $request->validated('create_version', true);
         $summary = $request->validated('summary', 'Rascunho atualizado');
 

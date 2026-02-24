@@ -9,6 +9,7 @@
 import { computed, ref, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { useColorField } from '@/Composables/useColorField';
+import TypographyControl from '../TypographyControl.vue';
 
 const props = defineProps({
     content: {
@@ -27,6 +28,22 @@ const DEFAULT_NAVIGATION = {
 };
 
 const DEFAULTS = {
+    titleTypography: {
+        fontFamily: 'Playfair Display',
+        fontColor: '#b8998a',
+        fontSize: 36,
+        fontWeight: 700,
+        fontItalic: false,
+        fontUnderline: false,
+    },
+    subtitleTypography: {
+        fontFamily: 'Playfair Display',
+        fontColor: '#4b5563',
+        fontSize: 18,
+        fontWeight: 400,
+        fontItalic: false,
+        fontUnderline: false,
+    },
     access: {
         mode: 'inherit',
         allowResponseUpdate: true,
@@ -170,10 +187,13 @@ const labels = computed(() => localContent.value.labels || DEFAULTS.labels);
 const statusOptions = computed(() => localContent.value.statusOptions || DEFAULTS.statusOptions);
 const style = computed(() => localContent.value.style || DEFAULTS.style);
 const preview = computed(() => localContent.value.preview || DEFAULTS.preview);
+const titleTypography = computed(() => localContent.value.titleTypography || DEFAULTS.titleTypography);
+const subtitleTypography = computed(() => localContent.value.subtitleTypography || DEFAULTS.subtitleTypography);
 
 const rsvpBackgroundColorHex = computed(() => {
     return normalizeHexColor(style.value.backgroundColor, '#f5f5f5');
 });
+const rsvpTypographyPreviewBackgroundColor = computed(() => rsvpBackgroundColorHex.value);
 
 const selectedEventIds = computed(() => {
     if (!Array.isArray(eventSelection.value.selectedEventIds)) {
@@ -237,6 +257,8 @@ function ensureStructure() {
         statusOptions: DEFAULTS.statusOptions,
         style: DEFAULTS.style,
         preview: DEFAULTS.preview,
+        titleTypography: DEFAULTS.titleTypography,
+        subtitleTypography: DEFAULTS.subtitleTypography,
     });
 }
 
@@ -403,6 +425,15 @@ function updateStyle(field, value) {
     updateNested(['style', field], value);
 }
 
+function updateTypography(typographyKey, field, value) {
+    if (!localContent.value[typographyKey] || typeof localContent.value[typographyKey] !== 'object') {
+        localContent.value[typographyKey] = {};
+    }
+
+    localContent.value[typographyKey][field] = value;
+    emitChange();
+}
+
 function pickRsvpBackgroundColor() {
     pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
 }
@@ -445,6 +476,40 @@ harmonize();
                     placeholder="Explique em poucas palavras como a pessoa deve confirmar presença."
                 ></textarea>
             </div>
+
+            <TypographyControl
+                :font-family="titleTypography.fontFamily || 'Playfair Display'"
+                :font-color="titleTypography.fontColor || '#b8998a'"
+                :font-size="titleTypography.fontSize || 36"
+                :font-weight="titleTypography.fontWeight || 700"
+                :font-italic="titleTypography.fontItalic || false"
+                :font-underline="titleTypography.fontUnderline || false"
+                :preview-background-color="rsvpTypographyPreviewBackgroundColor"
+                label="Tipografia do Título"
+                @update:font-family="updateTypography('titleTypography', 'fontFamily', $event)"
+                @update:font-color="updateTypography('titleTypography', 'fontColor', $event)"
+                @update:font-size="updateTypography('titleTypography', 'fontSize', $event)"
+                @update:font-weight="updateTypography('titleTypography', 'fontWeight', $event)"
+                @update:font-italic="updateTypography('titleTypography', 'fontItalic', $event)"
+                @update:font-underline="updateTypography('titleTypography', 'fontUnderline', $event)"
+            />
+
+            <TypographyControl
+                :font-family="subtitleTypography.fontFamily || 'Playfair Display'"
+                :font-color="subtitleTypography.fontColor || '#4b5563'"
+                :font-size="subtitleTypography.fontSize || 18"
+                :font-weight="subtitleTypography.fontWeight || 400"
+                :font-italic="subtitleTypography.fontItalic || false"
+                :font-underline="subtitleTypography.fontUnderline || false"
+                :preview-background-color="rsvpTypographyPreviewBackgroundColor"
+                label="Tipografia do Subtítulo"
+                @update:font-family="updateTypography('subtitleTypography', 'fontFamily', $event)"
+                @update:font-color="updateTypography('subtitleTypography', 'fontColor', $event)"
+                @update:font-size="updateTypography('subtitleTypography', 'fontSize', $event)"
+                @update:font-weight="updateTypography('subtitleTypography', 'fontWeight', $event)"
+                @update:font-italic="updateTypography('subtitleTypography', 'fontItalic', $event)"
+                @update:font-underline="updateTypography('subtitleTypography', 'fontUnderline', $event)"
+            />
         </div>
 
         <div class="space-y-4 pt-6 border-t border-gray-200">

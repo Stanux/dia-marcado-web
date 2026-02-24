@@ -47,6 +47,22 @@ class SiteLayoutFactory extends Factory
                     'title' => fake()->words(3, true),
                     'subtitle' => fake()->sentence(),
                     'showDate' => true,
+                    'menuTypography' => [
+                        'fontFamily' => 'Montserrat',
+                        'fontColor' => '#374151',
+                        'fontSize' => 14,
+                        'fontWeight' => 400,
+                        'fontItalic' => false,
+                        'fontUnderline' => false,
+                    ],
+                    'menuHoverTypography' => [
+                        'fontFamily' => 'Montserrat',
+                        'fontColor' => '#d4a574',
+                        'fontSize' => 14,
+                        'fontWeight' => 500,
+                        'fontItalic' => false,
+                        'fontUnderline' => false,
+                    ],
                     'navigation' => [],
                     'actionButton' => ['label' => '', 'target' => '', 'style' => 'primary'],
                     'style' => [

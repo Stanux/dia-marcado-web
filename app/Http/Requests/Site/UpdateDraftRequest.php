@@ -32,6 +32,8 @@ class UpdateDraftRequest extends FormRequest
         return [
             'content' => ['required', 'array'],
             'content.sections' => ['required', 'array'],
+            'content.sectionOrder' => ['nullable', 'array'],
+            'content.sectionOrder.*' => ['string'],
             'summary' => ['nullable', 'string', 'max:500'],
             'create_version' => ['nullable', 'boolean'],
         ];
@@ -49,6 +51,8 @@ class UpdateDraftRequest extends FormRequest
             'content.array' => 'O conteúdo deve ser um objeto válido.',
             'content.sections.required' => 'As seções do site são obrigatórias.',
             'content.sections.array' => 'As seções devem ser um objeto válido.',
+            'content.sectionOrder.array' => 'A ordem das seções deve ser uma lista válida.',
+            'content.sectionOrder.*.string' => 'Cada item da ordem das seções deve ser texto.',
             'summary.max' => 'O resumo não pode ter mais de 500 caracteres.',
         ];
     }
