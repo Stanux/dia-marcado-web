@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AlbumController;
 use App\Http\Controllers\Auth\FilamentLoginController;
+use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MediaScreenController;
@@ -73,6 +74,12 @@ Route::get('/admin/simple-login', function () {
 Route::get('/login', function () {
     return redirect()->route('filament.admin.auth.login');
 })->name('login');
+
+// Google OAuth routes
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])
+    ->name('auth.google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])
+    ->name('auth.google.callback');
 
 // Fallback POST route for Filament login when JavaScript is disabled
 Route::post('/admin/login', [FilamentLoginController::class, 'store'])

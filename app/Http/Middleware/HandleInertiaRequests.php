@@ -80,6 +80,8 @@ class HandleInertiaRequests extends Middleware
             'filament.admin.auth.login',
             'filament.admin.auth.login.post',
             'filament.admin.auth.simple-login',
+            'auth.google.redirect',
+            'auth.google.callback',
             'convite.show',
             'convite.accept.new',
             'convite.accept.existing',

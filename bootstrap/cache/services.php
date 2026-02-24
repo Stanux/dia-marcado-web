@@ -38,16 +38,17 @@
     34 => 'Kirschbaum\\PowerJoins\\PowerJoinsServiceProvider',
     35 => 'Laravel\\Sail\\SailServiceProvider',
     36 => 'Laravel\\Sanctum\\SanctumServiceProvider',
-    37 => 'Laravel\\Tinker\\TinkerServiceProvider',
-    38 => 'Livewire\\LivewireServiceProvider',
-    39 => 'Carbon\\Laravel\\ServiceProvider',
-    40 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
-    41 => 'Termwind\\Laravel\\TermwindServiceProvider',
-    42 => 'RyanChandler\\BladeCaptureDirective\\BladeCaptureDirectiveServiceProvider',
-    43 => 'Spatie\\LaravelIgnition\\IgnitionServiceProvider',
-    44 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
-    45 => 'App\\Providers\\AppServiceProvider',
-    46 => 'App\\Providers\\Filament\\AdminPanelProvider',
+    37 => 'Laravel\\Socialite\\SocialiteServiceProvider',
+    38 => 'Laravel\\Tinker\\TinkerServiceProvider',
+    39 => 'Livewire\\LivewireServiceProvider',
+    40 => 'Carbon\\Laravel\\ServiceProvider',
+    41 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
+    42 => 'Termwind\\Laravel\\TermwindServiceProvider',
+    43 => 'RyanChandler\\BladeCaptureDirective\\BladeCaptureDirectiveServiceProvider',
+    44 => 'Spatie\\LaravelIgnition\\IgnitionServiceProvider',
+    45 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
+    46 => 'App\\Providers\\AppServiceProvider',
+    47 => 'App\\Providers\\Filament\\AdminPanelProvider',
   ),
   'eager' => 
   array (
@@ -242,6 +243,7 @@
     'Illuminate\\Contracts\\Validation\\UncompromisedVerifier' => 'Illuminate\\Validation\\ValidationServiceProvider',
     'Laravel\\Sail\\Console\\InstallCommand' => 'Laravel\\Sail\\SailServiceProvider',
     'Laravel\\Sail\\Console\\PublishCommand' => 'Laravel\\Sail\\SailServiceProvider',
+    'Laravel\\Socialite\\Contracts\\Factory' => 'Laravel\\Socialite\\SocialiteServiceProvider',
     'command.tinker' => 'Laravel\\Tinker\\TinkerServiceProvider',
   ),
   'when' => 
@@ -286,6 +288,9 @@
     array (
     ),
     'Laravel\\Sail\\SailServiceProvider' => 
+    array (
+    ),
+    'Laravel\\Socialite\\SocialiteServiceProvider' => 
     array (
     ),
     'Laravel\\Tinker\\TinkerServiceProvider' => 

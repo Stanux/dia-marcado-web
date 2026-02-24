@@ -124,8 +124,6 @@ const currentYear = new Date().getFullYear();
                             </div>
                         </div>
 
-                        <div class="absolute -bottom-8 -left-8 h-28 w-28 rounded-full opacity-60 backdrop-blur-sm blob-rose"></div>
-                        <div class="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-50 backdrop-blur-sm blob-gold"></div>
                     </div>
                 </div>
             </div>

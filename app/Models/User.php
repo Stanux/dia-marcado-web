@@ -23,6 +23,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'email_verified_at',
         'password',
         'role',
         'current_wedding_id',
@@ -95,6 +96,14 @@ class User extends Authenticatable
     public function createdUsers(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(User::class, 'created_by');
+    }
+
+    /**
+     * Get linked social accounts (Google, etc.).
+     */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(UserSocialAccount::class);
     }
 
     /**

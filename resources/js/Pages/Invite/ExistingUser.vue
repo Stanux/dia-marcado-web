@@ -12,7 +12,8 @@ const props = defineProps({
 const page = usePage();
 const isLoggedIn = !!page.props.auth?.user;
 const loggedInEmail = page.props.auth?.user?.email;
-const isCorrectUser = loggedInEmail === props.email;
+const isCorrectUser = (loggedInEmail || '').toLowerCase() === (props.email || '').toLowerCase();
+const flashError = page.props.flash?.error;
 
 const acceptForm = useForm({});
 const declineForm = useForm({});
@@ -24,6 +25,8 @@ const accept = () => {
 const decline = () => {
     declineForm.post(`/convite/${props.token}/recusar`);
 };
+
+const googleAuthUrl = `/auth/google/redirect?invite=${encodeURIComponent(props.token)}`;
 </script>
 
 <template>
@@ -41,6 +44,13 @@ const decline = () => {
                 <p class="text-gray-600">
                     <span class="font-semibold">{{ inviterName }}</span> convidou você para participar do planejamento do casamento.
                 </p>
+            </div>
+
+            <div
+                v-if="flashError"
+                class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700"
+            >
+                {{ flashError }}
             </div>
 
             <!-- Warning for users with previous wedding -->
@@ -69,6 +79,19 @@ const decline = () => {
                 >
                     Fazer Login
                 </a>
+
+                <a
+                    :href="googleAuthUrl"
+                    class="mt-3 inline-flex items-center justify-center gap-2 border border-blue-300 text-blue-700 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-blue-100 transition"
+                >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.3-1.6 3.9-5.4 3.9-3.2 0-5.8-2.7-5.8-6s2.6-6 5.8-6c1.8 0 3 .8 3.7 1.4l2.5-2.4C16.6 3.4 14.5 2.6 12 2.6 6.8 2.6 2.6 6.8 2.6 12s4.2 9.4 9.4 9.4c5.4 0 9-3.8 9-9.2 0-.6-.1-1.1-.2-1.6H12z" />
+                        <path fill="#34A853" d="M2.6 7.9l3.2 2.4c.8-2.4 3-4.2 6.2-4.2 1.8 0 3 .8 3.7 1.4l2.5-2.4C16.6 3.4 14.5 2.6 12 2.6c-3.7 0-6.9 2.1-8.4 5.3z" />
+                        <path fill="#FBBC05" d="M12 21.4c2.4 0 4.5-.8 6-2.1l-2.8-2.3c-.8.6-1.9 1-3.2 1-3.7 0-5.1-2.6-5.4-3.9l-3.2 2.5c1.5 3.2 4.7 5.4 8.6 5.4z" />
+                        <path fill="#4285F4" d="M21 12.2c0-.6-.1-1.1-.2-1.6H12v3.9h5.4c-.3 1.3-1.1 2.3-2.2 3l2.8 2.3c1.6-1.5 3-3.8 3-7.6z" />
+                    </svg>
+                    Entrar com Google
+                </a>
             </div>
 
             <!-- Wrong user logged in -->
@@ -79,6 +102,19 @@ const decline = () => {
                 <p class="text-sm text-red-700 mt-2">
                     Por favor, faça logout e entre com a conta correta.
                 </p>
+
+                <a
+                    :href="googleAuthUrl"
+                    class="mt-3 inline-flex items-center justify-center gap-2 border border-red-300 text-red-700 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-red-100 transition"
+                >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.3-1.6 3.9-5.4 3.9-3.2 0-5.8-2.7-5.8-6s2.6-6 5.8-6c1.8 0 3 .8 3.7 1.4l2.5-2.4C16.6 3.4 14.5 2.6 12 2.6 6.8 2.6 2.6 6.8 2.6 12s4.2 9.4 9.4 9.4c5.4 0 9-3.8 9-9.2 0-.6-.1-1.1-.2-1.6H12z" />
+                        <path fill="#34A853" d="M2.6 7.9l3.2 2.4c.8-2.4 3-4.2 6.2-4.2 1.8 0 3 .8 3.7 1.4l2.5-2.4C16.6 3.4 14.5 2.6 12 2.6c-3.7 0-6.9 2.1-8.4 5.3z" />
+                        <path fill="#FBBC05" d="M12 21.4c2.4 0 4.5-.8 6-2.1l-2.8-2.3c-.8.6-1.9 1-3.2 1-3.7 0-5.1-2.6-5.4-3.9l-3.2 2.5c1.5 3.2 4.7 5.4 8.6 5.4z" />
+                        <path fill="#4285F4" d="M21 12.2c0-.6-.1-1.1-.2-1.6H12v3.9h5.4c-.3 1.3-1.1 2.3-2.2 3l2.8 2.3c1.6-1.5 3-3.8 3-7.6z" />
+                    </svg>
+                    Trocar conta com Google
+                </a>
             </div>
 
             <!-- Action buttons for correct user -->

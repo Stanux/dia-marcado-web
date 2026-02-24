@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class UserRegistrationService
@@ -18,7 +19,7 @@ class UserRegistrationService
      */
     public function registerCouple(array $data): User
     {
-        $this->validateRegistrationData($data);
+        $this->validateRegistrationData($data, ['name', 'email', 'password']);
         $this->ensureEmailIsUnique($data['email']);
 
         return User::create([
@@ -30,14 +31,35 @@ class UserRegistrationService
     }
 
     /**
+     * Register a new user as couple via social login.
+     *
+     * @param array $data
+     * @return User
+     * @throws ValidationException
+     */
+    public function registerCoupleFromSocial(array $data): User
+    {
+        $this->validateRegistrationData($data, ['name', 'email']);
+        $this->ensureEmailIsUnique($data['email']);
+
+        return User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => Hash::make(Str::random(64)),
+            'role' => 'couple',
+            'email_verified_at' => now(),
+        ]);
+    }
+
+    /**
      * Validate that all required fields are present.
      *
      * @param array $data
+     * @param array<int, string> $required
      * @throws ValidationException
      */
-    private function validateRegistrationData(array $data): void
+    private function validateRegistrationData(array $data, array $required): void
     {
-        $required = ['name', 'email', 'password'];
         $errors = [];
 
         foreach ($required as $field) {
