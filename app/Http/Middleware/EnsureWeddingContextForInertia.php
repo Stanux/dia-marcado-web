@@ -26,8 +26,11 @@ class EnsureWeddingContextForInertia
             return redirect()->route('filament.admin.auth.login');
         }
 
-        // Get wedding ID from session (set by Filament middleware)
-        $weddingId = session('filament_wedding_id') ?? $user->current_wedding_id;
+        // Prefer explicit context passed by editor/navigation, then fallback to session/current user.
+        $weddingId = $request->header('X-Wedding-ID')
+            ?? $request->query('wedding_id')
+            ?? session('filament_wedding_id')
+            ?? $user->current_wedding_id;
 
         if (!$weddingId) {
             // Try to get the first wedding the user has access to

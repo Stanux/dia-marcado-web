@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * PlanLimit Model
@@ -50,5 +51,20 @@ class PlanLimit extends Model
     public static function findBySlug(string $slug): ?self
     {
         return static::where('plan_slug', $slug)->first();
+    }
+
+    /**
+     * Template categories enabled for this plan.
+     */
+    public function templateCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            TemplateCategory::class,
+            'plan_template_category',
+            'plan_slug',
+            'template_category_id',
+            'plan_slug',
+            'id'
+        )->withTimestamps();
     }
 }

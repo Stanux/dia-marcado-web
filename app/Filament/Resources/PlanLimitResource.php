@@ -74,6 +74,14 @@ class PlanLimitResource extends Resource
                                 }
                             })
                             ->dehydrateStateUsing(fn ($state) => null), // Don't save this field directly
+
+                        Forms\Components\Select::make('templateCategories')
+                            ->label('Categorias de templates liberadas')
+                            ->relationship('templateCategories', 'name')
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->helperText('Define quais categorias de templates este plano pode aplicar.'),
                     ])
                     ->columns(1),
             ]);

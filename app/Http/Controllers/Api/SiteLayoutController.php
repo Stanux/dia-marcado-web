@@ -17,6 +17,7 @@ use App\Http\Requests\Site\UpdateSettingsRequest;
 use App\Models\SiteLayout;
 use App\Models\SiteVersion;
 use App\Services\Site\SiteContentSchema;
+use App\Services\Site\TemplateWorkspaceService;
 use App\Models\Wedding;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,7 +34,8 @@ class SiteLayoutController extends Controller
         private readonly SiteBuilderServiceInterface $siteBuilder,
         private readonly SiteVersionServiceInterface $versionService,
         private readonly SiteValidatorServiceInterface $validator,
-        private readonly PlaceholderServiceInterface $placeholderService
+        private readonly PlaceholderServiceInterface $placeholderService,
+        private readonly TemplateWorkspaceService $templateWorkspaceService,
     ) {}
 
     /**
@@ -302,6 +304,10 @@ class SiteLayoutController extends Controller
         }
 
         $site = $this->versionService->restore($site, $version, $request->user());
+        $this->templateWorkspaceService->syncTemplateFromEditorSite(
+            $site,
+            (array) ($site->draft_content ?? [])
+        );
 
         return response()->json([
             'data' => $this->formatSiteResponse($site, includeContent: true),

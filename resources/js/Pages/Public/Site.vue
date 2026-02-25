@@ -36,6 +36,10 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    isTemplatePreview: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 // Extract sections from content
@@ -168,7 +172,7 @@ const renderedSections = computed(() => {
                         ...baseProps,
                         eventId: props.wedding.id,
                         config: props.wedding.gift_registry_config,
-                        isPreview: false,
+                        isPreview: props.isTemplatePreview,
                     },
                 };
             }
@@ -182,6 +186,7 @@ const renderedSections = computed(() => {
                         wedding: props.wedding,
                         siteSlug: props.site.slug,
                         inviteTokenState: props.inviteTokenState,
+                        isPreview: props.isTemplatePreview,
                     },
                 };
             }

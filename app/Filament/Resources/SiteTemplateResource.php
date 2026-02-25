@@ -5,6 +5,9 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\SiteTemplateResource\Pages;
 use App\Models\SiteLayout;
 use App\Models\SiteTemplate;
+use App\Models\Wedding;
+use App\Services\Site\SiteContentSchema;
+use App\Services\Site\TemplatePlanAccessService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -43,16 +46,75 @@ class SiteTemplateResource extends Resource
                             ->required()
                             ->maxLength(100),
 
+                        Forms\Components\TextInput::make('slug')
+                            ->label('Slug')
+                            ->required()
+                            ->maxLength(140)
+                            ->unique(ignoreRecord: true),
+
                         Forms\Components\Textarea::make('description')
                             ->label('Descrição')
                             ->rows(3)
                             ->maxLength(500),
 
+                        Forms\Components\TextInput::make('thumbnail')
+                            ->label('Thumbnail (URL)')
+                            ->url()
+                            ->maxLength(500),
+
+                        Forms\Components\Select::make('template_category_id')
+                            ->label('Categoria')
+                            ->relationship('category', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->nullable()
+                            ->createOptionForm([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nome')
+                                    ->required()
+                                    ->maxLength(120),
+                                Forms\Components\TextInput::make('slug')
+                                    ->label('Slug')
+                                    ->required()
+                                    ->maxLength(120)
+                                    ->unique('template_categories', 'slug'),
+                                Forms\Components\Textarea::make('description')
+                                    ->label('Descrição')
+                                    ->rows(3),
+                            ]),
+
                         Forms\Components\Toggle::make('is_public')
                             ->label('Público')
                             ->helperText('Templates públicos ficam disponíveis para todos os usuários')
-                            ->disabled(fn () => !auth()->user()?->isAdmin()),
+                            ->default(true)
+                            ->disabled(fn () => !auth()->user()?->isAdmin())
+                            ->visible(fn () => auth()->user()?->isAdmin()),
                     ]),
+
+                Forms\Components\Section::make('Conteúdo JSON')
+                    ->schema([
+                        Forms\Components\Textarea::make('content')
+                            ->label('Conteúdo do template')
+                            ->rows(16)
+                            ->required()
+                            ->default(fn () => json_encode(SiteContentSchema::getDefaultContent(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE))
+                            ->formatStateUsing(fn ($state) => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $state)
+                            ->dehydrateStateUsing(function ($state) {
+                                if (is_array($state)) {
+                                    return $state;
+                                }
+
+                                if (!is_string($state) || trim($state) === '') {
+                                    return [];
+                                }
+
+                                $decoded = json_decode($state, true);
+
+                                return is_array($decoded) ? $decoded : [];
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsed(),
             ]);
     }
 
@@ -69,6 +131,12 @@ class SiteTemplateResource extends Resource
                     ->label('Descrição')
                     ->limit(50)
                     ->wrap(),
+
+                Tables\Columns\TextColumn::make('category.name')
+                    ->label('Categoria')
+                    ->placeholder('Sem categoria')
+                    ->badge()
+                    ->color('gray'),
 
                 Tables\Columns\IconColumn::make('is_public')
                     ->label('Público')
@@ -113,9 +181,19 @@ class SiteTemplateResource extends Resource
                     ->color('primary')
                     ->requiresConfirmation()
                     ->modalHeading('Aplicar Template')
-                    ->modalDescription(fn (SiteTemplate $record) => "Deseja aplicar o template \"{$record->name}\" ao seu site? O conteúdo atual será mesclado com o template.")
+                    ->modalDescription(fn (SiteTemplate $record) => "Escolha como aplicar o template \"{$record->name}\".")
+                    ->form([
+                        Forms\Components\Select::make('mode')
+                            ->label('Modo de aplicação')
+                            ->options([
+                                'merge' => 'Merge (preserva mídias atuais)',
+                                'overwrite' => 'Alteração total (sobrescreve tudo)',
+                            ])
+                            ->default('merge')
+                            ->required(),
+                    ])
                     ->modalSubmitActionLabel('Aplicar Template')
-                    ->action(function (SiteTemplate $record) {
+                    ->action(function (SiteTemplate $record, array $data) {
                         $user = auth()->user();
                         $weddingId = $user?->current_wedding_id ?? session('filament_wedding_id');
                         
@@ -139,8 +217,28 @@ class SiteTemplateResource extends Resource
                             return;
                         }
 
+                        $wedding = Wedding::find($weddingId);
+                        if (!$wedding) {
+                            Notification::make()
+                                ->title('Erro')
+                                ->body('Casamento não encontrado.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        $templateAccess = app(TemplatePlanAccessService::class);
+                        if (!$templateAccess->canApplyTemplate($wedding, $record, $user?->isAdmin() === true)) {
+                            Notification::make()
+                                ->title('Template bloqueado')
+                                ->body('Este template não está disponível no plano atual.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
                         $siteBuilder = app(\App\Contracts\Site\SiteBuilderServiceInterface::class);
-                        $siteBuilder->applyTemplate($site, $record);
+                        $siteBuilder->applyTemplate($site, $record, (string) ($data['mode'] ?? 'merge'), $user);
 
                         Notification::make()
                             ->title('Template aplicado!')
@@ -154,8 +252,23 @@ class SiteTemplateResource extends Resource
                         return $weddingId && SiteLayout::where('wedding_id', $weddingId)->exists();
                     }),
 
-                Tables\Actions\ViewAction::make()
-                    ->label('Ver'),
+                Tables\Actions\Action::make('visual_editor')
+                    ->label('Editor Visual')
+                    ->icon('heroicon-o-pencil-square')
+                    ->url(fn (SiteTemplate $record): string => static::templateEditorUrl($record))
+                    ->visible(fn () => auth()->user()?->isAdmin() ?? false),
+
+                Tables\Actions\Action::make('view_site')
+                    ->label('Ver')
+                    ->icon('heroicon-o-eye')
+                    ->url(fn (SiteTemplate $record): ?string => $record->slug
+                        ? route('public.site.template.preview', ['slug' => $record->slug])
+                        : null)
+                    ->openUrlInNewTab()
+                    ->visible(fn (SiteTemplate $record): bool => (bool) $record->slug && $record->is_public && $record->wedding_id === null),
+
+                Tables\Actions\EditAction::make()
+                    ->visible(fn () => auth()->user()?->isAdmin() ?? false),
             ])
             ->bulkActions([])
             ->defaultSort('name', 'asc')
@@ -173,7 +286,8 @@ class SiteTemplateResource extends Resource
     {
         return [
             'index' => Pages\ListSiteTemplates::route('/'),
-            'view' => Pages\ViewSiteTemplate::route('/{record}'),
+            'create' => Pages\CreateSiteTemplate::route('/create'),
+            'edit' => Pages\EditSiteTemplate::route('/{record}/edit'),
         ];
     }
 
@@ -182,8 +296,13 @@ class SiteTemplateResource extends Resource
         $user = auth()->user();
         $weddingId = $user?->current_wedding_id ?? session('filament_wedding_id');
 
+        if ($user?->isAdmin()) {
+            return parent::getEloquentQuery()->with('category');
+        }
+
         // Show public templates and templates owned by current wedding
         return parent::getEloquentQuery()
+            ->with('category')
             ->where(function (Builder $query) use ($weddingId) {
                 $query->where('is_public', true)
                     ->orWhereNull('wedding_id'); // System templates
@@ -196,7 +315,7 @@ class SiteTemplateResource extends Resource
 
     public static function canCreate(): bool
     {
-        return false; // Templates are created via "Save as Template" in editor
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
@@ -215,5 +334,10 @@ class SiteTemplateResource extends Resource
         $weddingId = $user?->current_wedding_id ?? session('filament_wedding_id');
         
         return $record->wedding_id === $weddingId || $user?->isAdmin();
+    }
+
+    public static function templateEditorUrl(SiteTemplate $template): string
+    {
+        return route('site-templates.editor', ['template' => $template->id]);
     }
 }

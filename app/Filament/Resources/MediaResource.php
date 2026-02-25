@@ -7,6 +7,7 @@ use App\Filament\Resources\MediaResource\Pages;
 use App\Models\Album;
 use App\Models\SiteLayout;
 use App\Models\SiteMedia;
+use Filament\Panel;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -229,26 +230,19 @@ class MediaResource extends Resource
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        $wedding = $user->currentWedding;
-        if (!$wedding) {
-            return false;
-        }
-
-        $role = $user->roleIn($wedding);
-        return in_array($role, ['couple', 'organizer']);
+        return false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
         return false;
+    }
+
+    /**
+     * Disable module routes: media management is handled in Site Editor.
+     */
+    public static function registerRoutes(Panel $panel): void
+    {
+        // Intentionally disabled.
     }
 }

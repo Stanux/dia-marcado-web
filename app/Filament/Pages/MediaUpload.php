@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Album;
 use App\Models\SiteLayout;
 use App\Models\SiteMedia;
+use Filament\Panel;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -64,6 +65,19 @@ class MediaUpload extends Page implements HasForms
         'files.*' => 'file|max:10240|mimes:jpeg,jpg,png,gif,webp,mp4,webm',
         'albumId' => 'required|exists:albums,id',
     ];
+
+    public static function canAccess(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Disable module routes: media management is handled in Site Editor.
+     */
+    public static function registerRoutes(Panel $panel): void
+    {
+        // Intentionally disabled.
+    }
 
     public function mount(): void
     {
@@ -433,28 +447,4 @@ class MediaUpload extends Page implements HasForms
         }
     }
 
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        $wedding = $user->currentWedding;
-        if (!$wedding) {
-            return false;
-        }
-
-        $role = $user->roleIn($wedding);
-        return in_array($role, ['couple', 'organizer']);
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
 }

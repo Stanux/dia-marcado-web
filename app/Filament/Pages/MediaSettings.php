@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\SystemConfig;
+use Filament\Panel;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -142,12 +143,19 @@ class MediaSettings extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-        return $user && $user->isAdmin();
+        return false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
         return false;
+    }
+
+    /**
+     * Disable module routes: media management is handled in Site Editor.
+     */
+    public static function registerRoutes(Panel $panel): void
+    {
+        // Intentionally disabled.
     }
 }

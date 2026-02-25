@@ -24,6 +24,10 @@ const emit = defineEmits(['preview', 'select']);
 
 // Determine badge type based on template ownership
 const badgeType = computed(() => {
+    if (props.template.is_locked) {
+        return { label: 'Upgrade', class: 'bg-amber-100 text-amber-800' };
+    }
+
     if (props.template.is_system) {
         return { label: 'Sistema', class: 'bg-blue-100 text-blue-800' };
     }
@@ -31,6 +35,24 @@ const badgeType = computed(() => {
         return { label: 'Público', class: 'bg-green-100 text-green-800' };
     }
     return { label: 'Privado', class: 'bg-gray-100 text-gray-800' };
+});
+
+const isLocked = computed(() => props.template.is_locked === true);
+
+const planHint = computed(() => {
+    if (!isLocked.value) {
+        return '';
+    }
+
+    const plans = Array.isArray(props.template.required_plans)
+        ? props.template.required_plans.join(', ')
+        : '';
+
+    if (!plans) {
+        return 'Disponível em planos superiores.';
+    }
+
+    return `Disponível para: ${plans}.`;
 });
 
 // Default thumbnail placeholder
@@ -43,6 +65,10 @@ const handlePreview = () => {
 };
 
 const handleSelect = () => {
+    if (isLocked.value) {
+        return;
+    }
+
     emit('select', props.template);
 };
 </script>
@@ -77,13 +103,19 @@ const handleSelect = () => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
-                    Preview
+                    Navegar
                 </button>
                 <button
                     @click.stop="handleSelect"
-                    class="px-4 py-2 bg-wedding-600 text-white text-sm font-medium rounded-md hover:bg-wedding-700 transition-colors"
+                    :disabled="isLocked"
+                    class="px-4 py-2 text-sm font-medium rounded-md transition-colors"
+                    :class="[
+                        isLocked
+                            ? 'bg-gray-300 text-gray-700 cursor-not-allowed'
+                            : 'bg-wedding-600 text-white hover:bg-wedding-700'
+                    ]"
                 >
-                    Usar
+                    {{ isLocked ? 'Bloqueado' : 'Usar' }}
                 </button>
             </div>
 
@@ -124,6 +156,12 @@ const handleSelect = () => {
                 class="mt-1 text-sm text-gray-400 italic"
             >
                 Sem descrição
+            </p>
+            <p
+                v-if="planHint"
+                class="mt-2 text-xs font-medium text-amber-700"
+            >
+                {{ planHint }}
             </p>
         </div>
     </div>

@@ -5,11 +5,12 @@ use App\Http\Controllers\Auth\FilamentLoginController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MediaController;
-use App\Http\Controllers\MediaScreenController;
 use App\Http\Controllers\Planning\PlanExportController;
 use App\Http\Controllers\PublicSiteController;
+use App\Http\Controllers\TemplateEditorController;
 use App\Models\PartnerInvite;
 use App\Models\SiteLayout;
+use App\Models\SiteTemplate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
@@ -92,12 +93,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 });
 
+Route::middleware(['auth'])->prefix('admin/site-templates')->group(function () {
+    Route::get('/{template}/editor', [TemplateEditorController::class, 'edit'])
+        ->name('site-templates.editor');
+});
+
 // Site Editor routes (Inertia-based)
 Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function () {
-    // Media Screen routes
-    Route::get('/midias', [MediaScreenController::class, 'index'])->name('midias.index');
+    // Media routes used by Site Editor
     Route::get('/albums/list', [AlbumController::class, 'index'])->name('albums.list');
-    Route::get('/albums', [AlbumController::class, 'index'])->name('albums.index');
     Route::post('/albums', [AlbumController::class, 'store'])->name('albums.store');
     Route::put('/albums/{id}', [AlbumController::class, 'update'])->name('albums.update');
     Route::delete('/albums/{id}', [AlbumController::class, 'destroy'])->name('albums.destroy');
@@ -143,7 +147,7 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
     })->name('sites.create');
     
     // Edit existing site
-    Route::get('/sites/{site}/edit', function (string $site) {
+    Route::get('/sites/{site}/edit', function (\Illuminate\Http\Request $request, string $site) {
         $user = auth()->user();
         $weddingId = $user->current_wedding_id;
         
@@ -205,12 +209,31 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
             ->pad(2, '')
             ->values()
             ->all();
+
+        $templateContext = null;
+        $templateId = $request->query('template');
+        if (is_string($templateId) && trim($templateId) !== '') {
+            $templateRecord = SiteTemplate::query()
+                ->whereKey($templateId)
+                ->first();
+
+            if ($templateRecord && $templateRecord->editor_site_layout_id === $siteLayout->id) {
+                $templateContext = [
+                    'id' => $templateRecord->id,
+                    'name' => $templateRecord->name,
+                    'slug' => $templateRecord->slug,
+                    'is_public' => (bool) $templateRecord->is_public,
+                    'category' => $templateRecord->category?->name,
+                ];
+            }
+        }
         
         return Inertia::render('Sites/Editor', [
             'site' => $siteData,
             'weddingId' => $weddingId,
             'wedding' => $wedding,
             'logoInitials' => $logoInitials,
+            'templateContext' => $templateContext,
         ]);
     })->name('sites.edit');
     
@@ -242,6 +265,9 @@ Route::middleware(['auth', \App\Http\Middleware\FilamentWeddingScope::class])
 require __DIR__.'/auth.php';
 
 // Public site routes (must be at the end to avoid conflicts with other routes)
+Route::get('/site/template/{slug}', [PublicSiteController::class, 'showTemplate'])
+    ->name('public.site.template.preview');
+
 Route::get('/site/{slug}', [PublicSiteController::class, 'show'])
     ->name('public.site.show');
 
@@ -250,9 +276,3 @@ Route::post('/site/{slug}/auth', [PublicSiteController::class, 'authenticate'])
 
 Route::get('/site/{slug}/calendar', [PublicSiteController::class, 'calendar'])
     ->name('public.site.calendar');
-
-// Manual route registration for broken Filament resource
-Route::middleware(['web', \Filament\Http\Middleware\Authenticate::class])->group(function () {
-    Route::get('/admin/albums', \App\Filament\Resources\AlbumResource\Pages\ListAlbums::class)
-        ->name('filament.admin.resources.albums.index');
-});

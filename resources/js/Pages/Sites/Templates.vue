@@ -7,7 +7,7 @@
  * 
  * @Requirements: 15.1, 15.2, 15.3
  */
-import { Head, usePage, router } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { ref, computed, onMounted } from 'vue';
 import TemplateCard from '@/Components/Site/TemplateCard.vue';
 
@@ -18,18 +18,17 @@ const props = defineProps({
     },
 });
 
-const page = usePage();
-const user = computed(() => page.props.auth?.user);
-
 // State
 const templates = ref([]);
 const isLoading = ref(true);
 const error = ref(null);
 const filter = ref('all'); // 'all', 'public', 'private'
 const selectedTemplate = ref(null);
-const previewTemplate = ref(null);
-const showPreview = ref(false);
 const isApplying = ref(false);
+const currentPlan = ref('basic');
+const showApplyModeModal = ref(false);
+const pendingTemplate = ref(null);
+const applyMode = ref('merge');
 
 // Filter options
 const filterOptions = [
@@ -72,6 +71,7 @@ const fetchTemplates = async () => {
         
         const data = await response.json();
         templates.value = data.data || [];
+        currentPlan.value = data.meta?.plan_slug || 'basic';
     } catch (err) {
         error.value = err.message;
         console.error('Error fetching templates:', err);
@@ -82,32 +82,34 @@ const fetchTemplates = async () => {
 
 // Handle template preview
 const handlePreview = (template) => {
-    previewTemplate.value = template;
-    showPreview.value = true;
-};
+    if (!template.preview_url) {
+        alert('Preview indisponível para este template.');
+        return;
+    }
 
-// Close preview modal
-const closePreview = () => {
-    showPreview.value = false;
-    previewTemplate.value = null;
+    window.open(template.preview_url, '_blank', 'noopener');
 };
 
 // Handle template selection
 const handleSelect = (template) => {
     selectedTemplate.value = template;
+    if (template.is_locked) {
+        alert('Este template está bloqueado para o seu plano atual.');
+        return;
+    }
+
+    pendingTemplate.value = template;
+    applyMode.value = 'merge';
+    showApplyModeModal.value = true;
 };
 
 // Apply selected template to site
-const applyTemplate = async (template) => {
+const applyTemplate = async (template, mode = 'merge') => {
     if (!props.site?.id) {
         alert('Nenhum site selecionado para aplicar o template.');
         return;
     }
-    
-    if (!confirm(`Deseja aplicar o template "${template.name}"? O conteúdo atual do rascunho será mesclado com o template.`)) {
-        return;
-    }
-    
+
     isApplying.value = true;
     
     try {
@@ -119,6 +121,7 @@ const applyTemplate = async (template) => {
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
             },
+            body: JSON.stringify({ mode }),
             credentials: 'same-origin',
         });
         
@@ -137,11 +140,17 @@ const applyTemplate = async (template) => {
     }
 };
 
-// Use template from preview modal
-const useTemplateFromPreview = () => {
-    if (previewTemplate.value) {
-        applyTemplate(previewTemplate.value);
-    }
+const closeApplyModeModal = () => {
+    if (isApplying.value) return;
+    showApplyModeModal.value = false;
+    pendingTemplate.value = null;
+};
+
+const confirmApplyTemplate = async () => {
+    if (!pendingTemplate.value) return;
+    await applyTemplate(pendingTemplate.value, applyMode.value);
+    showApplyModeModal.value = false;
+    pendingTemplate.value = null;
 };
 
 // Initialize
@@ -172,6 +181,9 @@ onMounted(() => {
                             <h1 class="text-2xl font-bold text-gray-900">Templates</h1>
                             <p class="mt-1 text-sm text-gray-500">
                                 Escolha um template para começar ou personalizar seu site
+                            </p>
+                            <p class="mt-1 text-xs font-medium text-gray-500">
+                                Plano atual: <span class="uppercase">{{ currentPlan }}</span>
                             </p>
                         </div>
                     </div>
@@ -243,36 +255,36 @@ onMounted(() => {
                     :template="template"
                     :selected="selectedTemplate?.id === template.id"
                     @preview="handlePreview"
-                    @select="applyTemplate"
+                    @select="handleSelect"
                 />
             </div>
         </main>
 
-        <!-- Preview Modal -->
+        <!-- Apply Mode Modal -->
         <Teleport to="body">
             <Transition name="modal">
                 <div
-                    v-if="showPreview && previewTemplate"
+                    v-if="showApplyModeModal && pendingTemplate"
                     class="fixed inset-0 z-50 overflow-y-auto"
                 >
                     <!-- Backdrop -->
-                    <div class="fixed inset-0 bg-black/60" @click="closePreview"></div>
+                    <div class="fixed inset-0 bg-black/60" @click="closeApplyModeModal"></div>
                     
                     <!-- Modal -->
                     <div class="flex min-h-full items-center justify-center p-4">
-                        <div class="relative w-full max-w-4xl bg-white rounded-lg shadow-xl overflow-hidden">
+                        <div class="relative w-full max-w-xl bg-white rounded-lg shadow-xl overflow-hidden">
                             <!-- Header -->
                             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                                 <div>
                                     <h3 class="text-lg font-semibold text-gray-900">
-                                        {{ previewTemplate.name }}
+                                        Aplicar template: {{ pendingTemplate.name }}
                                     </h3>
-                                    <p v-if="previewTemplate.description" class="mt-1 text-sm text-gray-500">
-                                        {{ previewTemplate.description }}
+                                    <p class="mt-1 text-sm text-gray-500">
+                                        Escolha como deseja aplicar no seu site.
                                     </p>
                                 </div>
                                 <button
-                                    @click="closePreview"
+                                    @click="closeApplyModeModal"
                                     class="text-gray-400 hover:text-gray-600"
                                 >
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -281,34 +293,48 @@ onMounted(() => {
                                 </button>
                             </div>
 
-                            <!-- Preview Content -->
-                            <div class="aspect-video bg-gray-100">
-                                <img
-                                    v-if="previewTemplate.thumbnail"
-                                    :src="previewTemplate.thumbnail"
-                                    :alt="previewTemplate.name"
-                                    class="w-full h-full object-cover"
-                                />
-                                <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-                                    <div class="text-center">
-                                        <svg class="mx-auto h-16 w-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        <p class="mt-2">Preview não disponível</p>
+                            <div class="px-6 py-5 space-y-4">
+                                <label class="flex items-start gap-3 rounded-md border border-gray-200 p-4 cursor-pointer">
+                                    <input
+                                        v-model="applyMode"
+                                        type="radio"
+                                        value="merge"
+                                        class="mt-1 text-wedding-600 focus:ring-wedding-600"
+                                    />
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-900">Merge</p>
+                                        <p class="text-sm text-gray-600">
+                                            Aplica estilo, seções e textos do template, preservando mídias já existentes.
+                                        </p>
                                     </div>
-                                </div>
+                                </label>
+
+                                <label class="flex items-start gap-3 rounded-md border border-gray-200 p-4 cursor-pointer">
+                                    <input
+                                        v-model="applyMode"
+                                        type="radio"
+                                        value="overwrite"
+                                        class="mt-1 text-wedding-600 focus:ring-wedding-600"
+                                    />
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-900">Alteração total</p>
+                                        <p class="text-sm text-gray-600">
+                                            Sobrescreve todo o conteúdo atual com o conteúdo do template.
+                                        </p>
+                                    </div>
+                                </label>
                             </div>
 
                             <!-- Footer -->
                             <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
                                 <button
-                                    @click="closePreview"
+                                    @click="closeApplyModeModal"
                                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                                 >
-                                    Fechar
+                                    Cancelar
                                 </button>
                                 <button
-                                    @click="useTemplateFromPreview"
+                                    @click="confirmApplyTemplate"
                                     :disabled="isApplying"
                                     class="px-4 py-2 text-sm font-medium text-white bg-wedding-600 rounded-md hover:bg-wedding-700 disabled:opacity-50 flex items-center"
                                 >
@@ -316,7 +342,7 @@ onMounted(() => {
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    {{ isApplying ? 'Aplicando...' : 'Usar este template' }}
+                                    {{ isApplying ? 'Aplicando...' : 'Confirmar aplicação' }}
                                 </button>
                             </div>
                         </div>

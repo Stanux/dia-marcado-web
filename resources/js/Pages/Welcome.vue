@@ -93,7 +93,7 @@ const currentYear = new Date().getFullYear();
                     <div class="relative">
                         <div class="ring-soft shadow-soft overflow-hidden rounded-[28px] bg-white">
                             <div class="flex items-center justify-between border-b border-black/5 p-4">
-                                <span class="text-sm font-semibold">Prévia do Site</span>
+                                <span class="text-sm font-semibold">Site do Casal</span>
                                 <span
                                     class="rounded-full px-2.5 py-1 text-xs"
                                     style="background: rgba(224,77,115,.10); color: var(--rose);"
@@ -109,7 +109,7 @@ const currentYear = new Date().getFullYear();
 
                                 <div class="mt-6 grid grid-cols-3 gap-4">
                                     <div class="ring-soft rounded-2xl bg-white p-4">
-                                        <p class="text-xs text-muted">RSVP</p>
+                                        <p class="text-xs text-muted">Presença confirmada</p>
                                         <p class="mt-2 text-lg font-semibold">Em tempo real</p>
                                     </div>
                                     <div class="ring-soft rounded-2xl bg-white p-4">

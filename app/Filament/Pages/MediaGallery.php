@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Models\Album;
+use Filament\Panel;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 
@@ -33,13 +34,7 @@ class MediaGallery extends Page
     // Ícone quando a página está ativa
     protected static ?string $activeNavigationIcon = 'heroicon-s-photo';
     
-    /**
-     * Força o item do menu a ser reconhecido como ativo
-     */
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true;
-    }
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function getNavigationLabel(): string
     {
@@ -116,21 +111,14 @@ class MediaGallery extends Page
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
+        return false;
+    }
 
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        $wedding = $user->currentWedding;
-        if (!$wedding) {
-            return false;
-        }
-
-        $role = $user->roleIn($wedding);
-        return in_array($role, ['couple', 'organizer']);
+    /**
+     * Disable module routes: media management is handled in Site Editor.
+     */
+    public static function registerRoutes(Panel $panel): void
+    {
+        // Intentionally disabled.
     }
 }

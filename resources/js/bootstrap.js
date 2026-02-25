@@ -26,7 +26,7 @@ axios.interceptors.request.use((config) => {
     // Get wedding ID from global variable (set by Inertia app)
     const weddingId = window.__weddingId;
     
-    if (weddingId && config.url?.startsWith('/api/')) {
+    if (weddingId && (config.url?.startsWith('/api/') || config.url?.startsWith('/admin/'))) {
         config.headers['X-Wedding-ID'] = weddingId;
     }
     

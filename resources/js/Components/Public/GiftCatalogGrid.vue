@@ -148,6 +148,11 @@ function formatPrice(priceInCents: number): string {
 
 // Lifecycle
 onMounted(() => {
+  if (props.isPreview) {
+    gifts.value = [];
+    return;
+  }
+
   fetchGifts();
 });
 </script>

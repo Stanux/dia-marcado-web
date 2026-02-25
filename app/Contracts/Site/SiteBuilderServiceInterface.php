@@ -76,7 +76,14 @@ interface SiteBuilderServiceInterface
      *
      * @param SiteLayout $site The site layout to apply template to
      * @param SiteTemplate $template The template to apply
+     * @param string $mode Application mode: merge or overwrite
+     * @param User|null $actor User responsible for this application (for history)
      * @return SiteLayout The updated site layout
      */
-    public function applyTemplate(SiteLayout $site, SiteTemplate $template): SiteLayout;
+    public function applyTemplate(
+        SiteLayout $site,
+        SiteTemplate $template,
+        string $mode = 'merge',
+        ?User $actor = null
+    ): SiteLayout;
 }

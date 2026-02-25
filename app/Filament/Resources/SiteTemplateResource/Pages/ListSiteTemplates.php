@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SiteTemplateResource\Pages;
 
 use App\Filament\Resources\SiteTemplateResource;
+use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListSiteTemplates extends ListRecords
@@ -11,6 +12,8 @@ class ListSiteTemplates extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Actions\CreateAction::make(),
+        ];
     }
 }

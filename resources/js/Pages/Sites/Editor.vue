@@ -34,9 +34,28 @@ const props = defineProps({
         type: Array,
         default: () => ['', ''],
     },
+    templateContext: {
+        type: Object,
+        default: null,
+    },
 });
 
 const page = usePage();
+const isTemplateEditor = computed(() => Boolean(props.templateContext?.id));
+const editorBackHref = computed(() => {
+    if (isTemplateEditor.value) {
+        return `/admin/site-templates/${props.templateContext.id}/edit`;
+    }
+
+    return '/admin';
+});
+const editorTitle = computed(() => {
+    if (isTemplateEditor.value) {
+        return `Editor de Template - ${props.templateContext.name}`;
+    }
+
+    return 'Editor de Site';
+});
 
 // Ensure wedding ID is available globally for API requests
 onMounted(() => {
@@ -731,7 +750,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Editor de Site" />
+    <Head :title="editorTitle" />
 
     <div class="h-screen flex flex-col bg-gray-100">
         <!-- Top Bar -->
@@ -739,7 +758,7 @@ onUnmounted(() => {
             <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex min-w-0 items-center gap-3">
-                        <a href="/admin" class="text-gray-500 hover:text-gray-700">
+                        <a :href="editorBackHref" class="text-gray-500 hover:text-gray-700">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                             </svg>
@@ -755,7 +774,7 @@ onUnmounted(() => {
                             </svg>
                         </button>
 
-                        <h1 class="truncate text-base font-semibold text-gray-900 sm:text-lg">Editor de Site</h1>
+                        <h1 class="truncate text-base font-semibold text-gray-900 sm:text-lg">{{ editorTitle }}</h1>
                     </div>
                 </div>
 
@@ -811,6 +830,7 @@ onUnmounted(() => {
                             <button
                                 @click="handlePublish"
                                 :disabled="isPublishing"
+                                v-if="!isTemplateEditor"
                                 class="inline-flex items-center justify-center gap-1.5 rounded-md border border-wedding-700 bg-wedding-600 px-2.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-wedding-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm"
                             >
                                 <svg v-if="isPublishing" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -826,7 +846,7 @@ onUnmounted(() => {
 
                             <!-- View Site Button (only if published) -->
                             <a
-                                v-if="site.is_published"
+                                v-if="site.is_published && !isTemplateEditor"
                                 :href="`/site/${site.slug}`"
                                 target="_blank"
                                 class="px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 flex items-center sm:px-4 sm:text-sm"

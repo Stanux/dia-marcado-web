@@ -8,9 +8,11 @@ use App\Contracts\Site\SiteBuilderServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Models\SiteLayout;
 use App\Models\SiteTemplate;
+use App\Models\Wedding;
+use App\Services\Site\TemplatePlanAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
 
 /**
  * Controller for managing site templates.
@@ -21,7 +23,8 @@ use Illuminate\Validation\ValidationException;
 class SiteTemplateController extends Controller
 {
     public function __construct(
-        private readonly SiteBuilderServiceInterface $siteBuilder
+        private readonly SiteBuilderServiceInterface $siteBuilder,
+        private readonly TemplatePlanAccessService $templateAccess
     ) {}
 
     /**
@@ -45,13 +48,33 @@ class SiteTemplateController extends Controller
             ]);
         }
 
+        $wedding = Wedding::find($weddingId);
+        if (!$wedding) {
+            return response()->json([
+                'data' => [],
+                'message' => 'Casamento não encontrado.',
+            ], 404);
+        }
+
+        $planSlug = $this->templateAccess->resolvePlanSlug($wedding);
+
         $templates = SiteTemplate::forWedding($weddingId)
+            ->with('category')
             ->orderBy('is_public', 'desc')
             ->orderBy('name')
             ->get();
 
         return response()->json([
-            'data' => $templates->map(fn (SiteTemplate $template) => $this->formatTemplateResponse($template)),
+            'meta' => [
+                'plan_slug' => $planSlug,
+            ],
+            'data' => $templates->map(
+                fn (SiteTemplate $template) => $this->formatTemplateResponse(
+                    $template,
+                    wedding: $wedding,
+                    isAdmin: $user->isAdmin()
+                )
+            ),
         ]);
     }
 
@@ -68,6 +91,7 @@ class SiteTemplateController extends Controller
     {
         $user = $request->user();
         $weddingId = $user->current_wedding_id;
+        $wedding = $weddingId ? Wedding::find($weddingId) : null;
 
         // Check access: public templates or templates owned by the wedding
         if (!$template->is_public && $template->wedding_id !== $weddingId) {
@@ -78,7 +102,12 @@ class SiteTemplateController extends Controller
         }
 
         return response()->json([
-            'data' => $this->formatTemplateResponse($template, includeContent: true),
+            'data' => $this->formatTemplateResponse(
+                $template,
+                includeContent: true,
+                wedding: $wedding,
+                isAdmin: $user->isAdmin()
+            ),
         ]);
     }
 
@@ -103,18 +132,25 @@ class SiteTemplateController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
+            'slug' => 'nullable|string|max:140',
             'description' => 'nullable|string|max:500',
             'thumbnail' => 'nullable|string|url|max:500',
             'content' => 'required|array',
+            'template_category_id' => 'nullable|integer|exists:template_categories,id',
+            'is_public' => 'nullable|boolean',
         ]);
 
+        $isGlobalTemplate = $user->isAdmin() && ($validated['is_public'] ?? false) === true;
+
         $template = SiteTemplate::create([
-            'wedding_id' => $weddingId,
+            'wedding_id' => $isGlobalTemplate ? null : $weddingId,
+            'template_category_id' => $validated['template_category_id'] ?? null,
             'name' => $validated['name'],
+            'slug' => $validated['slug'] ?? Str::slug($validated['name']),
             'description' => $validated['description'] ?? null,
             'thumbnail' => $validated['thumbnail'] ?? null,
             'content' => $validated['content'],
-            'is_public' => false, // Private templates only
+            'is_public' => $isGlobalTemplate,
         ]);
 
         return response()->json([
@@ -134,6 +170,10 @@ class SiteTemplateController extends Controller
     {
         $user = $request->user();
         $weddingId = $user->current_wedding_id;
+        $wedding = Wedding::find($site->wedding_id);
+        $mode = $request->validate([
+            'mode' => 'nullable|in:merge,overwrite',
+        ])['mode'] ?? 'merge';
 
         // Check authorization via policy 'update'
         if ($user->cannot('update', $site)) {
@@ -151,12 +191,26 @@ class SiteTemplateController extends Controller
             ], 403);
         }
 
+        if (!$wedding) {
+            return response()->json([
+                'error' => 'Not Found',
+                'message' => 'Casamento não encontrado para este site.',
+            ], 404);
+        }
+
+        if (!$this->templateAccess->canApplyTemplate($wedding, $template, $user->isAdmin())) {
+            return response()->json([
+                'error' => 'Forbidden',
+                'message' => 'Este template não está disponível no seu plano atual.',
+            ], 403);
+        }
+
         try {
-            $site = $this->siteBuilder->applyTemplate($site, $template);
+            $site = $this->siteBuilder->applyTemplate($site, $template, $mode, $user);
 
             return response()->json([
                 'data' => $this->formatSiteResponse($site),
-                'message' => "Template '{$template->name}' aplicado com sucesso.",
+                'message' => "Template '{$template->name}' aplicado com sucesso ({$mode}).",
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -169,16 +223,38 @@ class SiteTemplateController extends Controller
     /**
      * Format template response data.
      */
-    private function formatTemplateResponse(SiteTemplate $template, bool $includeContent = false): array
+    private function formatTemplateResponse(
+        SiteTemplate $template,
+        bool $includeContent = false,
+        ?Wedding $wedding = null,
+        bool $isAdmin = false
+    ): array
     {
+        $canApply = $wedding
+            ? $this->templateAccess->canApplyTemplate($wedding, $template, $isAdmin)
+            : true;
+        $requiredPlans = $this->templateAccess->requiredPlans($template);
+
         $data = [
             'id' => $template->id,
             'name' => $template->name,
+            'slug' => $template->slug,
             'description' => $template->description,
             'thumbnail' => $template->thumbnail,
             'is_public' => $template->is_public,
             'is_system' => $template->wedding_id === null,
             'wedding_id' => $template->wedding_id,
+            'template_category_id' => $template->template_category_id,
+            'category' => $template->category ? [
+                'id' => $template->category->id,
+                'name' => $template->category->name,
+                'slug' => $template->category->slug,
+            ] : null,
+            'can_apply' => $canApply,
+            'is_locked' => !$canApply,
+            'required_plans' => $requiredPlans,
+            'preview_url' => $template->slug ? route('public.site.template.preview', ['slug' => $template->slug]) : null,
+            'visual_editor_url' => $isAdmin ? route('site-templates.editor', ['template' => $template->id]) : null,
             'created_at' => $template->created_at->toIso8601String(),
             'updated_at' => $template->updated_at->toIso8601String(),
         ];

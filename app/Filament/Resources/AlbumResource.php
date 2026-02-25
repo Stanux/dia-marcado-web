@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\AlbumResource\Pages;
 use App\Models\Album;
 use App\Models\AlbumType;
+use Filament\Panel;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -148,28 +149,14 @@ class AlbumResource extends Resource
 
     public static function canAccess(): bool
     {
-        // Allow access in console for route cache generation
-        if (app()->runningInConsole()) {
-            return true;
-        }
+        return false;
+    }
 
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-
-        // Admin can always access
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        // Others need wedding context and couple/organizer role
-        $wedding = $user->currentWedding;
-        if (!$wedding) {
-            return false;
-        }
-
-        $role = $user->roleIn($wedding);
-        return in_array($role, ['couple', 'organizer']);
+    /**
+     * Disable module routes: media management is handled in Site Editor.
+     */
+    public static function registerRoutes(Panel $panel): void
+    {
+        // Intentionally disabled.
     }
 }

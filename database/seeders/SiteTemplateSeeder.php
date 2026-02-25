@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\SiteTemplate;
+use App\Models\TemplateCategory;
 use App\Services\Site\SiteContentSchema;
 use Illuminate\Database\Seeder;
 
@@ -18,16 +19,19 @@ class SiteTemplateSeeder extends Seeder
      */
     public function run(): void
     {
+        $essentialCategoryId = TemplateCategory::query()->where('slug', 'essenciais')->value('id');
+        $premiumCategoryId = TemplateCategory::query()->where('slug', 'premium')->value('id');
+
         $templates = [
-            $this->getClassicTemplate(),
-            $this->getModernTemplate(),
-            $this->getMinimalistTemplate(),
-            $this->getRomanticTemplate(),
+            $this->getClassicTemplate($essentialCategoryId),
+            $this->getModernTemplate($premiumCategoryId),
+            $this->getMinimalistTemplate($essentialCategoryId),
+            $this->getRomanticTemplate($premiumCategoryId),
         ];
 
         foreach ($templates as $template) {
             SiteTemplate::updateOrCreate(
-                ['name' => $template['name'], 'wedding_id' => null],
+                ['slug' => $template['slug'], 'wedding_id' => null],
                 $template
             );
         }
@@ -37,7 +41,7 @@ class SiteTemplateSeeder extends Seeder
      * Get the Classic template configuration.
      * Elegant and traditional style with gold and brown colors.
      */
-    private function getClassicTemplate(): array
+    private function getClassicTemplate(?int $categoryId = null): array
     {
         $content = SiteContentSchema::getDefaultContent();
         
@@ -105,7 +109,9 @@ class SiteTemplateSeeder extends Seeder
 
         return [
             'wedding_id' => null,
+            'template_category_id' => $categoryId,
             'name' => 'Clássico',
+            'slug' => 'classico',
             'description' => 'Estilo elegante e tradicional com tons dourados e marrons. Perfeito para casamentos sofisticados.',
             'thumbnail' => null,
             'content' => $content,
@@ -117,7 +123,7 @@ class SiteTemplateSeeder extends Seeder
      * Get the Modern template configuration.
      * Clean and contemporary style with dark gray and green colors.
      */
-    private function getModernTemplate(): array
+    private function getModernTemplate(?int $categoryId = null): array
     {
         $content = SiteContentSchema::getDefaultContent();
         
@@ -185,7 +191,9 @@ class SiteTemplateSeeder extends Seeder
 
         return [
             'wedding_id' => null,
+            'template_category_id' => $categoryId,
             'name' => 'Moderno',
+            'slug' => 'moderno',
             'description' => 'Estilo clean e contemporâneo com design minimalista. Ideal para casais que apreciam modernidade.',
             'thumbnail' => null,
             'content' => $content,
@@ -197,7 +205,7 @@ class SiteTemplateSeeder extends Seeder
      * Get the Minimalist template configuration.
      * Simple and direct style with black and white colors.
      */
-    private function getMinimalistTemplate(): array
+    private function getMinimalistTemplate(?int $categoryId = null): array
     {
         $content = SiteContentSchema::getDefaultContent();
         
@@ -265,7 +273,9 @@ class SiteTemplateSeeder extends Seeder
 
         return [
             'wedding_id' => null,
+            'template_category_id' => $categoryId,
             'name' => 'Minimalista',
+            'slug' => 'minimalista',
             'description' => 'Estilo simples e direto com foco no conteúdo. Para quem prefere elegância na simplicidade.',
             'thumbnail' => null,
             'content' => $content,
@@ -277,7 +287,7 @@ class SiteTemplateSeeder extends Seeder
      * Get the Romantic template configuration.
      * Delicate and feminine style with pink colors.
      */
-    private function getRomanticTemplate(): array
+    private function getRomanticTemplate(?int $categoryId = null): array
     {
         $content = SiteContentSchema::getDefaultContent();
         
@@ -345,7 +355,9 @@ class SiteTemplateSeeder extends Seeder
 
         return [
             'wedding_id' => null,
+            'template_category_id' => $categoryId,
             'name' => 'Romântico',
+            'slug' => 'romantico',
             'description' => 'Estilo delicado e feminino com tons de rosa. Perfeito para casamentos românticos e sonhadores.',
             'thumbnail' => null,
             'content' => $content,

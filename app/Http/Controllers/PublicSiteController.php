@@ -6,6 +6,7 @@ use App\Contracts\Site\AccessTokenServiceInterface;
 use App\Contracts\Site\PlaceholderServiceInterface;
 use App\Http\Requests\Site\AuthenticateSiteRequest;
 use App\Models\SiteLayout;
+use App\Models\SiteTemplate;
 use App\Services\Guests\RsvpSubmissionException;
 use App\Services\Guests\InviteValidationService;
 use App\Services\Site\SiteContentSchema;
@@ -129,6 +130,62 @@ class PublicSiteController extends Controller
         }
 
         return $response;
+    }
+
+    /**
+     * Display a public preview for a published system template.
+     */
+    public function showTemplate(Request $request, string $slug)
+    {
+        $template = SiteTemplate::query()
+            ->where('slug', $slug)
+            ->where('is_public', true)
+            ->whereNull('wedding_id')
+            ->firstOrFail();
+
+        $previewWedding = new \App\Models\Wedding([
+            'title' => $template->name,
+            'wedding_date' => null,
+            'venue' => '',
+            'city' => '',
+            'state' => '',
+            'settings' => [],
+            'is_active' => true,
+        ]);
+
+        $content = SiteContentSchema::normalize((array) ($template->content ?? []));
+        $content = $this->placeholderService->replaceInArray($content, $previewWedding);
+        $content = $this->rewriteLocalUrlsToCurrentHost($content, $request);
+
+        $siteData = [
+            'id' => $template->id,
+            'slug' => $template->slug,
+            'is_published' => true,
+            'public_url' => route('public.site.template.preview', ['slug' => $template->slug]),
+        ];
+
+        $weddingData = [
+            'id' => 0,
+            'title' => $template->name,
+            'wedding_date' => null,
+            'venue' => null,
+            'city' => null,
+            'state' => null,
+            'settings' => [],
+            'gift_registry_config' => null,
+            'guest_events' => [],
+            'site_slug' => $template->slug,
+        ];
+
+        return inertia('Public/Site', [
+            'site' => $siteData,
+            'content' => $content,
+            'wedding' => $weddingData,
+            'inviteTokenState' => null,
+            'isTemplatePreview' => true,
+        ])->withViewData([
+            'pageTitle' => $content['meta']['title'] ?? ('Template - ' . $template->name),
+        ])->toResponse($request);
     }
 
     private function resolveInviteTokenState(?string $token, string $weddingId): string

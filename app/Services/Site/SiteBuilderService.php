@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\Wedding;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -29,7 +30,9 @@ class SiteBuilderService implements SiteBuilderServiceInterface
     public function __construct(
         private readonly SlugGeneratorServiceInterface $slugGenerator,
         private readonly SiteVersionServiceInterface $versionService,
-        private readonly ContentSanitizerServiceInterface $sanitizer
+        private readonly ContentSanitizerServiceInterface $sanitizer,
+        private readonly TemplateWorkspaceService $templateWorkspaceService,
+        private readonly TemplateMediaCloneService $templateMediaCloneService,
     ) {}
 
     /**
@@ -108,6 +111,8 @@ class SiteBuilderService implements SiteBuilderServiceInterface
                 );
             }
 
+            $this->templateWorkspaceService->syncTemplateFromEditorSite($site, $normalizedContent);
+
             return $site->fresh();
         });
     }
@@ -148,6 +153,8 @@ class SiteBuilderService implements SiteBuilderServiceInterface
             // Dispatch event for notifications
             SitePublished::dispatch($site, $user);
 
+            $this->templateWorkspaceService->syncTemplateFromEditorSite($site, $normalizedDraft);
+
             return $site->fresh();
         });
     }
@@ -183,6 +190,11 @@ class SiteBuilderService implements SiteBuilderServiceInterface
                 'is_published' => true,
             ]);
 
+            $this->templateWorkspaceService->syncTemplateFromEditorSite(
+                $site,
+                (array) $lastPublishedVersion->content
+            );
+
             return $site->fresh();
         });
     }
@@ -190,43 +202,70 @@ class SiteBuilderService implements SiteBuilderServiceInterface
     /**
      * {@inheritdoc}
      */
-    public function applyTemplate(SiteLayout $site, SiteTemplate $template): SiteLayout
+    public function applyTemplate(
+        SiteLayout $site,
+        SiteTemplate $template,
+        string $mode = 'merge',
+        ?User $actor = null
+    ): SiteLayout
     {
-        return DB::transaction(function () use ($site, $template) {
-            // Merge template content with existing draft
-            $mergedContent = $this->mergeTemplateContent(
-                SiteContentSchema::normalize((array) ($site->draft_content ?? [])),
-                $template->content
-            );
-            $mergedContent = SiteContentSchema::normalize($mergedContent);
+        $normalizedMode = strtolower(trim($mode));
+        if (!in_array($normalizedMode, ['merge', 'overwrite'], true)) {
+            throw new InvalidArgumentException('Modo de aplicação inválido. Use "merge" ou "overwrite".');
+        }
 
-            // Update draft with merged content
-            $site->draft_content = $mergedContent;
+        return DB::transaction(function () use ($site, $template, $normalizedMode, $actor) {
+            $existingContent = SiteContentSchema::normalize((array) ($site->draft_content ?? []));
+            $templateContent = SiteContentSchema::normalize((array) ($template->content ?? []));
+
+            $appliedContent = $normalizedMode === 'overwrite'
+                ? $templateContent
+                : $this->mergeTemplateContent($existingContent, $templateContent);
+
+            $appliedContent = SiteContentSchema::normalize(
+                $this->sanitizer->sanitizeArray($appliedContent)
+            );
+            $appliedContent = $this->templateMediaCloneService->replicateForSite($appliedContent, $site, $template);
+            $appliedContent = SiteContentSchema::normalize($appliedContent);
+
+            // Keep gift registry model in sync if template provides section config.
+            if (isset($appliedContent['sections']['giftRegistry']['config']) && is_array($appliedContent['sections']['giftRegistry']['config'])) {
+                $this->saveGiftRegistryConfig($site->wedding, $appliedContent['sections']['giftRegistry']['config']);
+            }
+
+            $site->draft_content = $appliedContent;
             $site->save();
 
-            // Get the first user from the wedding to record the version
-            $wedding = $site->wedding;
-            $user = $wedding->users()->first();
+            $user = $actor ?? auth()->user() ?? $site->wedding?->users()->first();
 
             if ($user) {
-                // Create version recording template application
+                // Snapshot immediately before template application for one-click restore.
                 $this->versionService->createVersion(
                     $site,
-                    $mergedContent,
+                    $existingContent,
                     $user,
-                    "Template aplicado: {$template->name}"
+                    "Snapshot antes do template: {$template->name}"
+                );
+
+                $this->versionService->createVersion(
+                    $site,
+                    $appliedContent,
+                    $user,
+                    "Template aplicado ({$normalizedMode}): {$template->name}"
                 );
             }
+
+            $this->templateWorkspaceService->syncTemplateFromEditorSite($site, $appliedContent);
 
             return $site->fresh();
         });
     }
 
     /**
-     * Merge template content with existing content, preserving user data.
-     * 
-     * Template provides: styles, theme, layout settings
-     * Preserved from existing: user-entered text, uploaded media, personal data
+     * Merge template content with existing content.
+     *
+     * Template wins for structure, order, style and textual configuration.
+     * Existing site keeps user media (logo image, hero media, gallery assets).
      *
      * @param array $existing The existing draft content
      * @param array $template The template content to apply
@@ -234,62 +273,146 @@ class SiteBuilderService implements SiteBuilderServiceInterface
      */
     private function mergeTemplateContent(array $existing, array $template): array
     {
-        $merged = $existing;
+        // Merge mode starts with template to enforce section order, styles and textual content.
+        $merged = $this->mergeUnknownKeys($template, $existing);
 
-        // Apply theme from template
-        if (isset($template['theme'])) {
-            $merged['theme'] = array_merge(
-                $merged['theme'] ?? [],
-                $template['theme']
-            );
-        }
-
-        // Apply meta defaults from template (only if empty in existing)
-        if (isset($template['meta'])) {
-            foreach ($template['meta'] as $key => $value) {
-                if (empty($merged['meta'][$key])) {
-                    $merged['meta'][$key] = $value;
-                }
-            }
-        }
-
-        // Merge sections - apply styles from template, preserve content from existing
-        if (isset($template['sections'])) {
-            foreach ($template['sections'] as $sectionName => $templateSection) {
-                if (!isset($merged['sections'][$sectionName])) {
-                    $merged['sections'][$sectionName] = $templateSection;
-                    continue;
-                }
-
-                $existingSection = $merged['sections'][$sectionName];
-
-                // Apply style from template
-                if (isset($templateSection['style'])) {
-                    $existingSection['style'] = array_merge(
-                        $existingSection['style'] ?? [],
-                        $templateSection['style']
-                    );
-                }
-
-                // Apply layout from template if exists
-                if (isset($templateSection['layout'])) {
-                    $existingSection['layout'] = $templateSection['layout'];
-                }
-
-                // Preserve user content fields (title, subtitle, description, etc.)
-                // Only apply template values if existing is empty
-                $contentFields = ['title', 'subtitle', 'description', 'copyrightText'];
-                foreach ($contentFields as $field) {
-                    if (isset($templateSection[$field]) && empty($existingSection[$field])) {
-                        $existingSection[$field] = $templateSection[$field];
-                    }
-                }
-
-                $merged['sections'][$sectionName] = $existingSection;
-            }
-        }
+        // Preserve user media assets in merge mode according to product rules.
+        $merged = $this->preserveHeaderLogoMedia($existing, $merged);
+        $merged = $this->preserveHeroMedia($existing, $merged);
+        $merged = $this->preserveGalleryMedia($existing, $merged);
 
         return $merged;
+    }
+
+    /**
+     * Keep unknown keys from existing content to avoid data loss when template schema is older.
+     */
+    private function mergeUnknownKeys(array $template, array $existing): array
+    {
+        foreach ($existing as $key => $value) {
+            if (!array_key_exists($key, $template)) {
+                $template[$key] = $value;
+                continue;
+            }
+
+            if (
+                is_array($template[$key])
+                && is_array($value)
+                && !array_is_list($template[$key])
+                && !array_is_list($value)
+            ) {
+                $template[$key] = $this->mergeUnknownKeys($template[$key], $value);
+            }
+        }
+
+        return $template;
+    }
+
+    /**
+     * Preserve existing header logo image in merge mode when template still uses image logo.
+     */
+    private function preserveHeaderLogoMedia(array $existing, array $merged): array
+    {
+        $templateLogoType = strtolower((string) data_get($merged, 'sections.header.logo.type', 'image'));
+        $existingLogoUrl = trim((string) data_get($existing, 'sections.header.logo.url', ''));
+
+        if ($templateLogoType !== 'image' || $existingLogoUrl === '') {
+            return $merged;
+        }
+
+        $merged['sections']['header']['logo']['type'] = 'image';
+        $merged['sections']['header']['logo']['url'] = $existingLogoUrl;
+        $merged['sections']['header']['logo']['alt'] = (string) data_get($existing, 'sections.header.logo.alt', '');
+
+        return $merged;
+    }
+
+    /**
+     * Preserve existing hero media (image/video/gallery) in merge mode.
+     */
+    private function preserveHeroMedia(array $existing, array $merged): array
+    {
+        $existingHeroMedia = data_get($existing, 'sections.hero.media');
+
+        if (!is_array($existingHeroMedia) || !$this->hasHeroMedia($existingHeroMedia)) {
+            return $merged;
+        }
+
+        $merged['sections']['hero']['media'] = $existingHeroMedia;
+
+        return $merged;
+    }
+
+    /**
+     * Preserve existing photo gallery media in merge mode.
+     */
+    private function preserveGalleryMedia(array $existing, array $merged): array
+    {
+        $existingAlbums = data_get($existing, 'sections.photoGallery.albums');
+
+        if (!is_array($existingAlbums) || !$this->hasGalleryMedia($existingAlbums)) {
+            return $merged;
+        }
+
+        $merged['sections']['photoGallery']['albums'] = $existingAlbums;
+
+        return $merged;
+    }
+
+    private function hasHeroMedia(array $heroMedia): bool
+    {
+        $url = trim((string) ($heroMedia['url'] ?? ''));
+        $fallback = trim((string) ($heroMedia['fallback'] ?? ''));
+        $images = $heroMedia['images'] ?? [];
+
+        return $url !== ''
+            || $fallback !== ''
+            || (is_array($images) && count($images) > 0);
+    }
+
+    private function hasGalleryMedia(array $albums): bool
+    {
+        foreach ($albums as $album) {
+            if (!is_array($album)) {
+                continue;
+            }
+
+            $items = $album['items'] ?? $album['photos'] ?? [];
+
+            if (!is_array($items)) {
+                continue;
+            }
+
+            foreach ($items as $item) {
+                if ($this->galleryItemHasMedia($item)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function galleryItemHasMedia(mixed $item): bool
+    {
+        if (is_string($item)) {
+            return trim($item) !== '';
+        }
+
+        if (!is_array($item)) {
+            return false;
+        }
+
+        $url = trim((string) (
+            $item['displayUrl']
+            ?? $item['display_url']
+            ?? $item['thumbnailUrl']
+            ?? $item['thumbnail_url']
+            ?? $item['url']
+            ?? ''
+        ));
+
+        return $url !== '';
     }
 
     /**
