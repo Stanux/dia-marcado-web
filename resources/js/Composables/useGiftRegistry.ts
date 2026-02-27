@@ -48,6 +48,35 @@ export function useGiftRegistry(): UseGiftRegistryReturn {
   const error = ref<string | null>(null);
   const lastOperation = ref<(() => Promise<any>) | null>(null);
 
+  function getCookieValue(name: string): string | null {
+    const cookies = document.cookie.split('; ').find((entry) => entry.startsWith(`${name}=`));
+    if (!cookies) {
+      return null;
+    }
+
+    const [, value = ''] = cookies.split('=');
+    return value ? decodeURIComponent(value) : null;
+  }
+
+  function buildApiHeaders(baseHeaders: Record<string, string> = {}): Record<string, string> {
+    const headers: Record<string, string> = {
+      'X-Requested-With': 'XMLHttpRequest',
+      ...baseHeaders,
+    };
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (csrfToken) {
+      headers['X-CSRF-TOKEN'] = csrfToken;
+    }
+
+    const xsrfToken = getCookieValue('XSRF-TOKEN');
+    if (xsrfToken) {
+      headers['X-XSRF-TOKEN'] = xsrfToken;
+    }
+
+    return headers;
+  }
+
   /**
    * Fetch available gifts for an event
    */
@@ -59,9 +88,9 @@ export function useGiftRegistry(): UseGiftRegistryReturn {
       try {
         const response = await fetch(`/api/events/${eventId}/gifts`, {
           method: 'GET',
-          headers: {
+          headers: buildApiHeaders({
             'Accept': 'application/json',
-          },
+          }),
         });
 
         if (!response.ok) {
@@ -99,10 +128,10 @@ export function useGiftRegistry(): UseGiftRegistryReturn {
       try {
         const response = await fetch(`/api/events/${eventId}/gifts/${giftId}/purchase`, {
           method: 'POST',
-          headers: {
+          headers: buildApiHeaders({
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-          },
+          }),
           body: JSON.stringify(paymentData),
         });
 

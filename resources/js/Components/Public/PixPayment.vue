@@ -94,6 +94,35 @@ const formattedTime = computed(() => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 });
 
+function getCookieValue(name: string): string | null {
+  const cookies = document.cookie.split('; ').find((entry) => entry.startsWith(`${name}=`));
+  if (!cookies) {
+    return null;
+  }
+
+  const [, value = ''] = cookies.split('=');
+  return value ? decodeURIComponent(value) : null;
+}
+
+function buildApiHeaders(baseHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = {
+    'X-Requested-With': 'XMLHttpRequest',
+    ...baseHeaders,
+  };
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+  if (csrfToken) {
+    headers['X-CSRF-TOKEN'] = csrfToken;
+  }
+
+  const xsrfToken = getCookieValue('XSRF-TOKEN');
+  if (xsrfToken) {
+    headers['X-XSRF-TOKEN'] = xsrfToken;
+  }
+
+  return headers;
+}
+
 // Methods
 function formatCPF(value: string): string {
   const cleaned = value.replace(/\D/g, '');
@@ -211,9 +240,9 @@ async function handleSimulatePayment() {
   try {
     const response = await fetch(`/api/dev/transactions/${props.transactionId}/confirm`, {
       method: 'POST',
-      headers: {
+      headers: buildApiHeaders({
         'Accept': 'application/json',
-      },
+      }),
     });
 
     if (!response.ok) {
@@ -372,14 +401,14 @@ watch(
           </p>
         </div>
 
-        <button @click="copyQRCode" class="copy-button">
+        <button type="button" @click="copyQRCode" class="copy-button">
           <svg class="copy-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
           Copiar código PIX
         </button>
 
-        <button v-if="isLocal" @click="handleSimulatePayment" class="simulate-button">
+        <button type="button" v-if="isLocal" @click="handleSimulatePayment" class="simulate-button">
           Simular pagamento confirmado
         </button>
 
@@ -390,7 +419,7 @@ watch(
           </p>
         </div>
 
-        <button @click="handleCancel" class="cancel-button">
+        <button type="button" @click="handleCancel" class="cancel-button">
           Cancelar
         </button>
       </div>
