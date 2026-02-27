@@ -555,7 +555,9 @@ class SiteValidatorServiceTest extends TestCase
     {
         $wedding = Wedding::factory()->create();
         $coupleUser = \App\Models\User::factory()->create(['name' => 'Noivo QA']);
+        $partnerUser = \App\Models\User::factory()->create(['name' => 'Noiva QA']);
         $wedding->users()->attach($coupleUser->id, ['role' => 'couple', 'permissions' => []]);
+        $wedding->users()->attach($partnerUser->id, ['role' => 'couple', 'permissions' => []]);
 
         $content = SiteContentSchema::getDefaultContent();
         $content['meta']['title'] = 'Our Wedding';
