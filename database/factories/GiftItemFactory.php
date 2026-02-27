@@ -49,6 +49,8 @@ class GiftItemFactory extends Factory
             'quantity_available' => $quantity,
             'quantity_sold' => 0,
             'is_enabled' => true,
+            'is_fallback_donation' => false,
+            'minimum_custom_amount' => null,
             
             // Original values for restoration
             'original_name' => $name,
@@ -136,6 +138,29 @@ class GiftItemFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'quantity_available' => fake()->numberBetween(20, 100),
             'original_quantity' => fake()->numberBetween(20, 100),
+        ]);
+    }
+
+    /**
+     * Create the fallback donation item used in quota mode.
+     */
+    public function fallbackDonation(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'name' => 'Doação livre para o casal',
+            'description' => 'Contribua com qualquer valor para os noivos.',
+            'default_image_key' => 'fundo-livre.png',
+            'photo_url' => null,
+            'price' => 5000,
+            'quantity_available' => 1000000,
+            'quantity_sold' => 0,
+            'is_enabled' => true,
+            'is_fallback_donation' => true,
+            'minimum_custom_amount' => 5000,
+            'original_name' => 'Doação livre para o casal',
+            'original_description' => 'Contribua com qualquer valor para os noivos.',
+            'original_price' => 5000,
+            'original_quantity' => 1000000,
         ]);
     }
 }

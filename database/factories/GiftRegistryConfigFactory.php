@@ -42,6 +42,7 @@ class GiftRegistryConfigFactory extends Factory
             'title_color' => fake()->hexColor(),
             'title_style' => fake()->randomElement(['normal', 'bold', 'italic', 'bold_italic']),
             'fee_modality' => fake()->randomElement(['couple_pays', 'guest_pays']),
+            'registry_mode' => 'quantity',
         ];
     }
 
@@ -72,6 +73,20 @@ class GiftRegistryConfigFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_enabled' => false,
+        ]);
+    }
+
+    public function quantityMode(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'registry_mode' => 'quantity',
+        ]);
+    }
+
+    public function quotaMode(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'registry_mode' => 'quota',
         ]);
     }
 

@@ -10,6 +10,7 @@ use App\Models\GiftItem;
 use App\Models\GiftRegistryConfig;
 use App\Services\FeeCalculator;
 use App\Services\GiftService;
+use App\Services\GiftRegistryModeService;
 use App\Services\Payment\PaymentService;
 use App\Services\Payment\PagSeguroException;
 use Illuminate\Http\JsonResponse;
@@ -46,20 +47,22 @@ class GiftController extends Controller
             $sortBy = 'price';
         }
 
-        // Get available gifts for the event
-        $gifts = $this->giftService->getAvailableGifts($eventId, $sortBy);
-
         // Get gift registry config for display price calculation
         $config = GiftRegistryConfig::withoutGlobalScopes()
             ->where('wedding_id', $eventId)
             ->first();
+        $registryMode = $config?->registry_mode ?? GiftRegistryModeService::MODE_QUANTITY;
+
+        // Get available gifts for the event based on current mode
+        $gifts = $this->giftService->getPublicGifts($eventId, $registryMode, $sortBy);
 
         // Format gifts for response
-        $formattedGifts = $gifts->map(function ($gift) use ($config) {
-            return $this->formatGiftResponse($gift, $config);
+        $formattedGifts = $gifts->map(function ($gift) use ($config, $registryMode) {
+            return $this->formatGiftResponse($gift, $config, $registryMode);
         });
 
         return response()->json([
+            'registry_mode' => $registryMode,
             'data' => $formattedGifts,
         ]);
     }
@@ -98,9 +101,11 @@ class GiftController extends Controller
         $config = GiftRegistryConfig::withoutGlobalScopes()
             ->where('wedding_id', $eventId)
             ->first();
+        $registryMode = $config?->registry_mode ?? GiftRegistryModeService::MODE_QUANTITY;
 
         return response()->json([
-            'data' => $this->formatGiftResponse($gift, $config, true),
+            'registry_mode' => $registryMode,
+            'data' => $this->formatGiftResponse($gift, $config, $registryMode, true),
         ]);
     }
 
@@ -134,6 +139,11 @@ class GiftController extends Controller
             ], 404);
         }
 
+        $validated = $request->validated();
+        $paymentMethod = $validated['payment_method'];
+        $idempotencyKey = $validated['idempotency_key'];
+        $customAmount = null;
+
         // Validate gift availability
         if (!$this->giftService->validateGiftAvailability($giftId)) {
             return response()->json([
@@ -142,9 +152,20 @@ class GiftController extends Controller
             ], 422);
         }
 
-        $validated = $request->validated();
-        $paymentMethod = $validated['payment_method'];
-        $idempotencyKey = $validated['idempotency_key'];
+        if ($gift->is_fallback_donation) {
+            $customAmount = (int) ($validated['custom_amount'] ?? 0);
+            $minimumCustomAmount = max(
+                GiftRegistryModeService::FALLBACK_MINIMUM_AMOUNT,
+                (int) ($gift->minimum_custom_amount ?? 0)
+            );
+
+            if ($customAmount < $minimumCustomAmount) {
+                return response()->json([
+                    'error' => 'Validation Error',
+                    'message' => 'O valor mínimo para doação é R$ ' . number_format($minimumCustomAmount / 100, 2, ',', '.') . '.',
+                ], 422);
+            }
+        }
 
         try {
             // Process payment based on method
@@ -166,7 +187,8 @@ class GiftController extends Controller
                     $gift,
                     $validated['card_token'],
                     $billingData,
-                    $idempotencyKey
+                    $idempotencyKey,
+                    $customAmount
                 );
 
                 return response()->json([
@@ -193,7 +215,8 @@ class GiftController extends Controller
                 $result = $this->paymentService->processPixPayment(
                     $gift,
                     $payerData,
-                    $idempotencyKey
+                    $idempotencyKey,
+                    $customAmount
                 );
 
                 return response()->json([
@@ -258,16 +281,43 @@ class GiftController extends Controller
     /**
      * Format gift response data.
      */
-    private function formatGiftResponse(GiftItem $gift, ?GiftRegistryConfig $config, bool $detailed = false): array
+    private function formatGiftResponse(
+        GiftItem $gift,
+        ?GiftRegistryConfig $config,
+        string $registryMode,
+        bool $detailed = false
+    ): array
     {
-        // Calculate display price based on fee modality
-        $displayPrice = $gift->price;
-        if ($config) {
+        $isFallbackDonation = $gift->is_fallback_donation === true;
+        $isQuotaMode = $registryMode === GiftRegistryModeService::MODE_QUOTA;
+        $minimumCustomAmount = $gift->minimum_custom_amount ?? GiftRegistryModeService::FALLBACK_MINIMUM_AMOUNT;
+        $basePrice = $gift->price;
+
+        if ($isFallbackDonation) {
+            // Donation fallback always displays minimum amount and never adds surcharge.
+            $basePrice = max(GiftRegistryModeService::FALLBACK_MINIMUM_AMOUNT, (int) $minimumCustomAmount);
+        } elseif ($isQuotaMode) {
+            $basePrice = $gift->getQuotaUnitPrice();
+        }
+
+        // Calculate display price based on fee modality (except fallback donation).
+        $displayPrice = $basePrice;
+        if ($config && !$isFallbackDonation) {
             $displayPrice = $this->feeCalculator->calculateDisplayPrice(
-                $gift->price,
+                $basePrice,
                 $config->getFeePercentage(),
                 $config->fee_modality
             );
+        }
+
+        $quotaTotal = null;
+        $quotaSold = null;
+        $quotaProgressPercent = null;
+
+        if ($isQuotaMode && !$isFallbackDonation) {
+            $quotaTotal = $gift->getQuotaTotal();
+            $quotaSold = $gift->quantity_sold;
+            $quotaProgressPercent = $gift->getQuotaProgressPercent();
         }
 
         $response = [
@@ -275,11 +325,18 @@ class GiftController extends Controller
             'name' => $gift->name,
             'description' => $gift->description,
             'photo_url' => $gift->getDisplayPhotoUrl(),
+            'registry_mode' => $registryMode,
             'display_price' => $displayPrice, // Price in cents
             'display_price_formatted' => 'R$ ' . number_format($displayPrice / 100, 2, ',', '.'),
             'quantity_available' => $gift->quantity_available,
             'is_available' => $gift->isAvailable(),
             'is_sold_out' => $gift->isSoldOut(),
+            'is_fallback_donation' => $isFallbackDonation,
+            'minimum_custom_amount' => $isFallbackDonation ? (int) $minimumCustomAmount : null,
+            'allows_custom_amount' => $isFallbackDonation,
+            'quota_total' => $quotaTotal,
+            'quota_sold' => $quotaSold,
+            'quota_progress_percent' => $quotaProgressPercent,
         ];
 
         if ($detailed) {

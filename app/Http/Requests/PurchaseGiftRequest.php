@@ -31,6 +31,7 @@ class PurchaseGiftRequest extends FormRequest
         $rules = [
             'payment_method' => ['required', 'string', 'in:credit_card,pix'],
             'idempotency_key' => ['required', 'string', 'min:16', 'max:100'],
+            'custom_amount' => ['nullable', 'integer', 'min:5000'],
             
             // Payer information (required for both methods)
             'payer.name' => ['required', 'string', 'max:255'],
@@ -73,6 +74,8 @@ class PurchaseGiftRequest extends FormRequest
             'idempotency_key.required' => 'A chave de idempotência é obrigatória.',
             'idempotency_key.min' => 'A chave de idempotência deve ter no mínimo 16 caracteres.',
             'idempotency_key.max' => 'A chave de idempotência deve ter no máximo 100 caracteres.',
+            'custom_amount.integer' => 'O valor da doação deve ser um número inteiro em centavos.',
+            'custom_amount.min' => 'O valor mínimo da doação é R$ 50,00.',
             
             'payer.name.required' => 'O nome do pagador é obrigatório.',
             'payer.email.required' => 'O email do pagador é obrigatório.',

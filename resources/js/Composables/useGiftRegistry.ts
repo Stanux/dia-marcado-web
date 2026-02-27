@@ -10,14 +10,20 @@
 import { ref } from 'vue';
 
 interface GiftItem {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  photo_url: string;
+  photo_url: string | null;
   display_price: number;
   quantity_available: number;
-  is_enabled: boolean;
   is_sold_out: boolean;
+  registry_mode: 'quantity' | 'quota';
+  quota_total: number | null;
+  quota_sold: number | null;
+  quota_progress_percent: number | null;
+  is_fallback_donation: boolean;
+  minimum_custom_amount: number | null;
+  allows_custom_amount: boolean;
 }
 
 interface PurchaseResponse {
@@ -31,8 +37,8 @@ interface PurchaseResponse {
 interface UseGiftRegistryReturn {
   loading: Readonly<typeof loading>;
   error: Readonly<typeof error>;
-  fetchGifts: (eventId: number) => Promise<GiftItem[]>;
-  purchaseGift: (eventId: number, giftId: number, paymentData: any) => Promise<PurchaseResponse>;
+  fetchGifts: (eventId: string) => Promise<GiftItem[]>;
+  purchaseGift: (eventId: string, giftId: string, paymentData: any) => Promise<PurchaseResponse>;
   clearError: () => void;
   retryLastOperation: () => Promise<any>;
 }
@@ -45,7 +51,7 @@ export function useGiftRegistry(): UseGiftRegistryReturn {
   /**
    * Fetch available gifts for an event
    */
-  async function fetchGifts(eventId: number): Promise<GiftItem[]> {
+  async function fetchGifts(eventId: string): Promise<GiftItem[]> {
     const operation = async () => {
       loading.value = true;
       error.value = null;
@@ -82,8 +88,8 @@ export function useGiftRegistry(): UseGiftRegistryReturn {
    * Purchase a gift item
    */
   async function purchaseGift(
-    eventId: number,
-    giftId: number,
+    eventId: string,
+    giftId: string,
     paymentData: any
   ): Promise<PurchaseResponse> {
     const operation = async () => {

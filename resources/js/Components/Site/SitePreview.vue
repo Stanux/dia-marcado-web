@@ -185,7 +185,7 @@ const renderedSections = computed(() => {
                     component,
                     props: {
                         ...baseProps,
-                        eventId: wedding.value.id,
+                        eventId: String(wedding.value.id ?? ''),
                         config: wedding.value.gift_registry_config,
                         isPreview: true,
                     },

@@ -22,6 +22,7 @@ class GiftRegistryConfig extends WeddingScopedModel
         'title_color',
         'title_style',
         'fee_modality',
+        'registry_mode',
     ];
 
     /**
@@ -35,6 +36,11 @@ class GiftRegistryConfig extends WeddingScopedModel
             'is_enabled' => 'boolean',
             'title_font_size' => 'integer',
         ];
+    }
+
+    public function isQuotaMode(): bool
+    {
+        return $this->registry_mode === 'quota';
     }
 
     /**

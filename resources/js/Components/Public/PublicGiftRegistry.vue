@@ -20,7 +20,7 @@ const props = defineProps({
         default: () => ({}),
     },
     eventId: {
-        type: Number,
+        type: String,
         required: true,
     },
     config: {
@@ -51,6 +51,7 @@ const sectionBackgroundColor = computed(() => resolveBaseBackgroundColor(style.v
 const giftConfig = computed(() => {
     return props.config || {
         section_title: 'Lista de Presentes',
+        registry_mode: 'quantity',
         fee_modality: 'couple_pays',
         title_font_family: null,
         title_font_size: null,

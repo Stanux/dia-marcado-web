@@ -13,7 +13,7 @@ import { usePage } from '@inertiajs/vue3';
 import QRCode from 'qrcode';
 
 interface GiftItem {
-  id: number;
+  id: string;
   name: string;
   display_price: number;
 }
@@ -26,12 +26,14 @@ interface QRCodeData {
 
 interface Props {
   gift: GiftItem;
+  amountInCents?: number;
   loading?: boolean;
   qrCodeData?: QRCodeData | null;
   transactionId?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  amountInCents: 0,
   loading: false,
   qrCodeData: null
 });

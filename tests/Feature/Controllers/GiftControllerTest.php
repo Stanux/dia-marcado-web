@@ -6,10 +6,10 @@ use App\Models\GiftItem;
 use App\Models\GiftRegistryConfig;
 use App\Models\Transaction;
 use App\Models\Wedding;
-use App\Services\Payment\IdempotencyService;
 use App\Services\Payment\PagSeguroClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Mockery;
 use Tests\TestCase;
 
 class GiftControllerTest extends TestCase
@@ -346,5 +346,174 @@ class GiftControllerTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['card_token']);
+    }
+
+    /** @test */
+    public function it_returns_quota_fields_when_registry_mode_is_quota()
+    {
+        $wedding = Wedding::factory()->create();
+        $config = GiftRegistryConfig::withoutGlobalScopes()->where('wedding_id', $wedding->id)->first();
+        $config->update([
+            'registry_mode' => 'quota',
+            'fee_modality' => 'couple_pays',
+        ]);
+
+        $gift = GiftItem::factory()->create([
+            'wedding_id' => $wedding->id,
+            'price' => 100000, // total target
+            'quantity_available' => 1,
+            'quantity_sold' => 3,
+            'is_enabled' => true,
+            'is_fallback_donation' => false,
+        ]);
+
+        $response = $this->getJson("/api/events/{$wedding->id}/gifts/{$gift->id}");
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'registry_mode' => 'quota',
+            'data' => [
+                'id' => $gift->id,
+                'registry_mode' => 'quota',
+                'display_price' => 25000,
+                'quota_total' => 4,
+                'quota_sold' => 3,
+                'quota_progress_percent' => 75,
+                'is_fallback_donation' => false,
+                'allows_custom_amount' => false,
+            ],
+        ]);
+    }
+
+    /** @test */
+    public function it_returns_fallback_item_only_when_all_quota_items_are_sold_out()
+    {
+        $wedding = Wedding::factory()->create();
+        $config = GiftRegistryConfig::withoutGlobalScopes()->where('wedding_id', $wedding->id)->first();
+        $config->update([
+            'registry_mode' => 'quota',
+            'fee_modality' => 'guest_pays',
+        ]);
+
+        GiftItem::factory()->create([
+            'wedding_id' => $wedding->id,
+            'price' => 20000,
+            'quantity_available' => 0,
+            'quantity_sold' => 2,
+            'is_enabled' => true,
+            'is_fallback_donation' => false,
+        ]);
+
+        $fallback = GiftItem::factory()->fallbackDonation()->create([
+            'wedding_id' => $wedding->id,
+            'minimum_custom_amount' => 5000,
+        ]);
+
+        GiftItem::withoutGlobalScopes()
+            ->where('wedding_id', $wedding->id)
+            ->where('is_fallback_donation', false)
+            ->update([
+                'quantity_available' => 0,
+                'is_enabled' => true,
+            ]);
+
+        $response = $this->getJson("/api/events/{$wedding->id}/gifts");
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJson([
+            'registry_mode' => 'quota',
+            'data' => [
+                [
+                    'id' => $fallback->id,
+                    'is_fallback_donation' => true,
+                    'allows_custom_amount' => true,
+                    'minimum_custom_amount' => 5000,
+                    'display_price' => 5000,
+                ],
+            ],
+        ]);
+    }
+
+    /** @test */
+    public function it_rejects_fallback_purchase_when_custom_amount_is_missing_or_below_minimum()
+    {
+        $wedding = Wedding::factory()->create();
+        $config = GiftRegistryConfig::withoutGlobalScopes()->where('wedding_id', $wedding->id)->first();
+        $config->update(['registry_mode' => 'quota']);
+
+        $fallback = GiftItem::factory()->fallbackDonation()->create([
+            'wedding_id' => $wedding->id,
+            'minimum_custom_amount' => 5000,
+        ]);
+
+        $purchaseData = [
+            'payment_method' => 'pix',
+            'idempotency_key' => Str::random(32),
+            'payer' => [
+                'name' => 'Test Buyer',
+                'email' => 'buyer@example.com',
+                'document' => '12345678901',
+            ],
+        ];
+
+        $missingAmountResponse = $this->postJson("/api/events/{$wedding->id}/gifts/{$fallback->id}/purchase", $purchaseData);
+        $missingAmountResponse->assertStatus(422);
+
+        $belowMinimumResponse = $this->postJson("/api/events/{$wedding->id}/gifts/{$fallback->id}/purchase", [
+            ...$purchaseData,
+            'custom_amount' => 4000,
+        ]);
+        $belowMinimumResponse->assertStatus(422);
+    }
+
+    /** @test */
+    public function it_charges_exact_custom_amount_for_fallback_donation_without_surcharge()
+    {
+        $wedding = Wedding::factory()->create();
+        $config = GiftRegistryConfig::withoutGlobalScopes()->where('wedding_id', $wedding->id)->first();
+        $config->update([
+            'registry_mode' => 'quota',
+            'fee_modality' => 'guest_pays',
+        ]);
+
+        $fallback = GiftItem::factory()->fallbackDonation()->create([
+            'wedding_id' => $wedding->id,
+            'minimum_custom_amount' => 5000,
+        ]);
+
+        $mockPagSeguroClient = Mockery::mock(PagSeguroClient::class);
+        $mockPagSeguroClient->shouldReceive('createPixCharge')
+            ->once()
+            ->andReturn([
+                'transaction_id' => 'PAGSEG-PIX-' . Str::random(20),
+                'status' => 'WAITING',
+                'qr_code' => 'qr-code-content',
+                'qr_code_text' => 'qr-code-text',
+                'expires_at' => now()->addMinutes(30)->toIso8601String(),
+            ]);
+        $this->app->instance(PagSeguroClient::class, $mockPagSeguroClient);
+
+        $customAmount = 7800;
+        $response = $this->postJson("/api/events/{$wedding->id}/gifts/{$fallback->id}/purchase", [
+            'payment_method' => 'pix',
+            'idempotency_key' => Str::random(32),
+            'custom_amount' => $customAmount,
+            'payer' => [
+                'name' => 'Test Buyer',
+                'email' => 'buyer@example.com',
+                'document' => '12345678901',
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.amount', $customAmount);
+
+        $transaction = Transaction::withoutGlobalScopes()
+            ->where('internal_id', $response->json('data.transaction_id'))
+            ->firstOrFail();
+
+        $this->assertEquals($customAmount, $transaction->gross_amount);
+        $this->assertEquals($customAmount, $transaction->original_unit_price);
     }
 }

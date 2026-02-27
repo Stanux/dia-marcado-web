@@ -55,7 +55,9 @@ class GiftRegistryModelsTest extends TestCase
     /** @test */
     public function it_can_create_a_gift_registry_config_with_factory()
     {
-        $wedding = Wedding::factory()->create();
+        Wedding::withoutEvents(function () use (&$wedding) {
+            $wedding = Wedding::factory()->create();
+        });
         $config = GiftRegistryConfig::factory()->create(['wedding_id' => $wedding->id]);
 
         $this->assertDatabaseHas('gift_registry_configs', [
@@ -65,6 +67,7 @@ class GiftRegistryModelsTest extends TestCase
 
         $this->assertContains($config->fee_modality, ['couple_pays', 'guest_pays']);
         $this->assertContains($config->title_style, ['normal', 'bold', 'italic', 'bold_italic']);
+        $this->assertContains($config->registry_mode, ['quantity', 'quota']);
     }
 
     /** @test */
@@ -198,5 +201,23 @@ class GiftRegistryModelsTest extends TestCase
         $this->assertFalse($giftItem->is_enabled);
         $this->assertEquals(0, $giftItem->quantity_available);
         $this->assertEquals(1, $giftItem->quantity_sold);
+    }
+
+    /** @test */
+    public function fallback_donation_item_is_always_available_and_not_sold_out()
+    {
+        $wedding = Wedding::factory()->create();
+        $giftItem = GiftItem::factory()->fallbackDonation()->create([
+            'wedding_id' => $wedding->id,
+        ]);
+
+        $this->assertTrue($giftItem->isAvailable());
+        $this->assertFalse($giftItem->isSoldOut());
+
+        $giftItem->decrementQuantity();
+        $giftItem->refresh();
+
+        $this->assertEquals(1000000, $giftItem->quantity_available);
+        $this->assertEquals(0, $giftItem->quantity_sold);
     }
 }

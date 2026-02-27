@@ -19,7 +19,9 @@ class GiftServiceTest extends TestCase
     {
         parent::setUp();
         $this->giftService = new GiftService();
-        $this->wedding = Wedding::factory()->create();
+        Wedding::withoutEvents(function () {
+            $this->wedding = Wedding::factory()->create();
+        });
     }
 
     /** @test */

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GiftItem extends WeddingScopedModel
@@ -25,6 +24,8 @@ class GiftItem extends WeddingScopedModel
         'quantity_available',
         'quantity_sold',
         'is_enabled',
+        'is_fallback_donation',
+        'minimum_custom_amount',
         'original_name',
         'original_description',
         'original_price',
@@ -45,6 +46,8 @@ class GiftItem extends WeddingScopedModel
             'original_price' => 'integer',
             'original_quantity' => 'integer',
             'is_enabled' => 'boolean',
+            'is_fallback_donation' => 'boolean',
+            'minimum_custom_amount' => 'integer',
         ];
     }
 
@@ -61,8 +64,12 @@ class GiftItem extends WeddingScopedModel
      */
     public function scopeAvailable($query)
     {
-        return $query->where('quantity_available', '>', 0)
-            ->where('is_enabled', true);
+        return $query->where('is_enabled', true)
+            ->where(function ($innerQuery) {
+                $innerQuery
+                    ->where('is_fallback_donation', true)
+                    ->orWhere('quantity_available', '>', 0);
+            });
     }
 
     /**
@@ -71,6 +78,14 @@ class GiftItem extends WeddingScopedModel
     public function scopeEnabled($query)
     {
         return $query->where('is_enabled', true);
+    }
+
+    /**
+     * Scope to exclude the system fallback donation item.
+     */
+    public function scopeRegular($query)
+    {
+        return $query->where('is_fallback_donation', false);
     }
 
     /**
@@ -86,7 +101,15 @@ class GiftItem extends WeddingScopedModel
      */
     public function isAvailable(): bool
     {
-        return $this->is_enabled && $this->quantity_available > 0;
+        if (!$this->is_enabled) {
+            return false;
+        }
+
+        if ($this->is_fallback_donation) {
+            return true;
+        }
+
+        return $this->quantity_available > 0;
     }
 
     /**
@@ -94,7 +117,47 @@ class GiftItem extends WeddingScopedModel
      */
     public function isSoldOut(): bool
     {
+        if ($this->is_fallback_donation) {
+            return false;
+        }
+
         return $this->quantity_available <= 0;
+    }
+
+    /**
+     * Get the total number of quotas for this item.
+     */
+    public function getQuotaTotal(): int
+    {
+        return max(0, $this->quantity_available + $this->quantity_sold);
+    }
+
+    /**
+     * Get unit quota amount from total target amount.
+     */
+    public function getQuotaUnitPrice(): int
+    {
+        $quotaTotal = $this->getQuotaTotal();
+
+        if ($quotaTotal <= 0) {
+            return $this->price;
+        }
+
+        return (int) round($this->price / $quotaTotal);
+    }
+
+    /**
+     * Get progress percentage for quota mode.
+     */
+    public function getQuotaProgressPercent(): int
+    {
+        $quotaTotal = $this->getQuotaTotal();
+
+        if ($quotaTotal <= 0) {
+            return 0;
+        }
+
+        return (int) round(($this->quantity_sold / $quotaTotal) * 100);
     }
 
     /**
@@ -131,6 +194,10 @@ class GiftItem extends WeddingScopedModel
      */
     public function decrementQuantity(): void
     {
+        if ($this->is_fallback_donation) {
+            return;
+        }
+
         $this->decrement('quantity_available');
         $this->increment('quantity_sold');
         

@@ -252,6 +252,11 @@ class SiteContentSchema
                 'label' => 'Lista de Presentes',
                 'showInMenu' => true,
             ],
+            'config' => [
+                'section_title' => 'Lista de Presentes',
+                'fee_modality' => 'couple_pays',
+                'registry_mode' => 'quantity',
+            ],
             'title' => 'Lista de Presentes',
             'description' => 'Em breve...',
             'style' => [

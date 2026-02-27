@@ -127,8 +127,11 @@ class WebhookHandler
                 ),
             ]);
 
-            // Decrement gift item quantity
-            $this->giftService->decrementGiftQuantity($transaction->gift_item_id);
+            $giftItem = $transaction->giftItem()->withoutGlobalScopes()->first();
+            if (!$giftItem?->is_fallback_donation) {
+                // Decrement gift quantity only for regular gift items.
+                $this->giftService->decrementGiftQuantity($transaction->gift_item_id);
+            }
 
             Log::info('Payment confirmed via webhook', [
                 'transaction_id' => $transaction->id,

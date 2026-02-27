@@ -8,20 +8,25 @@
  * @Requirements: 2.1, 2.4, 3.1, 3.2, 15.2
  */
 import { ref, computed, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
 import GiftCard from './GiftCard.vue';
 import PurchaseModal from './PurchaseModal.vue';
 import { useGiftRegistry } from '@/Composables/useGiftRegistry';
 
 interface GiftItem {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  photo_url: string;
+  photo_url: string | null;
   display_price: number;
   quantity_available: number;
-  is_enabled: boolean;
   is_sold_out: boolean;
+  registry_mode: 'quantity' | 'quota';
+  quota_total: number | null;
+  quota_sold: number | null;
+  quota_progress_percent: number | null;
+  is_fallback_donation: boolean;
+  minimum_custom_amount: number | null;
+  allows_custom_amount: boolean;
 }
 
 interface GiftRegistryConfig {
@@ -31,10 +36,11 @@ interface GiftRegistryConfig {
   title_color?: string;
   title_style?: string;
   fee_modality: string;
+  registry_mode?: 'quantity' | 'quota';
 }
 
 interface Props {
-  eventId: number;
+  eventId: string;
   config?: GiftRegistryConfig | null;
   isPreview?: boolean;
 }
@@ -56,6 +62,7 @@ const { loading, error, fetchGifts: fetchGiftsAPI, clearError, retryLastOperatio
 const giftConfig = computed(() => {
   return props.config || {
     section_title: 'Lista de Presentes',
+    registry_mode: 'quantity',
     fee_modality: 'couple_pays',
     title_font_family: null,
     title_font_size: null,
@@ -140,10 +147,6 @@ function handlePurchaseSuccess() {
   closePurchaseModal();
   // Refresh the gift list to update quantities
   fetchGifts();
-}
-
-function formatPrice(priceInCents: number): string {
-  return (priceInCents / 100).toFixed(2).replace('.', ',');
 }
 
 // Lifecycle

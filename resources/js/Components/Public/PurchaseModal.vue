@@ -13,14 +13,16 @@ import PixPayment from './PixPayment.vue';
 import { useGiftRegistry } from '@/Composables/useGiftRegistry';
 
 interface GiftItem {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  photo_url: string;
+  photo_url: string | null;
   display_price: number;
   quantity_available: number;
-  is_enabled: boolean;
   is_sold_out: boolean;
+  is_fallback_donation: boolean;
+  minimum_custom_amount: number | null;
+  allows_custom_amount: boolean;
 }
 
 interface GiftRegistryConfig {
@@ -30,7 +32,7 @@ interface GiftRegistryConfig {
 
 interface Props {
   gift: GiftItem;
-  eventId: number;
+  eventId: string;
   config: GiftRegistryConfig;
 }
 
@@ -44,6 +46,7 @@ const emit = defineEmits<{
 // State
 const paymentMethod = ref<'credit_card' | 'pix' | null>(null);
 const pixData = ref<{ qr_code: string; qr_code_base64: string; transaction_id: string } | null>(null);
+const customAmountInput = ref('50,00');
 
 // Use gift registry composable for API calls and error handling
 const { loading, error, purchaseGift, clearError, retryLastOperation } = useGiftRegistry();
@@ -53,12 +56,70 @@ const showPaymentForm = computed(() => {
   return paymentMethod.value !== null;
 });
 
+const minimumCustomAmount = computed(() => {
+  return props.gift.minimum_custom_amount ?? 5000;
+});
+
+const selectedCustomAmount = computed(() => {
+  if (!props.gift.is_fallback_donation) {
+    return props.gift.display_price;
+  }
+
+  const digits = customAmountInput.value.replace(/\D/g, '');
+  if (!digits) {
+    return 0;
+  }
+
+  return Number.parseInt(digits, 10);
+});
+
+const effectiveAmountInCents = computed(() => {
+  return props.gift.is_fallback_donation
+    ? selectedCustomAmount.value
+    : props.gift.display_price;
+});
+
+const customAmountError = computed(() => {
+  if (!props.gift.is_fallback_donation) {
+    return null;
+  }
+
+  if (selectedCustomAmount.value < minimumCustomAmount.value) {
+    return `O valor mínimo para doação é R$ ${formatPrice(minimumCustomAmount.value)}.`;
+  }
+
+  return null;
+});
+
+const displayError = computed(() => {
+  return customAmountError.value || error.value;
+});
+
 // Methods
 function formatPrice(priceInCents: number): string {
   return (priceInCents / 100).toFixed(2).replace('.', ',');
 }
 
+function formatCurrencyInput(rawValue: string): string {
+  const digits = rawValue.replace(/\D/g, '');
+  if (!digits) {
+    return '0,00';
+  }
+
+  const value = Number.parseInt(digits, 10);
+  return formatPrice(value);
+}
+
+function handleCustomAmountInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  customAmountInput.value = formatCurrencyInput(input.value);
+}
+
 function selectPaymentMethod(method: 'credit_card' | 'pix') {
+  if (customAmountError.value) {
+    return;
+  }
+
   paymentMethod.value = method;
   clearError();
   pixData.value = null;
@@ -78,10 +139,15 @@ function handleBackdropClick(event: MouseEvent) {
 
 async function handleCreditCardPayment(paymentData: any) {
   try {
-    const result = await purchaseGift(props.eventId, props.gift.id, {
+    const payload: Record<string, any> = {
       payment_method: 'credit_card',
       ...paymentData
-    });
+    };
+    if (props.gift.is_fallback_donation) {
+      payload.custom_amount = effectiveAmountInCents.value;
+    }
+
+    const result = await purchaseGift(props.eventId, props.gift.id, payload);
 
     if (result.success) {
       emit('success');
@@ -94,10 +160,15 @@ async function handleCreditCardPayment(paymentData: any) {
 
 async function handlePixPayment(payerData: any) {
   try {
-    const result = await purchaseGift(props.eventId, props.gift.id, {
+    const payload: Record<string, any> = {
       payment_method: 'pix',
       ...payerData
-    });
+    };
+    if (props.gift.is_fallback_donation) {
+      payload.custom_amount = effectiveAmountInCents.value;
+    }
+
+    const result = await purchaseGift(props.eventId, props.gift.id, payload);
 
     if (result.success && result.qr_code) {
       pixData.value = {
@@ -186,22 +257,42 @@ async function handleRetry() {
         <div class="summary-info">
           <h4 class="summary-name">{{ gift.name }}</h4>
           <p class="summary-description">{{ gift.description }}</p>
+
+          <div v-if="gift.is_fallback_donation" class="custom-amount-group">
+            <label for="custom-amount" class="custom-amount-label">Valor da doação</label>
+            <input
+              id="custom-amount"
+              type="text"
+              :value="customAmountInput"
+              class="custom-amount-input"
+              :disabled="loading"
+              @input="handleCustomAmountInput"
+            />
+            <p class="custom-amount-hint">Mínimo: R$ {{ formatPrice(minimumCustomAmount) }}</p>
+          </div>
+
           <div class="summary-price">
             <span class="price-label">Valor:</span>
-            <span class="price-value">R$ {{ formatPrice(gift.display_price) }}</span>
+            <span class="price-value">R$ {{ formatPrice(effectiveAmountInCents) }}</span>
           </div>
         </div>
       </div>
 
       <!-- Error Message -->
-      <div v-if="error" class="error-banner">
+      <div v-if="displayError" class="error-banner">
         <svg class="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <div class="error-content">
-          <p class="error-message">{{ error }}</p>
+          <p class="error-message">{{ displayError }}</p>
           <div class="error-actions">
-            <button @click="handleRetry" class="error-retry">Tentar Novamente</button>
+            <button
+              v-if="!customAmountError"
+              @click="handleRetry"
+              class="error-retry"
+            >
+              Tentar Novamente
+            </button>
             <button @click="resetError" class="error-dismiss">Fechar</button>
           </div>
         </div>
@@ -215,7 +306,7 @@ async function handleRetry() {
           <button
             @click="selectPaymentMethod('credit_card')"
             :class="['payment-method-button', { active: paymentMethod === 'credit_card' }]"
-            :disabled="loading"
+            :disabled="loading || !!customAmountError"
           >
             <svg class="method-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -226,7 +317,7 @@ async function handleRetry() {
           <button
             @click="selectPaymentMethod('pix')"
             :class="['payment-method-button', { active: paymentMethod === 'pix' }]"
-            :disabled="loading"
+            :disabled="loading || !!customAmountError"
           >
             <svg class="method-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -240,6 +331,7 @@ async function handleRetry() {
           <CreditCardForm
             v-if="paymentMethod === 'credit_card'"
             :gift="gift"
+            :amount-in-cents="effectiveAmountInCents"
             :loading="loading"
             @submit="handleCreditCardPayment"
           />
@@ -247,6 +339,7 @@ async function handleRetry() {
           <PixPayment
             v-if="paymentMethod === 'pix' && !pixData"
             :gift="gift"
+            :amount-in-cents="effectiveAmountInCents"
             :loading="loading"
             @submit="handlePixPayment"
           />
@@ -383,6 +476,41 @@ async function handleRetry() {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.custom-amount-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+.custom-amount-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.custom-amount-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.custom-amount-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.custom-amount-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 
 .summary-name {

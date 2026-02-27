@@ -10,11 +10,13 @@ use App\Contracts\Site\SiteValidatorServiceInterface;
 use App\Contracts\Site\SiteVersionServiceInterface;
 use App\Contracts\Site\SlugGeneratorServiceInterface;
 use App\Events\SitePublished;
+use App\Models\GiftRegistryConfig;
 use App\Models\SiteLayout;
 use App\Models\SiteTemplate;
 use App\Models\SiteVersion;
 use App\Models\User;
 use App\Models\Wedding;
+use App\Services\GiftRegistryModeService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -35,6 +37,7 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         private readonly ContentSanitizerServiceInterface $sanitizer,
         private readonly TemplateWorkspaceService $templateWorkspaceService,
         private readonly TemplateMediaCloneService $templateMediaCloneService,
+        private readonly GiftRegistryModeService $giftRegistryModeService,
     ) {}
 
     /**
@@ -443,13 +446,23 @@ class SiteBuilderService implements SiteBuilderServiceInterface
      */
     private function saveGiftRegistryConfig(Wedding $wedding, array $config): void
     {
+        $currentConfig = GiftRegistryConfig::withoutGlobalScopes()
+            ->where('wedding_id', $wedding->id)
+            ->first();
+
+        $currentMode = strtolower((string) ($currentConfig?->registry_mode ?? GiftRegistryModeService::MODE_QUANTITY));
+        $requestedMode = strtolower((string) ($config['registry_mode'] ?? $currentMode));
+        if (!in_array($requestedMode, [GiftRegistryModeService::MODE_QUANTITY, GiftRegistryModeService::MODE_QUOTA], true)) {
+            $requestedMode = GiftRegistryModeService::MODE_QUANTITY;
+        }
+
         // Extract typography data if present
         $titleFontFamily = $config['title_font_family'] ?? null;
         $titleColor = $config['title_color'] ?? null;
         $titleFontSize = $config['title_font_size'] ?? null;
         $titleStyle = $config['title_style'] ?? 'normal';
         
-        \App\Models\GiftRegistryConfig::updateOrCreate(
+        GiftRegistryConfig::updateOrCreate(
             ['wedding_id' => $wedding->id],
             [
                 'is_enabled' => true, // Always enabled if section is enabled in site
@@ -459,7 +472,15 @@ class SiteBuilderService implements SiteBuilderServiceInterface
                 'title_color' => $titleColor,
                 'title_style' => $titleStyle,
                 'fee_modality' => $config['fee_modality'] ?? 'couple_pays',
+                // Keep current mode here. Conversion happens below when needed.
+                'registry_mode' => $currentMode,
             ]
         );
+
+        if ($requestedMode !== $currentMode) {
+            $this->giftRegistryModeService->changeMode($wedding->id, $requestedMode);
+        } elseif ($requestedMode === GiftRegistryModeService::MODE_QUOTA) {
+            $this->giftRegistryModeService->ensureFallbackDonationItem($wedding->id);
+        }
     }
 }

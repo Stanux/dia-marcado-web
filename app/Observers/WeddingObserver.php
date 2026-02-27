@@ -43,6 +43,7 @@ class WeddingObserver
                 'title_color' => null,
                 'title_style' => 'normal',
                 'fee_modality' => 'couple_pays',
+                'registry_mode' => 'quantity',
             ]
         );
     }

@@ -5,6 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\GiftItemResource\Pages;
 use App\Forms\Components\MediaGalleryPicker;
 use App\Models\GiftItem;
+use App\Models\GiftRegistryConfig;
+use App\Services\GiftRegistryModeService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -49,21 +51,31 @@ class GiftItemResource extends Resource
                                     ->maxLength(255),
                                 
                                 Forms\Components\TextInput::make('quantity_available')
-                                    ->label('Quantidade')
+                                    ->label(fn () => static::getCurrentRegistryMode() === GiftRegistryModeService::MODE_QUOTA
+                                        ? 'Cotas Disponíveis'
+                                        : 'Quantidade')
                                     ->required()
                                     ->numeric()
                                     ->minValue(0)
-                                    ->default(1),
+                                    ->default(1)
+                                    ->helperText(fn () => static::getCurrentRegistryMode() === GiftRegistryModeService::MODE_QUOTA
+                                        ? 'Número de cotas restantes para este item.'
+                                        : 'Quantidade disponível para compra.'),
 
                                 Forms\Components\TextInput::make('price')
-                                    ->label('Preço')
+                                    ->label(fn () => static::getCurrentRegistryMode() === GiftRegistryModeService::MODE_QUOTA
+                                        ? 'Valor Total Alvo'
+                                        : 'Preço Unitário')
                                     ->required()
                                     ->numeric()
                                     ->minValue(1)
                                     ->step(0.01)
                                     ->prefix('R$')
                                     ->dehydrateStateUsing(fn ($state) => $state ? (int) ($state * 100) : null)
-                                    ->formatStateUsing(fn ($state) => $state ? $state / 100 : null),
+                                    ->formatStateUsing(fn ($state) => $state ? $state / 100 : null)
+                                    ->helperText(fn () => static::getCurrentRegistryMode() === GiftRegistryModeService::MODE_QUOTA
+                                        ? 'Valor total do item, dividido automaticamente pelas cotas.'
+                                        : 'Valor cobrado por unidade.'),
 
                                 Forms\Components\Toggle::make('is_enabled')
                                     ->label('Habilitado')
@@ -111,7 +123,9 @@ class GiftItemResource extends Resource
                     ->limit(30),
 
                 Tables\Columns\TextColumn::make('price')
-                    ->label('Preço')
+                    ->label(fn () => static::getCurrentRegistryMode() === GiftRegistryModeService::MODE_QUOTA
+                        ? 'Valor Total'
+                        : 'Preço')
                     ->formatStateUsing(
                         fn ($state): string => 'R$ ' . number_format(((int) $state) / 100, 2, ',', '.')
                     )
@@ -219,7 +233,7 @@ class GiftItemResource extends Resource
             }
         }
 
-        return $query;
+        return $query->where('is_fallback_donation', false);
     }
 
     public static function getRelations(): array
@@ -261,5 +275,20 @@ class GiftItemResource extends Resource
     public static function shouldRegisterNavigation(): bool
     {
         return static::canAccess();
+    }
+
+    public static function getCurrentRegistryMode(): string
+    {
+        $user = auth()->user();
+        $weddingId = $user?->currentWedding?->id;
+
+        if (!$weddingId) {
+            return GiftRegistryModeService::MODE_QUANTITY;
+        }
+
+        return GiftRegistryConfig::withoutGlobalScopes()
+                ->where('wedding_id', $weddingId)
+                ->value('registry_mode')
+            ?? GiftRegistryModeService::MODE_QUANTITY;
     }
 }

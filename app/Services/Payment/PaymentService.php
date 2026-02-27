@@ -37,7 +37,8 @@ class PaymentService
         GiftItem $giftItem,
         string $paymentMethod,
         array $paymentData,
-        string $idempotencyKey
+        string $idempotencyKey,
+        ?int $customAmount = null
     ): Transaction {
         // Validate single item purchase limit (Requirement 2.7)
         $this->validateSingleItemPurchase($giftItem);
@@ -68,7 +69,10 @@ class PaymentService
             ->firstOrFail();
 
         // Calculate payment amounts
-        $amounts = $this->calculatePaymentAmounts($giftItem, $config);
+        $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount);
+        $originalUnitPrice = $giftItem->is_fallback_donation
+            ? ($customAmount ?? $giftItem->minimum_custom_amount ?? $giftItem->price)
+            : $giftItem->price;
 
         // Create transaction record with idempotency key in a single DB transaction
         $transaction = DB::transaction(function () use (
@@ -76,7 +80,8 @@ class PaymentService
             $paymentMethod,
             $amounts,
             $config,
-            $idempotencyKey
+            $idempotencyKey,
+            $originalUnitPrice
         ) {
             // Double-check idempotency within transaction (race condition protection)
             $existingTransaction = $this->idempotencyService->getTransaction($idempotencyKey);
@@ -88,7 +93,7 @@ class PaymentService
                 'internal_id' => $this->generateInternalId(),
                 'wedding_id' => $giftItem->wedding_id,
                 'gift_item_id' => $giftItem->id,
-                'original_unit_price' => $giftItem->price,
+                'original_unit_price' => $originalUnitPrice,
                 'fee_percentage' => $config->getFeePercentage(),
                 'fee_modality' => $config->fee_modality,
                 'fee_amount' => $amounts->feeAmount,
@@ -128,8 +133,22 @@ class PaymentService
      */
     public function calculatePaymentAmounts(
         GiftItem $giftItem,
-        GiftRegistryConfig $config
+        GiftRegistryConfig $config,
+        ?int $customAmount = null
     ): PaymentAmounts {
+        if ($giftItem->is_fallback_donation) {
+            $minimumAmount = max(5000, (int) ($giftItem->minimum_custom_amount ?? 0));
+            $effectiveAmount = $customAmount ?? 0;
+
+            if ($effectiveAmount < $minimumAmount) {
+                throw new \InvalidArgumentException(
+                    'O valor mínimo para doação é R$ ' . number_format($minimumAmount / 100, 2, ',', '.') . '.'
+                );
+            }
+
+            return $this->calculateFallbackDonationAmounts($effectiveAmount, $config->getFeePercentage());
+        }
+
         return $this->feeCalculator->calculate(
             $giftItem->price,
             $config->getFeePercentage(),
@@ -151,7 +170,8 @@ class PaymentService
         GiftItem $giftItem,
         string $cardToken,
         array $billingData,
-        string $idempotencyKey
+        string $idempotencyKey,
+        ?int $customAmount = null
     ): Transaction {
         // Validate gift availability
         if (!$giftItem->isAvailable()) {
@@ -163,7 +183,8 @@ class PaymentService
             $giftItem,
             'credit_card',
             ['card_token' => $cardToken, 'billing_data' => $billingData],
-            $idempotencyKey
+            $idempotencyKey,
+            $customAmount
         );
 
         // If transaction already existed (idempotency), return it
@@ -176,12 +197,14 @@ class PaymentService
             $config = GiftRegistryConfig::withoutGlobalScopes()
                 ->where('wedding_id', $giftItem->wedding_id)
                 ->firstOrFail();
-            $amounts = $this->calculatePaymentAmounts($giftItem, $config);
+            $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount);
 
             // Prepare charge data for PagSeguro
             $chargeData = [
                 'reference_id' => $transaction->internal_id,
-                'description' => "Presente: {$giftItem->name}",
+                'description' => $giftItem->is_fallback_donation
+                    ? 'Doação livre para o casal'
+                    : "Presente: {$giftItem->name}",
                 'amount' => [
                     'value' => $amounts->grossAmount, // Amount in cents
                     'currency' => 'BRL',
@@ -247,7 +270,8 @@ class PaymentService
     public function processPixPayment(
         GiftItem $giftItem,
         array $payerData,
-        string $idempotencyKey
+        string $idempotencyKey,
+        ?int $customAmount = null
     ): array {
         // Validate gift availability
         if (!$giftItem->isAvailable()) {
@@ -259,7 +283,8 @@ class PaymentService
             $giftItem,
             'pix',
             ['payer_data' => $payerData],
-            $idempotencyKey
+            $idempotencyKey,
+            $customAmount
         );
 
         // If transaction already existed (idempotency), return stored QR code
@@ -278,7 +303,7 @@ class PaymentService
             $config = GiftRegistryConfig::withoutGlobalScopes()
                 ->where('wedding_id', $giftItem->wedding_id)
                 ->firstOrFail();
-            $amounts = $this->calculatePaymentAmounts($giftItem, $config);
+            $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount);
 
             $orderData = [
                 'reference_id' => $transaction->internal_id,
@@ -289,7 +314,9 @@ class PaymentService
                 ],
                 'items' => [
                     [
-                        'name' => $giftItem->name,
+                        'name' => $giftItem->is_fallback_donation
+                            ? 'Doação livre para o casal'
+                            : $giftItem->name,
                         'quantity' => 1,
                         'unit_amount' => $amounts->grossAmount,
                     ],
@@ -409,6 +436,20 @@ class PaymentService
             'DECLINED', 'CANCELED' => 'failed',
             default => 'pending',
         };
+    }
+
+    private function calculateFallbackDonationAmounts(int $grossAmount, float $feePercentage): PaymentAmounts
+    {
+        $feeAmount = (int) floor($grossAmount * $feePercentage);
+        $netAmountCouple = $grossAmount - $feeAmount;
+
+        return new PaymentAmounts(
+            displayPrice: $grossAmount,
+            grossAmount: $grossAmount,
+            feeAmount: $feeAmount,
+            netAmountCouple: $netAmountCouple,
+            platformAmount: $feeAmount,
+        );
     }
 
     /**

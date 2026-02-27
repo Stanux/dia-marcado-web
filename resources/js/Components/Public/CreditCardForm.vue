@@ -10,17 +10,19 @@
 import { ref, computed, onMounted } from 'vue';
 
 interface GiftItem {
-  id: number;
+  id: string;
   name: string;
   display_price: number;
 }
 
 interface Props {
   gift: GiftItem;
+  amountInCents?: number;
   loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  amountInCents: 0,
   loading: false
 });
 
@@ -46,7 +48,7 @@ const pagSeguroLoaded = ref(false);
 
 // Computed
 const maxInstallments = computed(() => {
-  const amount = props.gift.display_price / 100;
+  const amount = (props.amountInCents || props.gift.display_price) / 100;
   // Allow up to 12 installments, but minimum R$ 5 per installment
   const max = Math.min(12, Math.floor(amount / 5));
   return Math.max(1, max);
@@ -54,7 +56,7 @@ const maxInstallments = computed(() => {
 
 const installmentOptions = computed(() => {
   const options = [];
-  const amount = props.gift.display_price / 100;
+  const amount = (props.amountInCents || props.gift.display_price) / 100;
   
   for (let i = 1; i <= maxInstallments.value; i++) {
     const installmentAmount = amount / i;

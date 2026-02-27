@@ -10,14 +10,20 @@
 import { computed } from 'vue';
 
 interface GiftItem {
-  id: number;
+  id: string;
   name: string;
   description: string;
-  photo_url: string;
+  photo_url: string | null;
   display_price: number;
   quantity_available: number;
-  is_enabled: boolean;
   is_sold_out: boolean;
+  registry_mode: 'quantity' | 'quota';
+  quota_total: number | null;
+  quota_sold: number | null;
+  quota_progress_percent: number | null;
+  is_fallback_donation: boolean;
+  minimum_custom_amount: number | null;
+  allows_custom_amount: boolean;
 }
 
 interface Props {
@@ -42,11 +48,25 @@ const buttonText = computed(() => {
   if (isSoldOut.value) {
     return 'Esgotado';
   }
+  if (props.gift.is_fallback_donation) {
+    return 'Doar';
+  }
   return 'Presentear';
 });
 
 const buttonDisabled = computed(() => {
   return isSoldOut.value || props.isPreview;
+});
+
+const showQuotaProgress = computed(() => {
+  return props.gift.registry_mode === 'quota'
+    && !props.gift.is_fallback_donation
+    && props.gift.quota_progress_percent !== null;
+});
+
+const quotaProgressPercent = computed(() => {
+  const progress = props.gift.quota_progress_percent ?? 0;
+  return Math.min(100, Math.max(0, progress));
 });
 
 // Methods
@@ -83,6 +103,16 @@ function handlePurchaseClick() {
       </div>
     </div>
 
+    <div v-if="showQuotaProgress" class="quota-progress">
+      <div class="quota-progress-track">
+        <div
+          class="quota-progress-fill"
+          :style="{ width: `${quotaProgressPercent}%` }"
+        />
+      </div>
+      <p class="quota-progress-text">{{ quotaProgressPercent }}% arrecadado</p>
+    </div>
+
     <!-- Gift Info -->
     <div class="gift-info">
       <h3 class="gift-name">{{ gift.name }}</h3>
@@ -91,6 +121,7 @@ function handlePurchaseClick() {
       
       <div class="gift-footer">
         <div class="gift-price">
+          <span v-if="gift.is_fallback_donation" class="gift-price-prefix">A partir de</span>
           R$ {{ formatPrice(gift.display_price) }}
         </div>
         
@@ -179,6 +210,31 @@ function handlePurchaseClick() {
   flex: 1;
 }
 
+.quota-progress {
+  padding: 0.75rem 1rem 0;
+}
+
+.quota-progress-track {
+  width: 100%;
+  height: 0.5rem;
+  background-color: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.quota-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #34d399 0%, #059669 100%);
+  transition: width 0.2s ease;
+}
+
+.quota-progress-text {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #065f46;
+}
+
 .gift-name {
   font-size: 1.125rem;
   font-weight: 600;
@@ -212,6 +268,14 @@ function handlePurchaseClick() {
   font-size: 1.5rem;
   font-weight: 700;
   color: #059669;
+}
+
+.gift-price-prefix {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  line-height: 1.2;
 }
 
 /* Purchase Button */

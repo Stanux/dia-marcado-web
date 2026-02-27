@@ -34,6 +34,7 @@ const localContent = ref(JSON.parse(JSON.stringify(props.content)));
 if (!localContent.value.config) {
     localContent.value.config = {
         section_title: giftRegistryConfig.value?.section_title || 'Lista de Presentes',
+        registry_mode: giftRegistryConfig.value?.registry_mode || 'quantity',
         fee_modality: giftRegistryConfig.value?.fee_modality || 'couple_pays',
     };
 }
@@ -58,6 +59,7 @@ watch(() => props.content, (newContent) => {
     if (!localContent.value.config && giftRegistryConfig.value) {
         localContent.value.config = {
             section_title: giftRegistryConfig.value.section_title || 'Lista de Presentes',
+            registry_mode: giftRegistryConfig.value.registry_mode || 'quantity',
             fee_modality: giftRegistryConfig.value.fee_modality || 'couple_pays',
         };
     }
@@ -277,7 +279,22 @@ const pickGiftRegistryBackgroundColor = () => {
         <!-- Fee Configuration -->
         <div class="space-y-4 pt-6 border-t border-gray-200">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Configuração de Taxas</h3>
-            <p class="text-sm text-gray-600">Defina quem paga a taxa da plataforma</p>
+            <p class="text-sm text-gray-600">Defina o modo da lista e quem paga a taxa da plataforma</p>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Modo da Lista</label>
+                <select
+                    :value="config.registry_mode || 'quantity'"
+                    @change="updateConfig('registry_mode', $event.target.value)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                >
+                    <option value="quantity">Quantidade</option>
+                    <option value="quota">Quota</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-500">
+                    Quantidade: preço por unidade. Quota: preço por cota com barra de progresso no site.
+                </p>
+            </div>
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Modalidade de Taxa</label>

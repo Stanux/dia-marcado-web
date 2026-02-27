@@ -111,6 +111,16 @@ class GiftRegistryConfigResource extends Resource
                 Forms\Components\Section::make('Configuração de Taxas')
                     ->description('Defina quem paga a taxa da plataforma')
                     ->schema([
+                        Forms\Components\Select::make('registry_mode')
+                            ->label('Modo da Lista')
+                            ->required()
+                            ->options([
+                                'quantity' => 'Quantidade',
+                                'quota' => 'Quota',
+                            ])
+                            ->default('quantity')
+                            ->helperText('Quantidade: preço unitário. Quota: preço por cota com progresso.'),
+
                         Forms\Components\Select::make('fee_modality')
                             ->label('Modalidade de Taxa')
                             ->required()
@@ -190,6 +200,20 @@ class GiftRegistryConfigResource extends Resource
                     ->color(fn (string $state): string => match ($state) {
                         'couple_pays' => 'info',
                         'guest_pays' => 'warning',
+                        default => 'gray',
+                    }),
+
+                Tables\Columns\TextColumn::make('registry_mode')
+                    ->label('Modo')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'quantity' => 'Quantidade',
+                        'quota' => 'Quota',
+                        default => $state,
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'quantity' => 'info',
+                        'quota' => 'warning',
                         default => 'gray',
                     }),
 

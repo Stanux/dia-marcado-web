@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\DB;
 
 class GiftService
 {
+    public function __construct(
+        private readonly ?GiftRegistryModeService $modeService = null
+    ) {}
+
     /**
      * Initialize default catalog for a new wedding event.
      *
@@ -212,6 +216,7 @@ class GiftService
     {
         $query = GiftItem::withoutGlobalScopes()
             ->where('wedding_id', $weddingId)
+            ->where('is_fallback_donation', false)
             ->where('is_enabled', true)
             ->where('quantity_available', '>', 0);
 
@@ -223,6 +228,29 @@ class GiftService
         }
 
         return $query->get();
+    }
+
+    /**
+     * Get gifts to display publicly based on the registry mode.
+     */
+    public function getPublicGifts(string $weddingId, string $registryMode, ?string $sortBy = 'price'): Collection
+    {
+        $registryMode = strtolower(trim($registryMode));
+
+        $regularGifts = $this->getAvailableGifts($weddingId, $sortBy);
+
+        if ($registryMode !== GiftRegistryModeService::MODE_QUOTA) {
+            return $regularGifts;
+        }
+
+        if ($regularGifts->isNotEmpty()) {
+            return $regularGifts;
+        }
+
+        $modeService = $this->modeService ?? app(GiftRegistryModeService::class);
+        $fallback = $modeService->ensureFallbackDonationItem($weddingId);
+
+        return collect([$fallback]);
     }
 
     /**
