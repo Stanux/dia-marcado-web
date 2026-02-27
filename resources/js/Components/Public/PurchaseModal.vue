@@ -45,7 +45,7 @@ const emit = defineEmits<{
 
 // State
 const paymentMethod = ref<'credit_card' | 'pix' | null>(null);
-const pixData = ref<{ qr_code: string; qr_code_base64: string; transaction_id: string } | null>(null);
+const pixData = ref<{ qr_code: string; qr_code_text?: string; qr_code_base64: string; transaction_id: string } | null>(null);
 const customAmountInput = ref('50,00');
 
 // Use gift registry composable for API calls and error handling
@@ -173,6 +173,7 @@ async function handlePixPayment(payerData: any) {
     if (result.success && result.qr_code) {
       pixData.value = {
         qr_code: result.qr_code,
+        qr_code_text: result.qr_code_text,
         qr_code_base64: result.qr_code_base64 || '',
         transaction_id: result.transaction?.internal_id || ''
       };
@@ -205,6 +206,7 @@ async function handleRetry() {
         // PIX payment
         pixData.value = {
           qr_code: result.qr_code,
+          qr_code_text: result.qr_code_text,
           qr_code_base64: result.qr_code_base64 || '',
           transaction_id: result.transaction?.internal_id || ''
         };

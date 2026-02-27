@@ -20,6 +20,7 @@ interface GiftItem {
 
 interface QRCodeData {
   qr_code: string;
+  qr_code_text?: string;
   qr_code_base64: string;
   transaction_id: string;
 }
@@ -76,16 +77,20 @@ const isLocal = computed(() => page.props?.appEnv === 'local');
 
 const generatedQrCode = ref<string | null>(null);
 
-const qrCodeImageSrc = computed(() => {
+const providerQrCodeImageSrc = computed(() => {
   const raw = props.qrCodeData?.qr_code_base64 ?? '';
   const cleaned = raw.replace(/\s+/g, '');
   if (!cleaned) {
-    return generatedQrCode.value;
+    return null;
   }
   if (!/^[A-Za-z0-9+/=]+$/.test(cleaned)) {
-    return generatedQrCode.value;
+    return null;
   }
   return `data:image/png;base64,${cleaned}`;
+});
+
+const qrCodeImageSrc = computed(() => {
+  return generatedQrCode.value || providerQrCodeImageSrc.value;
 });
 
 const formattedTime = computed(() => {
@@ -270,16 +275,22 @@ onUnmounted(() => {
 });
 
 watch(
-  () => props.qrCodeData?.qr_code,
-  async (code) => {
+  () => props.qrCodeData,
+  async (qrData) => {
     generatedQrCode.value = null;
+    const code = qrData?.qr_code_text || qrData?.qr_code;
     if (!code) {
       return;
     }
     try {
       generatedQrCode.value = await QRCode.toDataURL(code, {
-        width: 260,
-        margin: 1,
+        width: 512,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
       });
     } catch (error) {
       console.error('Failed to generate QR code image:', error);
@@ -565,12 +576,12 @@ watch(
 }
 
 .qr-code-image {
-  width: 250px;
-  height: 250px;
+  width: 300px;
+  height: 300px;
   background-color: white;
   border: 2px solid #e5e7eb;
   border-radius: 0.75rem;
-  padding: 1rem;
+  padding: 0.75rem;
   margin-bottom: 1.5rem;
 }
 

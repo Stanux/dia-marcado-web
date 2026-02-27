@@ -30,6 +30,7 @@ interface PurchaseResponse {
   success: boolean;
   transaction?: any;
   qr_code?: string;
+  qr_code_text?: string;
   qr_code_base64?: string;
   message?: string;
 }
@@ -167,6 +168,7 @@ export function useGiftRegistry(): UseGiftRegistryReturn {
           success: true,
           transaction,
           qr_code: payload.qr_code,
+          qr_code_text: payload.qr_code_text,
           qr_code_base64: payload.qr_code_base64,
           message: data.message,
         };
