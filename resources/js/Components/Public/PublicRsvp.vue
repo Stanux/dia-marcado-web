@@ -42,7 +42,7 @@ const props = defineProps({
 const DEFAULTS = {
     titleTypography: {
         fontFamily: 'Playfair Display',
-        fontColor: '#b8998a',
+        fontColor: '#d87a8d',
         fontSize: 36,
         fontWeight: 700,
         fontItalic: false,
@@ -324,7 +324,7 @@ const formContainerClass = computed(() => {
 
 const titleTextStyle = computed(() => ({
     fontFamily: titleTypography.value.fontFamily || props.theme?.fontFamily || 'Playfair Display',
-    color: titleTypography.value.fontColor || props.theme?.primaryColor || '#b8998a',
+    color: titleTypography.value.fontColor || props.theme?.primaryColor || '#d87a8d',
     fontSize: titleTypography.value.fontSize ? `${titleTypography.value.fontSize}px` : undefined,
     fontWeight: titleTypography.value.fontWeight || 700,
     fontStyle: titleTypography.value.fontItalic ? 'italic' : 'normal',

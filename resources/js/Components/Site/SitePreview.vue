@@ -20,6 +20,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    wedding: {
+        type: Object,
+        default: null,
+    },
     mode: {
         type: String,
         default: 'desktop',
@@ -35,17 +39,17 @@ const sections = computed(() => props.content.sections || {});
 
 // Extract theme from content
 const theme = computed(() => ({
-    primaryColor: '#d4a574',
-    secondaryColor: '#8b7355',
+    primaryColor: '#e11d48',
+    secondaryColor: '#be123c',
     baseBackgroundColor: '#ffffff',
-    surfaceBackgroundColor: '#f5ebe4',
-    fontFamily: 'Georgia, serif',
-    fontSize: '16px',
+    surfaceBackgroundColor: '#f9fafb',
+    fontFamily: 'Figtree',
+    fontSize: '14px',
     ...(props.content.theme || {}),
 }));
 
-// Mock wedding data for preview (uses actual wedding data from page props if available)
-const wedding = computed(() => page.props.wedding || {});
+// Wedding data for preview. Prefer explicit prop passed by the editor.
+const wedding = computed(() => props.wedding || page.props.wedding || {});
 
 // Check if section is enabled
 const isSectionEnabled = (sectionKey) => {
@@ -216,7 +220,7 @@ const renderedSections = computed(() => {
     <div 
         class="site-preview bg-white min-h-screen"
         :style="{ 
-            fontFamily: theme.fontFamily + ', serif', 
+            fontFamily: `${theme.fontFamily}, sans-serif`,
             fontSize: theme.fontSize,
             backgroundColor: theme.baseBackgroundColor || '#ffffff',
             width: '100%',

@@ -3,7 +3,7 @@
  * PublishDialog Component
  * 
  * Modal dialog for publishing a site with QA checklist validation.
- * Shows errors by section and allows override with warning.
+ * Shows errors by section and blocks publish while there are failed checks.
  * 
  * @Requirements: 17.1, 17.2, 17.6
  */
@@ -33,17 +33,11 @@ const isLoading = ref(false);
 const isPublishing = ref(false);
 const qaResult = ref(null);
 const error = ref(null);
-const showOverrideWarning = ref(false);
 
 // Computed
 const canPublish = computed(() => {
     if (!qaResult.value) return false;
-    return qaResult.value.can_publish || showOverrideWarning.value;
-});
-
-const hasErrors = computed(() => {
-    if (!qaResult.value) return false;
-    return qaResult.value.checks?.some(check => check.status === 'fail') || false;
+    return qaResult.value.can_publish === true;
 });
 
 const hasWarnings = computed(() => {
@@ -71,7 +65,6 @@ const runQAChecklist = async () => {
     isLoading.value = true;
     error.value = null;
     qaResult.value = null;
-    showOverrideWarning.value = false;
 
     try {
         const response = await axios.get(`/admin/sites/${props.siteId}/qa`);
@@ -92,7 +85,6 @@ const publish = async () => {
 
     try {
         const response = await axios.post(`/admin/sites/${props.siteId}/publish`, {
-            override: showOverrideWarning.value,
         });
         
         emit('published', response.data.data);
@@ -115,10 +107,6 @@ const publish = async () => {
     }
 };
 
-const enableOverride = () => {
-    showOverrideWarning.value = true;
-};
-
 const navigateToSection = (section) => {
     if (!section) {
         return;
@@ -131,7 +119,6 @@ const navigateToSection = (section) => {
 const closeDialog = () => {
     qaResult.value = null;
     error.value = null;
-    showOverrideWarning.value = false;
     emit('close');
 };
 
@@ -261,30 +248,6 @@ watch(() => props.isOpen, (isOpen) => {
                                 @navigate-to-section="navigateToSection"
                             />
 
-                            <!-- Override Warning -->
-                            <div v-if="hasErrors && !showOverrideWarning" class="mt-4">
-                                <button
-                                    @click="enableOverride"
-                                    class="text-sm text-amber-600 hover:text-amber-700 underline"
-                                >
-                                    Publicar mesmo assim (não recomendado)
-                                </button>
-                            </div>
-
-                            <div v-if="showOverrideWarning" class="mt-4 rounded-md bg-red-50 p-4">
-                                <div class="flex">
-                                    <svg class="h-5 w-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                    <div class="ml-3">
-                                        <h3 class="text-sm font-medium text-red-800">Atenção!</h3>
-                                        <p class="mt-1 text-sm text-red-700">
-                                            Você está prestes a publicar um site com erros. 
-                                            Isso pode afetar a experiência dos visitantes.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -325,18 +288,18 @@ watch(() => props.isOpen, (isOpen) => {
 
 <style scoped>
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 .bg-wedding-600 {
-    background-color: #a18072;
+    background-color: #c45a6f;
 }
 .bg-wedding-700 {
-    background-color: #8b6b5d;
+    background-color: #b9163a;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 .ring-wedding-500 {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 </style>

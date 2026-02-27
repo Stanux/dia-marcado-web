@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Site;
 
+use App\Contracts\Site\PlaceholderServiceInterface;
 use App\Contracts\Site\SiteValidatorServiceInterface;
 use App\Models\Guest;
 use App\Models\GuestEvent;
@@ -129,13 +130,16 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         // Check 3: Required fields filled
         $this->checkRequiredFieldsQA($content, $result);
 
-        // Check 4: WCAG AA contrast
+        // Check 4: Dynamic data readiness (placeholders / initials / meta)
+        $this->checkDynamicDataReadinessQA($site, $content, $result);
+
+        // Check 5: WCAG AA contrast
         $this->checkContrastQA($content, $result);
 
-        // Check 5: Resource size within threshold
+        // Check 6: Resource size within threshold
         $this->checkResourceSizeQA($site, $result);
 
-        // Check 6: RSVP readiness
+        // Check 7: RSVP readiness
         $this->checkRsvpReadinessQA($site, $content, $result);
 
         return $result;
@@ -541,6 +545,89 @@ class SiteValidatorService implements SiteValidatorServiceInterface
     }
 
     /**
+     * QA Check: Dynamic placeholder readiness (date, names, initials, meta rendering).
+     */
+    private function checkDynamicDataReadinessQA(SiteLayout $site, array $content, QAResult $result): void
+    {
+        $usedPlaceholders = $this->extractPlaceholdersFromContent($content);
+        $usedPlaceholderLookup = array_fill_keys($usedPlaceholders, true);
+        $issues = [];
+
+        if ($this->placeholderHasMissingData($site, '{data}')) {
+            $issues[] = 'Data do evento não definida';
+        }
+
+        if ($this->placeholderHasMissingData($site, '{primeiro_nome_noivo}')) {
+            $issues[] = 'Primeiro nome principal do casal não definido';
+        }
+
+        if ($this->placeholderHasMissingData($site, '{primeiro_nome_noiva}')) {
+            $issues[] = 'Primeiro nome do(a) parceiro(a) não definido';
+        }
+
+        if ($this->placeholderHasMissingData($site, '{noivo}')) {
+            $issues[] = 'Nome completo principal do casal não definido';
+        }
+
+        if ($this->placeholderHasMissingData($site, '{noiva}')) {
+            $issues[] = 'Nome completo do(a) parceiro(a) não definido';
+        }
+
+        $requiredDynamicPlaceholders = [
+            '{data}' => 'Data do evento',
+            '{data_curta}' => 'Data do evento',
+            '{data_extenso}' => 'Data do evento',
+            '{data_simples}' => 'Data do evento',
+            '{primeiro_nome_noivo}' => 'Primeiro nome',
+            '{primeiro_nome_noiva}' => 'Primeiro nome',
+            '{primeiro_nome_1}' => 'Primeiro nome',
+            '{primeiro_nome_2}' => 'Primeiro nome',
+            '{noivo}' => 'Nome completo',
+            '{noiva}' => 'Nome completo',
+            '{nome_1}' => 'Nome completo',
+            '{nome_2}' => 'Nome completo',
+            '{noivos}' => 'Nome completo',
+        ];
+
+        foreach ($requiredDynamicPlaceholders as $placeholder => $label) {
+            if (!isset($usedPlaceholderLookup[$placeholder])) {
+                continue;
+            }
+
+            if ($this->placeholderHasMissingData($site, $placeholder)) {
+                $issues[] = "{$label}: {$placeholder}";
+            }
+        }
+
+        if ($this->headerTextLogoHasMissingInitials($content)) {
+            $issues[] = 'Iniciais do logo em texto não configuradas (Header)';
+        }
+
+        $issues = array_merge($issues, $this->collectMetaDynamicIssues($site, $content));
+        $issues = array_values(array_unique($issues));
+
+        if ($issues === []) {
+            $result->addPassedCheck(
+                'dynamic_data_readiness',
+                'Dados dinâmicos essenciais configurados para publicação.',
+                'general'
+            );
+
+            return;
+        }
+
+        $message = "Dados dinâmicos pendentes para publicação:\n• " . implode("\n• ", $issues);
+        $message .= "\n\nUse o Preview para ver como o site está ficando antes de publicar.";
+        $message .= "\nComplete os dados em Dados do Evento e, quando necessário, em Usuários.";
+
+        $result->addFailedCheck(
+            'dynamic_data_readiness',
+            $message,
+            'general'
+        );
+    }
+
+    /**
      * QA Check: WCAG AA contrast.
      */
     private function checkContrastQA(array $content, QAResult $result): void
@@ -587,6 +674,117 @@ class SiteValidatorService implements SiteValidatorServiceInterface
                 $lowContrast[0]['section'] ?? null
             );
         }
+    }
+
+    /**
+     * Extract all dynamic placeholders found in content strings.
+     *
+     * @return array<int, string>
+     */
+    private function extractPlaceholdersFromContent(array $content): array
+    {
+        $placeholders = [];
+
+        array_walk_recursive($content, function (mixed $value) use (&$placeholders): void {
+            if (!is_string($value) || trim($value) === '') {
+                return;
+            }
+
+            $count = preg_match_all('/\{[a-z0-9_]+\}/i', $value, $matches);
+            if ($count === false || $count === 0) {
+                return;
+            }
+
+            foreach ($matches[0] as $placeholder) {
+                $placeholders[$placeholder] = true;
+            }
+        });
+
+        return array_keys($placeholders);
+    }
+
+    private function placeholderHasMissingData(SiteLayout $site, string $placeholder): bool
+    {
+        $wedding = $site->wedding;
+        if (!$wedding) {
+            return true;
+        }
+
+        /** @var PlaceholderServiceInterface $placeholderService */
+        $placeholderService = app(PlaceholderServiceInterface::class);
+        $resolved = trim($placeholderService->replacePlaceholders($placeholder, $wedding));
+
+        if ($resolved === '' || $resolved === $placeholder) {
+            return true;
+        }
+
+        return in_array($resolved, ['[DATA A DEFINIR]', '[NOME A DEFINIR]'], true);
+    }
+
+    private function headerTextLogoHasMissingInitials(array $content): bool
+    {
+        $header = is_array($content['sections']['header'] ?? null)
+            ? $content['sections']['header']
+            : [];
+
+        if (!(bool) ($header['enabled'] ?? false)) {
+            return false;
+        }
+
+        $logo = is_array($header['logo'] ?? null) ? $header['logo'] : [];
+        if (($logo['type'] ?? 'image') !== 'text') {
+            return false;
+        }
+
+        $logoText = is_array($logo['text'] ?? null) ? $logo['text'] : [];
+        $initials = is_array($logoText['initials'] ?? null) ? $logoText['initials'] : [];
+
+        $firstInitial = trim((string) ($initials[0] ?? ''));
+        $secondInitial = trim((string) ($initials[1] ?? ''));
+
+        return $firstInitial === '' || $secondInitial === '';
+    }
+
+    /**
+     * Collect dynamic issues from rendered meta fields.
+     *
+     * @return array<int, string>
+     */
+    private function collectMetaDynamicIssues(SiteLayout $site, array $content): array
+    {
+        $meta = is_array($content['meta'] ?? null) ? $content['meta'] : [];
+        $wedding = $site->wedding;
+
+        if (!$wedding) {
+            return ['Dados do casamento indisponíveis para renderizar meta tags dinâmicas.'];
+        }
+
+        /** @var PlaceholderServiceInterface $placeholderService */
+        $placeholderService = app(PlaceholderServiceInterface::class);
+        $issues = [];
+
+        foreach (['title' => 'meta.title', 'description' => 'meta.description'] as $metaKey => $label) {
+            $raw = (string) ($meta[$metaKey] ?? '');
+            if (trim($raw) === '') {
+                continue;
+            }
+
+            $rendered = trim($placeholderService->replacePlaceholders($raw, $wedding));
+
+            if (str_contains($rendered, '[DATA A DEFINIR]')) {
+                $issues[] = "{$label} contém [DATA A DEFINIR]";
+            }
+
+            if (str_contains($rendered, '[NOME A DEFINIR]')) {
+                $issues[] = "{$label} contém [NOME A DEFINIR]";
+            }
+
+            if (preg_match('/\{[a-z0-9_]+\}/i', $rendered) === 1) {
+                $issues[] = "{$label} contém placeholders não resolvidos";
+            }
+        }
+
+        return $issues;
     }
 
     /**
@@ -1364,7 +1562,7 @@ class SiteValidatorService implements SiteValidatorServiceInterface
     private function getSaveTheDateContrastCandidates(array $saveTheDate, array $theme): array
     {
         $candidates = [];
-        $themePrimaryColor = (string) ($theme['primaryColor'] ?? '#d4a574');
+        $themePrimaryColor = (string) ($theme['primaryColor'] ?? '#f97373');
 
         $sectionTypography = is_array($saveTheDate['sectionTypography'] ?? null) ? $saveTheDate['sectionTypography'] : [];
         $descriptionTypography = is_array($saveTheDate['descriptionTypography'] ?? null) ? $saveTheDate['descriptionTypography'] : [];

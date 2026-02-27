@@ -805,28 +805,28 @@ const pickOverlayColorFromScreen = () => {
 
 <style scoped>
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 .border-wedding-500 {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 .bg-wedding-50 {
-    background-color: #f5f1ee;
+    background-color: #fff1f4;
 }
 .hover\:border-wedding-500:hover {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 .hover\:text-wedding-600:hover {
-    color: #a18072;
+    color: #c45a6f;
 }
 
 .media-type-tabs {
@@ -851,7 +851,7 @@ const pickOverlayColorFromScreen = () => {
 .media-type-tab-active {
     @apply text-wedding-700;
     background: #ffffff;
-    border-color: #b8998a;
-    box-shadow: inset 0 2px 0 #b8998a;
+    border-color: #d87a8d;
+    box-shadow: inset 0 2px 0 #d87a8d;
 }
 </style>

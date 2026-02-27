@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Forms\Components\WeddingDatePicker;
-use App\Forms\Components\WeddingTimePicker;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
@@ -15,7 +14,6 @@ use Filament\Forms\Components\Wizard\Step;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
-use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
@@ -67,8 +65,6 @@ class Onboarding extends Page implements HasForms
         
         $this->form->fill(array_merge([
             'creator_name' => $user?->name,
-            'creator_email' => $user?->email,
-            'wedding_time' => '18:00',
             'plan' => 'basic',
         ], $sessionData));
     }
@@ -89,10 +85,7 @@ class Onboarding extends Page implements HasForms
     protected function persistToSession(): void
     {
         $data = $this->data ?? [];
-        
-        // Remove read-only fields
-        unset($data['creator_name'], $data['creator_email']);
-        
+
         session([self::SESSION_KEY => $data]);
     }
 
@@ -168,20 +161,9 @@ class Onboarding extends Page implements HasForms
                     WeddingDatePicker::make('wedding_date')
                         ->label('Data do casamento')
                         ->hiddenLabel()
-                        ->required()
                         ->columnSpan([
                             'default' => 1,
-                            'lg' => 8,
-                        ]),
-                    WeddingTimePicker::make('wedding_time')
-                        ->label('Horário do casamento')
-                        ->hiddenLabel()
-                        ->required()
-                        ->rule('date_format:H:i')
-                        ->default('18:00')
-                        ->columnSpan([
-                            'default' => 1,
-                            'lg' => 4,
+                            'lg' => 12,
                         ]),
                 ]),
         ];
@@ -190,17 +172,8 @@ class Onboarding extends Page implements HasForms
     protected function getWeddingStepLabel(): string
     {
         $date = data_get($this->data, 'wedding_date');
-        $time = data_get($this->data, 'wedding_time');
 
         if (! is_string($date) || blank($date)) {
-            return 'Dia Marcado';
-        }
-
-        if (! is_string($time) || blank($time)) {
-            return 'Dia Marcado';
-        }
-
-        if (! preg_match('/^\d{2}:\d{2}/', $time)) {
             return 'Dia Marcado';
         }
 
@@ -210,7 +183,7 @@ class Onboarding extends Page implements HasForms
             return 'Dia Marcado';
         }
 
-        return "{$formattedDate} às " . substr($time, 0, 5);
+        return $formattedDate;
     }
 
     protected function getCoupleDataSchema(): array
@@ -220,57 +193,29 @@ class Onboarding extends Page implements HasForms
                 ->schema([
                     Grid::make([
                         'default' => 1,
-                        'lg' => 5,
+                        'lg' => 2,
                     ])
                         ->schema([
                             TextInput::make('creator_name')
-                                ->label('Nome')
-                                ->disabled()
-                                ->dehydrated(false),
-
-                            TextInput::make('creator_email')
-                                ->label('E-mail')
-                                ->disabled()
-                                ->dehydrated(false),
-
-                            Placeholder::make('couple_ampersand')
-                                ->label('')
-                                ->content(new HtmlString('
-                                    <div class="text-center text-2xl font-semibold text-gray-400 dark:text-gray-500">
-                                        &amp;
-                                    </div>
-                                '))
-                                ->extraAttributes([
-                                    'class' => 'py-2 lg:self-center',
-                                ]),
+                                ->label('Seu nome')
+                                ->placeholder('Nome completo')
+                                ->required()
+                                ->maxLength(255),
 
                             TextInput::make('partner_name')
-                                ->label('Nome')
-                                ->placeholder('Nome completo')
-                                ->maxLength(255)
-                                ->requiredWith('partner_email'),
-
-                            TextInput::make('partner_email')
-                                ->label('E-mail')
-                                ->placeholder('email@exemplo.com')
-                                ->email()
-                                ->maxLength(255)
-                                ->different('creator_email')
-                                ->validationMessages([
-                                    'different' => 'O e-mail do parceiro deve ser diferente do seu.',
-                                ])
-                                ->live(onBlur: true),
+                                ->label('Nome do(a) parceiro(a)')
+                                ->placeholder('Nome completo (opcional)')
+                                ->maxLength(255),
                         ]),
 
-                    Placeholder::make('partner_disclaimer')
+                    Placeholder::make('partner_account_disclaimer')
                         ->label('')
                         ->content(new HtmlString('
                             <div class="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                                <strong>Nota:</strong> Um convite será enviado para o e-mail informado. 
-                                O(a) parceiro(a) precisará aceitar o convite para participar do planejamento do casamento.
+                                <strong>Nota:</strong> Após concluir o onboarding, você poderá adicionar a conta do(a) parceiro(a)
+                                na tela <strong>Usuários</strong> dentro da plataforma.
                             </div>
-                        '))
-                        ->visible(fn (Get $get) => !empty($get('partner_email'))),
+                        ')),
                 ]),
         ];
     }

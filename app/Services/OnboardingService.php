@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Contracts\OnboardingServiceInterface;
-use App\Contracts\PartnerInviteServiceInterface;
 use App\Contracts\Site\SiteBuilderServiceInterface;
 use App\Models\GuestEvent;
 use App\Models\User;
@@ -18,8 +17,7 @@ class OnboardingService implements OnboardingServiceInterface
 {
     public function __construct(
         private readonly WeddingService $weddingService,
-        private readonly SiteBuilderServiceInterface $siteBuilderService,
-        private readonly PartnerInviteServiceInterface $partnerInviteService
+        private readonly SiteBuilderServiceInterface $siteBuilderService
     ) {}
 
     /**
@@ -28,8 +26,16 @@ class OnboardingService implements OnboardingServiceInterface
     public function complete(User $user, array $data): Wedding
     {
         return DB::transaction(function () use ($user, $data) {
+            $creatorName = $this->resolveCreatorName($user, $data);
+
+            if ($creatorName !== $user->name) {
+                $user->forceFill([
+                    'name' => $creatorName,
+                ])->save();
+            }
+
             // 1. Create the wedding
-            $wedding = $this->createWedding($user, $data);
+            $wedding = $this->createWedding($user, $data, $creatorName);
 
             // 2. Create the site for the wedding
             $this->siteBuilderService->create($wedding);
@@ -37,17 +43,7 @@ class OnboardingService implements OnboardingServiceInterface
             // 3. Create default RSVP event based on onboarding date/time
             $this->createDefaultGuestEvent($wedding, $user, $data);
 
-            // 4. Send partner invite if provided
-            if ($this->hasPartnerData($data)) {
-                $this->partnerInviteService->sendInvite(
-                    $wedding,
-                    $user,
-                    $data['partner_email'],
-                    $data['partner_name']
-                );
-            }
-
-            // 5. Mark onboarding as complete
+            // 4. Mark onboarding as complete
             $user->markOnboardingComplete();
 
             return $wedding;
@@ -65,12 +61,12 @@ class OnboardingService implements OnboardingServiceInterface
     /**
      * Create the wedding from onboarding data.
      */
-    private function createWedding(User $user, array $data): Wedding
+    private function createWedding(User $user, array $data, string $creatorName): Wedding
     {
-        $weddingTime = $this->normalizeWeddingTime($data['wedding_time'] ?? null);
+        $partnerNameDraft = $this->normalizeName($data['partner_name'] ?? null);
 
         $weddingData = [
-            'title' => $this->generateWeddingTitle($user, $data),
+            'title' => $this->generateWeddingTitle($creatorName, $data),
             'wedding_date' => $data['wedding_date'] ?? null,
             'venue' => $data['venue_name'] ?? null,
             'city' => $data['venue_city'] ?? null,
@@ -80,7 +76,9 @@ class OnboardingService implements OnboardingServiceInterface
                 'venue_address' => $data['venue_address'] ?? null,
                 'venue_neighborhood' => $data['venue_neighborhood'] ?? null,
                 'venue_phone' => $data['venue_phone'] ?? null,
-                'wedding_time' => $weddingTime,
+                // Horário passa a ser definido em "Dados do Evento" após onboarding.
+                'wedding_time' => null,
+                'partner_name_draft' => $partnerNameDraft,
             ],
         ];
 
@@ -90,12 +88,13 @@ class OnboardingService implements OnboardingServiceInterface
     /**
      * Generate a wedding title based on available data.
      */
-    private function generateWeddingTitle(User $user, array $data): string
+    private function generateWeddingTitle(string $creatorName, array $data): string
     {
-        $creatorFirstName = $this->extractFirstName($user->name);
+        $creatorFirstName = $this->extractFirstName($creatorName);
 
-        if (!empty($data['partner_name'])) {
-            $partnerFirstName = $this->extractFirstName($data['partner_name']);
+        $partnerName = $this->normalizeName($data['partner_name'] ?? null);
+        if ($partnerName !== null) {
+            $partnerFirstName = $this->extractFirstName($partnerName);
             return "Casamento {$creatorFirstName} e {$partnerFirstName}";
         }
 
@@ -112,11 +111,22 @@ class OnboardingService implements OnboardingServiceInterface
     }
 
     /**
-     * Check if partner data was provided.
+     * Resolve creator name from onboarding data.
      */
-    private function hasPartnerData(array $data): bool
+    private function resolveCreatorName(User $user, array $data): string
     {
-        return !empty($data['partner_email']) && !empty($data['partner_name']);
+        return $this->normalizeName($data['creator_name'] ?? null) ?? $user->name;
+    }
+
+    private function normalizeName(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $normalized = trim($value);
+
+        return $normalized === '' ? null : $normalized;
     }
 
     private function createDefaultGuestEvent(Wedding $wedding, User $user, array $data): void
@@ -134,6 +144,7 @@ class OnboardingService implements OnboardingServiceInterface
                 'metadata' => [
                     'source' => 'onboarding',
                     'auto_created' => true,
+                    'sync_with_wedding_settings' => true,
                 ],
             ],
         );
@@ -146,28 +157,8 @@ class OnboardingService implements OnboardingServiceInterface
             return null;
         }
 
-        $time = $this->normalizeWeddingTime($data['wedding_time'] ?? null);
-
-        return Carbon::parse("{$weddingDate} {$time}", config('app.timezone'));
-    }
-
-    private function normalizeWeddingTime(?string $value): string
-    {
-        if (!$value) {
-            return '18:00';
-        }
-
-        if (preg_match('/^(?<hour>\d{2}):(?<minute>\d{2})(?::\d{2})?$/', $value, $matches) !== 1) {
-            return '18:00';
-        }
-
-        $hour = (int) $matches['hour'];
-        $minute = (int) $matches['minute'];
-
-        if ($hour < 0 || $hour > 23 || $minute < 0 || $minute > 59) {
-            return '18:00';
-        }
-
-        return sprintf('%02d:%02d', $hour, $minute);
+        // O horário deixa de ser coletado no onboarding.
+        // O event_at será definido posteriormente em "Dados do Evento".
+        return null;
     }
 }

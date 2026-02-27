@@ -32,16 +32,16 @@ export const THEME_PRESETS = [
         name: 'Romance Clássico',
         description: 'Paleta rosé com base clara e leitura suave para um visual elegante.',
         palette: [
-            { key: 'primaryColor', label: 'Primária', color: '#d4a574' },
-            { key: 'secondaryColor', label: 'Secundária', color: '#8b7355' },
+            { key: 'primaryColor', label: 'Primária', color: '#f97373' },
+            { key: 'secondaryColor', label: 'Secundária', color: '#b85c5c' },
             { key: 'baseBackgroundColor', label: 'Base', color: '#ffffff' },
-            { key: 'surfaceBackgroundColor', label: 'Apoio', color: '#f5ebe4' },
+            { key: 'surfaceBackgroundColor', label: 'Apoio', color: '#fde8ee' },
         ],
         theme: {
-            primaryColor: '#d4a574',
-            secondaryColor: '#8b7355',
+            primaryColor: '#f97373',
+            secondaryColor: '#b85c5c',
             baseBackgroundColor: '#ffffff',
-            surfaceBackgroundColor: '#f5ebe4',
+            surfaceBackgroundColor: '#fde8ee',
             fontFamily: 'Playfair Display',
             fontSize: '16px',
         },
@@ -59,7 +59,7 @@ export const THEME_PRESETS = [
                 },
                 titleTypography: {
                     fontFamily: 'Playfair Display',
-                    fontColor: '#6b5347',
+                    fontColor: '#4A2F39',
                     fontSize: 32,
                     fontWeight: 600,
                     fontItalic: false,
@@ -67,7 +67,7 @@ export const THEME_PRESETS = [
                 },
                 subtitleTypography: {
                     fontFamily: 'Montserrat',
-                    fontColor: '#8b7355',
+                    fontColor: '#b85c5c',
                     fontSize: 18,
                     fontWeight: 400,
                     fontItalic: false,
@@ -83,7 +83,7 @@ export const THEME_PRESETS = [
                 },
                 menuHoverTypography: {
                     fontFamily: 'Montserrat',
-                    fontColor: '#6b5347',
+                    fontColor: '#4A2F39',
                     fontSize: 14,
                     fontWeight: 600,
                     fontItalic: false,
@@ -124,7 +124,7 @@ export const THEME_PRESETS = [
                 },
                 sectionTypography: {
                     fontFamily: 'Playfair Display',
-                    fontColor: '#a18072',
+                    fontColor: '#c45a6f',
                     fontSize: 20,
                     fontWeight: 600,
                     fontItalic: false,
@@ -145,7 +145,7 @@ export const THEME_PRESETS = [
                 },
                 titleTypography: {
                     fontFamily: 'Playfair Display',
-                    fontColor: '#6b5347',
+                    fontColor: '#4A2F39',
                     fontSize: 48,
                     fontWeight: 700,
                     fontItalic: false,

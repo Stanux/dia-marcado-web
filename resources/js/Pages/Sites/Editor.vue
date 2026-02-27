@@ -42,6 +42,8 @@ const props = defineProps({
 
 const page = usePage();
 const isTemplateEditor = computed(() => Boolean(props.templateContext?.id));
+const isAdminUser = computed(() => page.props?.auth?.user?.role === 'admin');
+const canUseTemplateCatalog = computed(() => !isTemplateEditor.value && !isAdminUser.value);
 const editorBackHref = computed(() => {
     if (isTemplateEditor.value) {
         return `/admin/site-templates/${props.templateContext.id}/edit`;
@@ -56,6 +58,7 @@ const editorTitle = computed(() => {
 
     return 'Editor de Site';
 });
+const currentWedding = computed(() => page.props?.wedding || {});
 
 // Ensure wedding ID is available globally for API requests
 onMounted(() => {
@@ -105,6 +108,16 @@ const isApplyingThemePreset = ref(false);
 const showThemePresetResultDialog = ref(false);
 const isRestoringThemeSnapshot = ref(false);
 const quickRestoreVersionId = ref(null);
+const showTemplateCatalogModal = ref(false);
+const templateCatalogItems = ref([]);
+const templateThumbnailErrors = ref({});
+const isLoadingTemplateCatalog = ref(false);
+const templateCatalogError = ref('');
+const isApplyingTemplateCatalog = ref(false);
+const templateApplyTarget = ref({
+    templateId: null,
+    mode: null,
+});
 const themePresetResult = ref({
     presetName: '',
     presetDescription: '',
@@ -112,6 +125,9 @@ const themePresetResult = ref({
     qaResult: null,
 });
 const THEME_PRE_SNAPSHOT_PREFIX = 'Snapshot antes do tema:';
+const TEMPLATE_FALLBACK_THUMBNAIL = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff1f4"/><stop offset="100%" stop-color="#fde8ee"/></linearGradient></defs><rect width="800" height="500" fill="url(#bg)"/><rect x="88" y="72" width="624" height="356" rx="18" fill="#ffffff" stroke="#ffccd9" stroke-width="4"/><rect x="120" y="112" width="560" height="32" rx="8" fill="#fde8ee"/><rect x="120" y="164" width="360" height="20" rx="8" fill="#fff1f4"/><rect x="120" y="198" width="280" height="20" rx="8" fill="#fff1f4"/><rect x="120" y="246" width="170" height="128" rx="10" fill="#fff1f4" stroke="#ffccd9" stroke-width="2"/><rect x="314" y="246" width="170" height="128" rx="10" fill="#fff1f4" stroke="#ffccd9" stroke-width="2"/><rect x="508" y="246" width="170" height="128" rx="10" fill="#fff1f4" stroke="#ffccd9" stroke-width="2"/><circle cx="400" cy="302" r="36" fill="#ffccd9"/><path d="M382 314l14-15 11 10 13-14 16 19h-54z" fill="#b9163a"/><text x="400" y="422" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#4A2F39">Template sem imagem</text></svg>')}`;
+const TEMPLATE_PARTIAL_TOOLTIP = 'Merge: aplica seções, estilo e textos, preservando mídias que você já definiu.';
+const TEMPLATE_TOTAL_TOOLTIP = 'Aplicação total: substitui todo o conteúdo atual pelo conteúdo completo do template.';
 
 // Toast state
 const toast = ref({
@@ -132,6 +148,7 @@ const SECTION_DEFINITIONS = {
 
 const FIXED_SECTION_KEYS = ['header', 'footer'];
 const DEFAULT_MOVABLE_SECTION_ORDER = ['hero', 'saveTheDate', 'giftRegistry', 'rsvp', 'photoGallery'];
+const BLOCKED_EDITOR_SECTION_KEYS = new Set(['meta', 'theme']);
 
 const sanitizeMovableSectionOrder = (rawOrder, availableSectionKeys) => {
     const availableMovableKeys = availableSectionKeys.filter((key) => !FIXED_SECTION_KEYS.includes(key));
@@ -205,8 +222,8 @@ const currentSectionContent = computed(() => {
     // Special sections (meta, theme, settings) are stored at root level
     if (activeSection.value === 'meta') {
         return draftContent.value?.meta || {
-            title: '',
-            description: '',
+            title: '{primeiro_nome_noivo} & {primeiro_nome_noiva} em {data_curta}',
+            description: '{primeiro_nome_noivo} & {primeiro_nome_noiva} em {data_curta}',
             ogImage: '',
             canonical: '',
         };
@@ -214,12 +231,12 @@ const currentSectionContent = computed(() => {
 
     if (activeSection.value === 'theme') {
         return {
-            primaryColor: '#d4a574',
-            secondaryColor: '#8b7355',
+            primaryColor: '#e11d48',
+            secondaryColor: '#be123c',
             baseBackgroundColor: '#ffffff',
-            surfaceBackgroundColor: '#f5ebe4',
-            fontFamily: 'Playfair Display',
-            fontSize: '16px',
+            surfaceBackgroundColor: '#f9fafb',
+            fontFamily: 'Figtree',
+            fontSize: '14px',
             ...(draftContent.value?.theme || {}),
         };
     }
@@ -254,7 +271,13 @@ const enabledSections = computed(() => {
 
 // Handle section selection
 const selectSection = (sectionKey) => {
-    activeSection.value = sectionKey;
+    if (BLOCKED_EDITOR_SECTION_KEYS.has(sectionKey)) {
+        sectionKey = orderedSectionKeys.value[0] || 'header';
+    }
+
+    const sectionExists = sectionKey === 'settings' || Boolean(draftContent.value?.sections?.[sectionKey]);
+    activeSection.value = sectionExists ? sectionKey : (orderedSectionKeys.value[0] || 'header');
+
     if (isMobileViewport.value) {
         showMobileSidebar.value = false;
     }
@@ -565,6 +588,165 @@ const syncDraftBeforeActions = async (actionLabel = 'continuar') => {
     return true;
 };
 
+const loadTemplateCatalog = async ({ force = false } = {}) => {
+    if (!canUseTemplateCatalog.value) {
+        return;
+    }
+
+    if (!force && templateCatalogItems.value.length > 0) {
+        return;
+    }
+
+    isLoadingTemplateCatalog.value = true;
+    templateCatalogError.value = '';
+
+    try {
+        const response = await axios.get('/api/sites/templates');
+        templateCatalogItems.value = Array.isArray(response.data?.data) ? response.data.data : [];
+        templateThumbnailErrors.value = {};
+    } catch (error) {
+        templateCatalogError.value = error?.response?.data?.message
+            || error?.message
+            || 'Não foi possível carregar os templates agora.';
+    } finally {
+        isLoadingTemplateCatalog.value = false;
+    }
+};
+
+const openTemplateCatalog = async () => {
+    if (!canUseTemplateCatalog.value || isApplyingTemplateCatalog.value) {
+        return;
+    }
+
+    const isReady = await syncDraftBeforeActions('abrir templates');
+    if (!isReady) {
+        return;
+    }
+
+    showTemplateCatalogModal.value = true;
+    await loadTemplateCatalog();
+};
+
+const closeTemplateCatalog = () => {
+    if (isApplyingTemplateCatalog.value) {
+        return;
+    }
+
+    showTemplateCatalogModal.value = false;
+};
+
+const resolveTemplateThumbnail = (template) => {
+    const templateId = template?.id;
+    if (templateId && templateThumbnailErrors.value[templateId]) {
+        return TEMPLATE_FALLBACK_THUMBNAIL;
+    }
+
+    const thumbnail = typeof template?.thumbnail === 'string'
+        ? template.thumbnail.trim()
+        : '';
+
+    return thumbnail !== '' ? thumbnail : TEMPLATE_FALLBACK_THUMBNAIL;
+};
+
+const onTemplateImageError = (event, templateId) => {
+    if (templateId) {
+        templateThumbnailErrors.value = {
+            ...templateThumbnailErrors.value,
+            [templateId]: true,
+        };
+    }
+
+    const image = event?.target;
+    if (!image) {
+        return;
+    }
+
+    image.onerror = null;
+    image.src = TEMPLATE_FALLBACK_THUMBNAIL;
+    image.alt = 'Imagem padrao de template';
+};
+
+const isTemplateApplyRunning = (templateId, mode) => {
+    return isApplyingTemplateCatalog.value
+        && templateApplyTarget.value.templateId === templateId
+        && templateApplyTarget.value.mode === mode;
+};
+
+const applyTemplateFromCatalog = async (template, mode) => {
+    if (!template?.id || isApplyingTemplateCatalog.value) {
+        return;
+    }
+
+    if (template.is_locked || template.can_apply === false) {
+        showToast('error', 'Este template não está disponível para o seu plano atual.');
+        return;
+    }
+
+    const isReady = await syncDraftBeforeActions('aplicar o template');
+    if (!isReady) {
+        return;
+    }
+
+    isApplyingTemplateCatalog.value = true;
+    templateApplyTarget.value = {
+        templateId: template.id,
+        mode,
+    };
+
+    try {
+        const response = await axios.post(
+            `/api/sites/${site.value.id}/apply-template/${template.id}`,
+            { mode }
+        );
+
+        showTemplateCatalogModal.value = false;
+        showToast('success', response.data?.message || 'Template aplicado com sucesso.');
+        window.location.reload();
+    } catch (error) {
+        const message = error?.response?.data?.message
+            || error?.message
+            || 'Não foi possível aplicar o template selecionado.';
+        showToast('error', message);
+    } finally {
+        isApplyingTemplateCatalog.value = false;
+        templateApplyTarget.value = {
+            templateId: null,
+            mode: null,
+        };
+    }
+};
+
+const openTemplateNavigation = (template) => {
+    if (!template?.preview_url) {
+        showToast('error', 'Navegação indisponível para este template.');
+        return;
+    }
+
+    const previewUrl = new URL(template.preview_url, window.location.origin);
+    previewUrl.searchParams.set('site', String(site.value.id));
+    previewUrl.searchParams.set('session', `${site.value.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+
+    window.open(previewUrl.toString(), '_blank');
+};
+
+const handleTemplateAppliedMessage = (event) => {
+    if (event.origin !== window.location.origin) {
+        return;
+    }
+
+    const payload = event.data;
+    if (!payload || payload.type !== 'site-template-applied') {
+        return;
+    }
+
+    if (String(payload.siteId) !== String(site.value.id)) {
+        return;
+    }
+
+    showTemplateCatalogModal.value = false;
+    window.location.reload();
+};
+
 const handlePublish = async () => {
     const isReady = await syncDraftBeforeActions('publicar');
     if (!isReady) {
@@ -741,11 +923,13 @@ onMounted(() => {
     updateViewportState();
     window.addEventListener('resize', updateViewportState);
     window.addEventListener('keydown', handleKeydown);
+    window.addEventListener('message', handleTemplateAppliedMessage);
 });
 
 onUnmounted(() => {
     window.removeEventListener('resize', updateViewportState);
     window.removeEventListener('keydown', handleKeydown);
+    window.removeEventListener('message', handleTemplateAppliedMessage);
 });
 </script>
 
@@ -781,6 +965,20 @@ onUnmounted(() => {
                 <div class="w-full lg:w-auto lg:ml-auto">
                     <div class="flex flex-col gap-2 lg:items-end">
                         <div class="flex flex-wrap items-center justify-end gap-2">
+                            <!-- Templates Button -->
+                            <button
+                                v-if="canUseTemplateCatalog"
+                                @click="openTemplateCatalog"
+                                :disabled="isApplyingTemplateCatalog || isSaving"
+                                class="inline-flex items-center justify-center gap-1.5 rounded-md border border-wedding-700 bg-wedding-600 px-2.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-wedding-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm"
+                            >
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10" />
+                                </svg>
+                                <span class="hidden sm:inline">Templates</span>
+                                <span class="sr-only sm:hidden">Templates</span>
+                            </button>
+
                             <!-- Save Button -->
                             <button
                                 @click="handleTopSave"
@@ -806,7 +1004,7 @@ onUnmounted(() => {
                                 <span class="hidden sm:inline">Histórico</span>
                                 <span
                                     v-if="publishedVersionsCount > 0"
-                                    class="ml-1 inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-800"
+                                    class="ml-1 inline-flex items-center rounded-full bg-wedding-100 px-1.5 py-0.5 text-[10px] font-semibold text-wedding-700"
                                     :title="`${publishedVersionsCount} publicação(ões)`"
                                 >
                                     {{ publishedVersionsCount }}
@@ -831,7 +1029,7 @@ onUnmounted(() => {
                                 @click="handlePublish"
                                 :disabled="isPublishing"
                                 v-if="!isTemplateEditor"
-                                class="inline-flex items-center justify-center gap-1.5 rounded-md border border-wedding-700 bg-wedding-600 px-2.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-wedding-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm"
+                                class="publish-button inline-flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-2 text-xs font-semibold text-white shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm"
                             >
                                 <svg v-if="isPublishing" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -924,6 +1122,7 @@ onUnmounted(() => {
                         v-if="currentSectionContent"
                         :section-type="activeSection"
                         :content="currentSectionContent"
+                        :wedding="currentWedding"
                         :enabled-sections="enabledSections"
                         :logo-initials="props.logoInitials"
                         :is-applying-theme-preset="isApplyingThemePreset"
@@ -971,7 +1170,7 @@ onUnmounted(() => {
                     <button
                         @click="historyFilter = 'published'"
                         class="px-3 py-1.5 text-xs rounded-md border"
-                        :class="historyFilter === 'published' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                        :class="historyFilter === 'published' ? 'bg-wedding-600 text-white border-wedding-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
                     >
                         Publicações ({{ publishedVersionsCount }})
                     </button>
@@ -1064,7 +1263,7 @@ onUnmounted(() => {
                                         @click="openRestoreDialog(version)"
                                         class="px-3 py-1.5 text-xs font-medium rounded-md border transition-colors"
                                         :class="version.is_published
-                                            ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                                            ? 'text-wedding-700 bg-wedding-100 border-wedding-200 hover:bg-rose-100'
                                             : 'text-wedding-600 bg-wedding-50 border-wedding-200 hover:bg-wedding-100'"
                                     >
                                         Restaurar
@@ -1075,6 +1274,126 @@ onUnmounted(() => {
                     </ul>
                 </div>
             </aside>
+        </div>
+
+        <!-- Template Catalog Modal -->
+        <div
+            v-if="showTemplateCatalogModal"
+            class="fixed inset-0 z-[68] flex items-center justify-center bg-gray-950/60 p-4"
+            @click.self="closeTemplateCatalog"
+        >
+            <div class="flex h-[90vh] w-[90vw] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div class="flex items-start justify-between border-b border-gray-200 px-6 py-4">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Templates disponíveis</h2>
+                        <p class="mt-1 text-sm text-gray-600">
+                            Navegue e aplique um template sem sair do editor.
+                        </p>
+                    </div>
+                    <button
+                        @click="closeTemplateCatalog"
+                        :disabled="isApplyingTemplateCatalog"
+                        class="rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Fechar modal de templates"
+                    >
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div v-if="isLoadingTemplateCatalog" class="flex h-full items-center justify-center text-sm text-gray-500">
+                        <svg class="mr-2 h-5 w-5 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        Carregando templates...
+                    </div>
+
+                    <div v-else-if="templateCatalogError" class="mx-auto max-w-xl rounded-xl border border-red-200 bg-red-50 p-4">
+                        <p class="text-sm font-medium text-red-700">{{ templateCatalogError }}</p>
+                        <button
+                            @click="loadTemplateCatalog({ force: true })"
+                            class="mt-3 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                        >
+                            Tentar novamente
+                        </button>
+                    </div>
+
+                    <div v-else-if="templateCatalogItems.length === 0" class="flex h-full items-center justify-center">
+                        <p class="text-sm text-gray-500">Nenhum template disponível no momento.</p>
+                    </div>
+
+                    <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                        <article
+                            v-for="templateItem in templateCatalogItems"
+                            :key="templateItem.id"
+                            class="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                        >
+                            <div class="group relative aspect-[16/10] overflow-hidden bg-gray-100">
+                                <img
+                                    :src="resolveTemplateThumbnail(templateItem)"
+                                    :alt="templateItem.name"
+                                    class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                    @error="onTemplateImageError($event, templateItem.id)"
+                                />
+
+                                <button
+                                    @click.stop="openTemplateNavigation(templateItem)"
+                                    class="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-semibold text-white opacity-0 transition-opacity duration-200 hover:bg-black/55 group-hover:opacity-100"
+                                >
+                                    Navegar
+                                </button>
+
+                                <span
+                                    v-if="templateItem.is_locked"
+                                    class="absolute right-2 top-2 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800"
+                                >
+                                    Upgrade
+                                </span>
+                            </div>
+
+                            <div class="flex flex-1 flex-col gap-2 p-4">
+                                <h3 class="text-sm font-semibold text-gray-900">{{ templateItem.name }}</h3>
+                                <p class="min-h-[2.25rem] text-xs text-gray-600">
+                                    {{ templateItem.description || 'Sem descrição para este template.' }}
+                                </p>
+
+                                <p
+                                    v-if="templateItem.is_locked"
+                                    class="text-xs font-medium text-amber-700"
+                                >
+                                    Disponível para:
+                                    {{ Array.isArray(templateItem.required_plans) && templateItem.required_plans.length > 0
+                                        ? templateItem.required_plans.join(', ')
+                                        : 'planos superiores' }}.
+                                </p>
+
+                                <div class="mt-auto space-y-2">
+                                    <button
+                                        @click="applyTemplateFromCatalog(templateItem, 'merge')"
+                                        :disabled="isApplyingTemplateCatalog || templateItem.is_locked || templateItem.can_apply === false"
+                                        class="w-full rounded-md border border-wedding-200 bg-wedding-100 px-3 py-2 text-xs font-semibold text-wedding-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                        :title="TEMPLATE_PARTIAL_TOOLTIP"
+                                    >
+                                        {{ isTemplateApplyRunning(templateItem.id, 'merge') ? 'Aplicando...' : 'Aplicar Parcial' }}
+                                    </button>
+
+                                    <button
+                                        @click="applyTemplateFromCatalog(templateItem, 'overwrite')"
+                                        :disabled="isApplyingTemplateCatalog || templateItem.is_locked || templateItem.can_apply === false"
+                                        class="w-full rounded-md border border-wedding-700 bg-wedding-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-wedding-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        :title="TEMPLATE_TOTAL_TOOLTIP"
+                                    >
+                                        {{ isTemplateApplyRunning(templateItem.id, 'overwrite') ? 'Aplicando...' : 'Aplicar Total' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Restore Version Dialog -->
@@ -1229,6 +1548,7 @@ onUnmounted(() => {
         <FullscreenPreview
             :show="showPreview"
             :content="draftContent"
+            :wedding="currentWedding"
             :site-id="site.id"
             @close="showPreview = false"
         />
@@ -1245,33 +1565,40 @@ onUnmounted(() => {
 
 <style scoped>
 .bg-wedding-50 {
-    background-color: #faf8f6;
+    background-color: #fff1f4;
 }
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 .bg-wedding-600 {
-    background-color: #a18072;
+    background-color: #e11d48;
 }
 .bg-wedding-700 {
-    background-color: #8b6b5d;
+    background-color: #b9163a;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #b9163a;
 }
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #4A2F39;
 }
 .text-wedding-800 {
-    color: #6b5347;
+    color: #4A2F39;
 }
 .border-wedding-200 {
-    border-color: #e5d5c9;
+    border-color: #ffccd9;
 }
 .border-wedding-700 {
-    border-color: #8b6b5d;
+    border-color: #b9163a;
 }
 .hover\:bg-wedding-100:hover {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
+}
+.publish-button {
+    background-color: #e11d48;
+    border-color: #b9163a;
+}
+.publish-button:hover:not(:disabled) {
+    background-color: #b9163a;
 }
 </style>

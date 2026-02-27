@@ -83,7 +83,7 @@
         
         input[type="password"]:focus {
             outline: none;
-            border-color: #d4a574;
+            border-color: #f97373;
         }
         
         .error {
@@ -95,7 +95,7 @@
         button {
             width: 100%;
             padding: 14px 24px;
-            background: #d4a574;
+            background: #f97373;
             color: white;
             border: none;
             border-radius: 8px;
@@ -106,7 +106,7 @@
         }
         
         button:hover {
-            background: #c49464;
+            background: #C27A92;
         }
         
         button:active {

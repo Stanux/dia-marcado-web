@@ -11,7 +11,6 @@ use App\Models\Wedding;
  * Handles the complete onboarding process including:
  * - Creating the wedding
  * - Creating the site
- * - Sending partner invites
  * - Marking onboarding as complete
  */
 interface OnboardingServiceInterface
@@ -19,7 +18,7 @@ interface OnboardingServiceInterface
     /**
      * Complete the onboarding process for a user.
      * 
-     * Creates the wedding, site, and sends partner invite if provided.
+     * Creates the wedding and initial site configuration.
      * All operations are performed in a transaction.
      *
      * @param User $user The user completing onboarding

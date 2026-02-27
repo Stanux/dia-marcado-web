@@ -31,10 +31,10 @@ const props = defineProps({
         type: Array,
         default: () => [
             // Wedding palette
-            { color: '#d4a574', name: 'Dourado' },
-            { color: '#8b7355', name: 'Bronze' },
-            { color: '#f5ebe4', name: 'Creme' },
-            { color: '#a18072', name: 'Rose' },
+            { color: '#f97373', name: 'Dourado' },
+            { color: '#b85c5c', name: 'Bronze' },
+            { color: '#fde8ee', name: 'Creme' },
+            { color: '#c45a6f', name: 'Rose' },
             // Neutrals
             { color: '#ffffff', name: 'Branco' },
             { color: '#f5f5f5', name: 'Cinza Claro' },
@@ -380,18 +380,18 @@ export default {
 
 /* Wedding theme colors */
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 
 .bg-wedding-600 {
-    background-color: #a18072;
+    background-color: #c45a6f;
 }
 
 .ring-wedding-500 {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 </style>

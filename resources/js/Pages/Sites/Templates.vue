@@ -355,22 +355,22 @@ onMounted(() => {
 
 <style scoped>
 .bg-wedding-50 {
-    background-color: #faf8f6;
+    background-color: #fff1f4;
 }
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 .bg-wedding-600 {
-    background-color: #8b6b5d;
+    background-color: #e11d48;
 }
 .bg-wedding-700 {
-    background-color: #6b5347;
+    background-color: #b9163a;
 }
 .text-wedding-600 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 .text-wedding-700 {
-    color: #6b5347;
+    color: #4A2F39;
 }
 
 /* Modal transitions */

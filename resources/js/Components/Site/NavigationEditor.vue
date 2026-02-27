@@ -446,11 +446,11 @@ const canAddMore = computed(() => items.value.length < props.maxItems);
 
 /* Wedding theme colors */
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 
 .bg-wedding-50 {
@@ -458,7 +458,7 @@ const canAddMore = computed(() => items.value.length < props.maxItems);
 }
 
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 
 .border-wedding-400 {
@@ -466,10 +466,10 @@ const canAddMore = computed(() => items.value.length < props.maxItems);
 }
 
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 </style>

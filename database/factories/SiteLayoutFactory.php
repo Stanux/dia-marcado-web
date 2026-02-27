@@ -57,7 +57,7 @@ class SiteLayoutFactory extends Factory
                     ],
                     'menuHoverTypography' => [
                         'fontFamily' => 'Montserrat',
-                        'fontColor' => '#d4a574',
+                        'fontColor' => '#f97373',
                         'fontSize' => 14,
                         'fontWeight' => 500,
                         'fontItalic' => false,

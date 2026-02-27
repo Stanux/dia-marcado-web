@@ -16,10 +16,30 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    wedding: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const emit = defineEmits(['change']);
 const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
+const EVENT_SETTINGS_URL = '/admin/wedding-settings';
+
+const parseValidWeddingDate = (value) => {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    const normalized = typeof value === 'string' ? value.trim() : value;
+    if (!normalized || normalized === 'null' || normalized === '0000-00-00') {
+        return null;
+    }
+
+    const parsed = normalized instanceof Date ? normalized : new Date(normalized);
+
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
 
 const defaultCalendarButtonTypography = {
     fontFamily: 'Montserrat',
@@ -31,8 +51,8 @@ const defaultCalendarButtonTypography = {
 };
 
 const defaultCalendarButtonStyle = {
-    backgroundColor: '#d4a574',
-    borderColor: '#d4a574',
+    backgroundColor: '#f97373',
+    borderColor: '#f97373',
     borderWidth: 0,
     borderRadius: 8,
     paddingX: 24,
@@ -119,13 +139,20 @@ const selectedLayout = computed(() => {
     // Backward compatibility: old "card" now maps to "modal"
     return 'modal';
 });
+const hasWeddingDate = computed(() => {
+    if (props.wedding?.has_wedding_date === false) {
+        return false;
+    }
+
+    return parseValidWeddingDate(props.wedding?.wedding_date) !== null;
+});
 
 const saveTheDateTypographyPreviewBackgroundColor = computed(() => {
     return selectedLayout.value === 'inline'
         ? saveTheDateBackgroundColorHex.value
         : '#ffffff';
 });
-const calendarButtonBackgroundColorHex = computed(() => normalizeHexColor(calendarButtonStyle.value.backgroundColor, '#d4a574'));
+const calendarButtonBackgroundColorHex = computed(() => normalizeHexColor(calendarButtonStyle.value.backgroundColor, '#f97373'));
 const calendarButtonBorderColorHex = computed(() => normalizeHexColor(calendarButtonStyle.value.borderColor, '#000000'));
 const calendarButtonPreviewStyle = computed(() => ({
     fontFamily: calendarButtonTypography.value.fontFamily,
@@ -173,7 +200,7 @@ const pickCalendarButtonBorderColor = () => {
             
             <TypographyControl
                 :font-family="sectionTypography.fontFamily || 'Playfair Display'"
-                :font-color="sectionTypography.fontColor || '#d4a574'"
+                :font-color="sectionTypography.fontColor || '#f97373'"
                 :font-size="sectionTypography.fontSize || 18"
                 :font-weight="sectionTypography.fontWeight || 400"
                 :font-italic="sectionTypography.fontItalic || false"
@@ -277,17 +304,34 @@ const pickCalendarButtonBorderColor = () => {
         <div class="space-y-4 pt-6 border-t border-gray-200">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Contador Regressivo</h3>
             
-            <div class="flex items-center">
+            <div class="flex items-center" :class="{ 'opacity-60': !hasWeddingDate }">
                 <input
                     type="checkbox"
-                    :checked="localContent.showCountdown"
+                    :checked="hasWeddingDate ? localContent.showCountdown : false"
+                    :disabled="!hasWeddingDate"
                     @change="updateField('showCountdown', $event.target.checked)"
                     class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
                 />
-                <label class="ml-2 text-sm text-gray-700">Exibir contador regressivo</label>
+                <label class="ml-2 text-sm text-gray-700">
+                    Exibir contador regressivo
+                    <span v-if="!hasWeddingDate" class="text-amber-700">(indisponível sem data)</span>
+                </label>
             </div>
 
-            <template v-if="localContent.showCountdown">
+            <div
+                v-if="!hasWeddingDate"
+                class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+            >
+                Evento sem data definida,
+                <a
+                    :href="EVENT_SETTINGS_URL"
+                    class="font-semibold underline decoration-amber-500 underline-offset-2 hover:text-amber-900"
+                >
+                    clique aqui para definir.
+                </a>
+            </div>
+
+            <template v-if="localContent.showCountdown && hasWeddingDate">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Formato do Contador</label>
                     <select
@@ -306,7 +350,7 @@ const pickCalendarButtonBorderColor = () => {
                 <div class="mt-4">
                     <TypographyControl
                         :font-family="countdownNumbersTypography.fontFamily || 'Playfair Display'"
-                        :font-color="countdownNumbersTypography.fontColor || '#d4a574'"
+                        :font-color="countdownNumbersTypography.fontColor || '#f97373'"
                         :font-size="countdownNumbersTypography.fontSize || 48"
                         :font-weight="countdownNumbersTypography.fontWeight || 700"
                         :font-italic="countdownNumbersTypography.fontItalic || false"
@@ -409,18 +453,35 @@ const pickCalendarButtonBorderColor = () => {
         <div class="space-y-4 pt-6 border-t border-gray-200">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Calendário</h3>
             
-            <div class="flex items-center">
+            <div class="flex items-center" :class="{ 'opacity-60': !hasWeddingDate }">
                 <input
                     type="checkbox"
-                    :checked="localContent.showCalendarButton"
+                    :checked="hasWeddingDate ? localContent.showCalendarButton : false"
+                    :disabled="!hasWeddingDate"
                     @change="updateField('showCalendarButton', $event.target.checked)"
                     class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
                 />
-                <label class="ml-2 text-sm text-gray-700">Exibir botão "Adicionar ao calendário"</label>
+                <label class="ml-2 text-sm text-gray-700">
+                    Exibir botão "Adicionar ao calendário"
+                    <span v-if="!hasWeddingDate" class="text-amber-700">(indisponível sem data)</span>
+                </label>
             </div>
             <p class="text-xs text-gray-500">Gera arquivo .ics automaticamente com os dados do evento</p>
 
-            <template v-if="localContent.showCalendarButton">
+            <div
+                v-if="!hasWeddingDate"
+                class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+            >
+                Evento sem data definida,
+                <a
+                    :href="EVENT_SETTINGS_URL"
+                    class="font-semibold underline decoration-amber-500 underline-offset-2 hover:text-amber-900"
+                >
+                    clique aqui para definir.
+                </a>
+            </div>
+
+            <template v-if="localContent.showCalendarButton && hasWeddingDate">
                 <TypographyControl
                     :font-family="calendarButtonTypography.fontFamily"
                     :font-color="calendarButtonTypography.fontColor"
@@ -549,12 +610,12 @@ const pickCalendarButtonBorderColor = () => {
 
 <style scoped>
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 </style>

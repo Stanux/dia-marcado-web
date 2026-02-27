@@ -439,7 +439,7 @@ const updateMenuHoverTypography = (field, value) => {
     if (!localContent.value.menuHoverTypography) {
         localContent.value.menuHoverTypography = {
             fontFamily: 'Montserrat',
-            fontColor: '#d4a574',
+            fontColor: '#f97373',
             fontSize: 14,
             fontWeight: 500,
             fontItalic: false,
@@ -521,7 +521,7 @@ const menuTypography = computed(() => localContent.value.menuTypography || {
 });
 const menuHoverTypography = computed(() => localContent.value.menuHoverTypography || {
     fontFamily: 'Montserrat',
-    fontColor: '#d4a574',
+    fontColor: '#f97373',
     fontSize: 14,
     fontWeight: 500,
     fontItalic: false,
@@ -965,35 +965,36 @@ onMounted(() => {
 
 <style scoped>
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #b9163a;
 }
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #4A2F39;
 }
 .border-wedding-500 {
-    border-color: #b8998a;
+    border-color: #ffccd9;
 }
 .bg-wedding-50 {
-    background-color: #f5f1ee;
+    background-color: #fff1f2;
 }
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #4A2F39;
 }
 .hover\:border-wedding-500:hover {
-    border-color: #b8998a;
+    border-color: #e11d48;
 }
 .hover\:text-wedding-600:hover {
-    color: #a18072;
+    color: #b9163a;
 }
 
 .logo-type-tabs {
     @apply flex w-full items-end gap-2 border-b border-gray-300;
+    border-bottom-color: #ffccd9;
 }
 
 .logo-type-tab {
@@ -1007,14 +1008,14 @@ onMounted(() => {
 
 .logo-type-tab:hover {
     @apply text-gray-700;
-    border-color: #e5e7eb;
-    background: #f9fafb;
+    border-color: #ffccd9;
+    background: #fff1f2;
 }
 
 .logo-type-tab-active {
     @apply text-wedding-700;
     background: #ffffff;
-    border-color: #b8998a;
-    box-shadow: inset 0 2px 0 #b8998a;
+    border-color: #e11d48;
+    box-shadow: inset 0 2px 0 #e11d48;
 }
 </style>

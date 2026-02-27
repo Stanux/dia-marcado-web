@@ -37,12 +37,12 @@ const resolvedContent = computed(() => {
 const theme = computed(() => {
     const content = resolvedContent.value;
     return {
-        primaryColor: '#d4a574',
-        secondaryColor: '#8b7355',
+        primaryColor: '#e11d48',
+        secondaryColor: '#be123c',
         baseBackgroundColor: '#ffffff',
-        surfaceBackgroundColor: '#f5ebe4',
-        fontFamily: 'Georgia, serif',
-        fontSize: '16px',
+        surfaceBackgroundColor: '#f9fafb',
+        fontFamily: 'Figtree',
+        fontSize: '14px',
         ...(content.theme || {}),
     };
 });
@@ -67,7 +67,7 @@ const themeStyles = computed(() => ({
     '--primary-color': theme.value.primaryColor,
     '--secondary-color': theme.value.secondaryColor,
     '--base-background-color': theme.value.baseBackgroundColor || '#ffffff',
-    '--surface-background-color': theme.value.surfaceBackgroundColor || '#f5ebe4',
+    '--surface-background-color': theme.value.surfaceBackgroundColor || '#f9fafb',
     '--font-family': theme.value.fontFamily,
     '--font-size': theme.value.fontSize,
 }));

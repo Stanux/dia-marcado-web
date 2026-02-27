@@ -459,7 +459,7 @@ const variants = computed(() => {
 
 /* Wedding theme colors */
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 
 .border-wedding-400 {
@@ -467,7 +467,7 @@ const variants = computed(() => {
 }
 
 .border-wedding-500 {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 
 .bg-wedding-50 {
@@ -475,10 +475,10 @@ const variants = computed(() => {
 }
 
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 
 .bg-wedding-600 {
-    background-color: #a18072;
+    background-color: #c45a6f;
 }
 </style>

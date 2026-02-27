@@ -172,6 +172,9 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         
         // Load gift registry config and guest events for the wedding
         $wedding->load(['giftRegistryConfig', 'guestEvents', 'couple']);
+        $weddingData = $wedding->toArray();
+        $weddingData['wedding_date'] = $wedding->wedding_date?->format('Y-m-d');
+        $weddingData['has_wedding_date'] = $wedding->wedding_date !== null;
 
         // Build default logo initials from onboarding/couple data
         $coupleNames = $wedding->couple
@@ -231,7 +234,7 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         return Inertia::render('Sites/Editor', [
             'site' => $siteData,
             'weddingId' => $weddingId,
-            'wedding' => $wedding,
+            'wedding' => $weddingData,
             'logoInitials' => $logoInitials,
             'templateContext' => $templateContext,
         ]);

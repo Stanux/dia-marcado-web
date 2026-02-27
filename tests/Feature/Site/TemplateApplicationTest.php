@@ -273,4 +273,63 @@ class TemplateApplicationTest extends TestCase
                 ->where('site.slug', $template->slug)
         );
     }
+
+    #[Test]
+    public function template_preview_route_exposes_apply_context_when_opened_from_editor(): void
+    {
+        $wedding = Wedding::factory()->create([
+            'settings' => ['plan_slug' => 'premium'],
+        ]);
+        $user = User::factory()->create();
+        $wedding->users()->attach($user->id, ['role' => 'couple']);
+        $user->update(['current_wedding_id' => $wedding->id]);
+
+        $site = $this->siteBuilder->create($wedding);
+
+        $template = SiteTemplate::create([
+            'wedding_id' => null,
+            'name' => 'Template Contexto',
+            'slug' => 'template-contexto-editor',
+            'description' => 'Template com contexto de aplicação',
+            'content' => SiteContentSchema::getDefaultContent(),
+            'is_public' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get("/site/template/{$template->slug}?site={$site->id}&session=sessao123");
+
+        $response->assertStatus(200);
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('Public/Site')
+                ->where('templateApplyContext.enabled', true)
+                ->where('templateApplyContext.site_id', $site->id)
+                ->where('templateApplyContext.template_id', $template->id)
+                ->where('templateApplyContext.session', 'sessao123')
+        );
+    }
+
+    #[Test]
+    public function template_preview_route_disables_apply_context_when_not_opened_from_editor(): void
+    {
+        $template = SiteTemplate::create([
+            'wedding_id' => null,
+            'name' => 'Template Sem Contexto',
+            'slug' => 'template-sem-contexto-editor',
+            'description' => 'Template sem contexto',
+            'content' => SiteContentSchema::getDefaultContent(),
+            'is_public' => true,
+        ]);
+
+        $response = $this->get("/site/template/{$template->slug}");
+
+        $response->assertStatus(200);
+        $response->assertInertia(
+            fn ($page) => $page
+                ->component('Public/Site')
+                ->where('templateApplyContext.enabled', false)
+                ->where('templateApplyContext.reason', 'open_from_editor_required')
+        );
+    }
 }

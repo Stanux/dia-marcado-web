@@ -283,6 +283,41 @@ class UserManagementTest extends TestCase
     }
 
     /**
+     * Test: Couple criado internamente não deve passar pelo onboarding novamente.
+     * @test
+     */
+    public function created_couple_has_onboarding_completed_and_current_wedding_context(): void
+    {
+        for ($i = 0; $i < 100; $i++) {
+            $wedding = Wedding::create(['title' => "Wedding {$i}"]);
+            $creator = User::factory()->create(['role' => 'couple']);
+            $creator->weddings()->attach($wedding->id, ['role' => 'couple', 'permissions' => []]);
+
+            $createdCouple = $this->userManagementService->createCouple($creator, $wedding, [
+                'name' => fake()->name(),
+                'email' => fake()->unique()->safeEmail(),
+            ]);
+
+            $createdCouple->refresh();
+
+            $this->assertTrue(
+                $createdCouple->hasCompletedOnboarding(),
+                "Iteration {$i}: created couple should have onboarding completed"
+            );
+            $this->assertSame(
+                $wedding->id,
+                $createdCouple->current_wedding_id,
+                "Iteration {$i}: created couple should have current_wedding_id set"
+            );
+
+            $wedding->users()->detach();
+            $createdCouple->delete();
+            $creator->delete();
+            $wedding->delete();
+        }
+    }
+
+    /**
      * Test: Only couple can create organizers
      * @test
      */

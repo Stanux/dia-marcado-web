@@ -39,7 +39,7 @@
         }
         
         .header {
-            background: linear-gradient(135deg, #d4a574 0%, #8b7355 100%);
+            background: linear-gradient(135deg, #f97373 0%, #b85c5c 100%);
             padding: 40px 30px;
             text-align: center;
         }
@@ -80,7 +80,7 @@
             border-radius: 8px;
             padding: 25px;
             margin: 25px 0;
-            border-left: 4px solid #d4a574;
+            border-left: 4px solid #f97373;
         }
         
         .site-info-item {
@@ -112,7 +112,7 @@
         
         .cta-button {
             display: inline-block;
-            background: linear-gradient(135deg, #d4a574 0%, #c49464 100%);
+            background: linear-gradient(135deg, #f97373 0%, #C27A92 100%);
             color: #ffffff !important;
             text-decoration: none;
             padding: 16px 40px;
@@ -149,7 +149,7 @@
             padding: 12px 15px;
             font-family: monospace;
             font-size: 14px;
-            color: #d4a574;
+            color: #f97373;
             word-break: break-all;
         }
         
@@ -167,7 +167,7 @@
         }
         
         .footer .brand {
-            color: #d4a574;
+            color: #f97373;
             font-weight: 600;
         }
         

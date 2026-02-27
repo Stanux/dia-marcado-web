@@ -322,7 +322,7 @@ const menuLinkStyle = computed(() => {
     const hover = menuHoverTypography.value;
     const fallbackFamily = props.theme.fontFamily || 'Montserrat';
     const fallbackColor = '#374151';
-    const fallbackHoverColor = props.theme.primaryColor || '#d4a574';
+    const fallbackHoverColor = props.theme.primaryColor || '#f97373';
 
     return {
         '--dm-menu-font-family': normal.fontFamily || fallbackFamily,
@@ -361,29 +361,27 @@ const replacePlaceholders = (text) => {
     let result = text;
     
     // Replace wedding date
-    if (wedding.wedding_date) {
-        const date = new Date(wedding.wedding_date);
-        
-        // {data_extenso} = formato longo: "15 de Março de 2025"
-        const monthNames = [
-            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-        ];
-        const longDate = `${date.getDate()} de ${monthNames[date.getMonth()]} de ${date.getFullYear()}`;
-        
-        // {data_simples} = formato curto: "15/03/2025"
-        const shortDate = date.toLocaleDateString('pt-BR', { 
-            day: '2-digit', 
-            month: '2-digit', 
-            year: 'numeric' 
-        });
-        
-        result = result.replace(/{data_extenso}/g, longDate);
-        result = result.replace(/{data_simples}/g, shortDate);
-        // Compatibilidade retroativa
-        result = result.replace(/{data}/g, longDate);
-        result = result.replace(/{data_curta}/g, shortDate);
-    }
+    const monthNames = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const date = wedding.wedding_date ? new Date(wedding.wedding_date) : null;
+    const longDate = date
+        ? `${date.getDate()} de ${monthNames[date.getMonth()]} de ${date.getFullYear()}`
+        : '[DATA A DEFINIR]';
+    const shortDate = date
+        ? date.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        })
+        : '[DATA A DEFINIR]';
+
+    result = result.replace(/{data_extenso}/g, longDate);
+    result = result.replace(/{data_simples}/g, shortDate);
+    // Compatibilidade retroativa
+    result = result.replace(/{data}/g, longDate);
+    result = result.replace(/{data_curta}/g, shortDate);
     
     // Replace bride and groom names
     if (wedding.bride_name) {

@@ -40,6 +40,10 @@ class UserManagementService
             'password' => Hash::make($data['password'] ?? Str::random(16)),
             'role' => 'couple',
             'created_by' => $creator->id,
+            // Usuário criado via Gestão de Usuários já entra com contexto válido
+            // para evitar redirecionamento indevido ao onboarding.
+            'current_wedding_id' => $wedding->id,
+            'onboarding_completed' => true,
         ]);
 
         $wedding->users()->attach($user->id, [

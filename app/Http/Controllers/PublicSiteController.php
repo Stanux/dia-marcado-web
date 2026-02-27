@@ -10,6 +10,7 @@ use App\Models\SiteTemplate;
 use App\Services\Guests\RsvpSubmissionException;
 use App\Services\Guests\InviteValidationService;
 use App\Services\Site\SiteContentSchema;
+use App\Services\Site\TemplatePlanAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Session;
@@ -33,6 +34,7 @@ class PublicSiteController extends Controller
         private readonly AccessTokenServiceInterface $accessTokenService,
         private readonly PlaceholderServiceInterface $placeholderService,
         private readonly InviteValidationService $inviteValidationService,
+        private readonly TemplatePlanAccessService $templatePlanAccessService,
     ) {}
 
     /**
@@ -59,6 +61,7 @@ class PublicSiteController extends Controller
         $publishedSite = $site->is_published && $site->published_content !== null;
         $inviteToken = $request->query('token');
         $inviteTokenState = $this->resolveInviteTokenState($inviteToken, (string) $site->wedding_id);
+        $wedding = $site->wedding;
 
         if (!$publishedSite && !in_array($inviteTokenState, ['valid', 'limit_reached'], true)) {
             abort(404);
@@ -68,9 +71,17 @@ class PublicSiteController extends Controller
         if ($publishedSite && $site->access_token !== null) {
             // Check if user is already authenticated for this site
             if (!$this->isAuthenticated($site)) {
+                $siteTitle = (string) ($site->published_content['meta']['title'] ?? '');
+
+                if ($siteTitle !== '' && $wedding !== null) {
+                    $siteTitle = $this->placeholderService->replacePlaceholders($siteTitle, $wedding);
+                }
+
+                $siteTitle = trim($siteTitle) !== '' ? trim($siteTitle) : 'Site Protegido';
+
                 return response()->view('public.site-password', [
                     'slug' => $slug,
-                    'siteTitle' => $site->published_content['meta']['title'] ?? 'Site Protegido',
+                    'siteTitle' => $siteTitle,
                 ], 200, [
                     'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
                     'Pragma' => 'no-cache',
@@ -79,9 +90,6 @@ class PublicSiteController extends Controller
             }
         }
 
-        // Load the wedding for placeholder replacement
-        $wedding = $site->wedding;
-        
         // Load gift registry config and guest events for the wedding (public access)
         $wedding->load([
             'giftRegistryConfig' => fn ($query) => $query->withoutGlobalScopes(),
@@ -102,12 +110,15 @@ class PublicSiteController extends Controller
         $content = $this->rewriteLocalUrlsToCurrentHost($content, $request);
 
         $siteData = $site->makeHidden(['draft_content', 'published_content'])->toArray();
+        $weddingData = $wedding->toArray();
+        $weddingData['wedding_date'] = $wedding->wedding_date?->format('Y-m-d');
+        $weddingData['has_wedding_date'] = $wedding->wedding_date !== null;
 
         // Use Inertia to render with Vue components (same as preview)
         $response = inertia('Public/Site', [
             'site' => $siteData,
             'content' => $content,
-            'wedding' => $wedding,
+            'wedding' => $weddingData,
             'inviteTokenState' => $inviteTokenState,
         ])->withViewData([
             'pageTitle' => $content['meta']['title'] ?? null,
@@ -142,6 +153,54 @@ class PublicSiteController extends Controller
             ->where('is_public', true)
             ->whereNull('wedding_id')
             ->firstOrFail();
+
+        $siteIdParam = $request->query('site');
+        $sessionToken = $request->query('session');
+        $templateApplyContext = [
+            'enabled' => false,
+            'site_id' => null,
+            'template_id' => $template->id,
+            'return_url' => null,
+            'wedding_id' => null,
+            'session' => is_string($sessionToken) && trim($sessionToken) !== ''
+                ? trim($sessionToken)
+                : null,
+            'reason' => 'open_from_editor_required',
+        ];
+
+        if (is_string($siteIdParam) && trim($siteIdParam) !== '') {
+            $editorSite = SiteLayout::withoutGlobalScopes()
+                ->with('wedding')
+                ->whereKey(trim($siteIdParam))
+                ->first();
+
+            if ($editorSite) {
+                $templateApplyContext['site_id'] = $editorSite->id;
+                $templateApplyContext['return_url'] = route('sites.edit', ['site' => $editorSite->id]);
+                $templateApplyContext['wedding_id'] = $editorSite->wedding_id;
+                $templateApplyContext['reason'] = 'no_permission';
+
+                $user = $request->user();
+                $canUpdateSite = $user && $user->can('update', $editorSite);
+                $wedding = $editorSite->wedding;
+                $isPlanAllowed = $wedding
+                    ? $this->templatePlanAccessService->canApplyTemplate(
+                        $wedding,
+                        $template,
+                        $user?->isAdmin() ?? false
+                    )
+                    : false;
+
+                if ($canUpdateSite && $isPlanAllowed) {
+                    $templateApplyContext['enabled'] = true;
+                    $templateApplyContext['reason'] = null;
+                } elseif (!$isPlanAllowed) {
+                    $templateApplyContext['reason'] = 'template_locked_by_plan';
+                }
+            } else {
+                $templateApplyContext['reason'] = 'site_not_found';
+            }
+        }
 
         $previewWedding = new \App\Models\Wedding([
             'title' => $template->name,
@@ -183,6 +242,7 @@ class PublicSiteController extends Controller
             'wedding' => $weddingData,
             'inviteTokenState' => null,
             'isTemplatePreview' => true,
+            'templateApplyContext' => $templateApplyContext,
         ])->withViewData([
             'pageTitle' => $content['meta']['title'] ?? ('Template - ' . $template->name),
         ])->toResponse($request);

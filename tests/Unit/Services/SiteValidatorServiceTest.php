@@ -294,6 +294,11 @@ class SiteValidatorServiceTest extends TestCase
         $content['sections']['header']['title'] = 'Nosso Casamento';
         $content['sections']['header']['style']['backgroundColor'] = '#ffffff';
         $content['theme']['primaryColor'] = '#000000'; // High contrast
+        foreach ($content['sections'] as $sectionKey => $sectionContent) {
+            if ($sectionKey !== 'header') {
+                $content['sections'][$sectionKey]['enabled'] = false;
+            }
+        }
 
         $warnings = $this->service->checkAccessibility($content);
 
@@ -310,7 +315,12 @@ class SiteValidatorServiceTest extends TestCase
         $content['sections']['header']['enabled'] = true;
         $content['sections']['header']['title'] = 'Nosso Casamento';
         $content['sections']['header']['style']['backgroundColor'] = '#5ca7d6';
-        $content['theme']['primaryColor'] = '#d4a574'; // Low contrast with background
+        $content['theme']['primaryColor'] = '#f97373'; // Low contrast with background
+        foreach ($content['sections'] as $sectionKey => $sectionContent) {
+            if ($sectionKey !== 'header') {
+                $content['sections'][$sectionKey]['enabled'] = false;
+            }
+        }
         $content['sections']['header']['titleTypography'] = [
             'fontColor' => '#333333', // Good contrast with background
             'fontSize' => 20,
@@ -507,6 +517,9 @@ class SiteValidatorServiceTest extends TestCase
     public function run_qa_checklist_passes_when_rsvp_is_ready(): void
     {
         $wedding = Wedding::factory()->create();
+        $coupleUser = \App\Models\User::factory()->create(['name' => 'Noivo QA']);
+        $wedding->users()->attach($coupleUser->id, ['role' => 'couple', 'permissions' => []]);
+
         $content = SiteContentSchema::getDefaultContent();
         $content['meta']['title'] = 'Test RSVP Ready';
         $content['sections']['rsvp']['enabled'] = true;
@@ -541,6 +554,9 @@ class SiteValidatorServiceTest extends TestCase
     public function qa_result_can_publish_when_no_failures(): void
     {
         $wedding = Wedding::factory()->create();
+        $coupleUser = \App\Models\User::factory()->create(['name' => 'Noivo QA']);
+        $wedding->users()->attach($coupleUser->id, ['role' => 'couple', 'permissions' => []]);
+
         $content = SiteContentSchema::getDefaultContent();
         $content['meta']['title'] = 'Our Wedding';
         $content['sections']['header']['enabled'] = true;
@@ -575,6 +591,100 @@ class SiteValidatorServiceTest extends TestCase
         $result = $this->service->runQAChecklist($site);
 
         $this->assertFalse($result->canPublish());
+    }
+
+    /**
+     * @test
+     */
+    public function qa_result_blocks_publish_when_dynamic_date_data_is_missing(): void
+    {
+        $wedding = Wedding::factory()->create([
+            'wedding_date' => null,
+        ]);
+        $coupleUser = \App\Models\User::factory()->create(['name' => 'Noivo QA']);
+        $wedding->users()->attach($coupleUser->id, ['role' => 'couple', 'permissions' => []]);
+
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = '{primeiro_nome_noivo} e {primeiro_nome_noiva} em {data_curta}';
+
+        $site = SiteLayout::factory()->create([
+            'wedding_id' => $wedding->id,
+            'draft_content' => $content,
+        ]);
+
+        $result = $this->service->runQAChecklist($site);
+
+        $dynamicChecks = array_values(array_filter(
+            $result->getFailedChecks(),
+            fn (array $check): bool => $check['name'] === 'dynamic_data_readiness'
+        ));
+
+        $this->assertFalse($result->canPublish());
+        $this->assertNotEmpty($dynamicChecks);
+        $this->assertStringContainsString('Data do evento não definida', $dynamicChecks[0]['message']);
+        $this->assertStringContainsString('Preview', $dynamicChecks[0]['message']);
+    }
+
+    /**
+     * @test
+     */
+    public function qa_result_blocks_publish_when_partner_name_is_missing(): void
+    {
+        $wedding = Wedding::factory()->create([
+            'wedding_date' => now()->addMonths(8),
+        ]);
+        $coupleUser = \App\Models\User::factory()->create(['name' => 'Noivo QA']);
+        $wedding->users()->attach($coupleUser->id, ['role' => 'couple', 'permissions' => []]);
+
+        $content = SiteContentSchema::getDefaultContent();
+        $content['meta']['title'] = '{primeiro_nome_noivo} e {primeiro_nome_noiva} em {data_curta}';
+
+        $site = SiteLayout::factory()->create([
+            'wedding_id' => $wedding->id,
+            'draft_content' => $content,
+        ]);
+
+        $result = $this->service->runQAChecklist($site);
+
+        $dynamicChecks = array_values(array_filter(
+            $result->getFailedChecks(),
+            fn (array $check): bool => $check['name'] === 'dynamic_data_readiness'
+        ));
+
+        $this->assertFalse($result->canPublish());
+        $this->assertNotEmpty($dynamicChecks);
+        $this->assertStringContainsString('parceiro(a)', $dynamicChecks[0]['message']);
+        $this->assertStringContainsString('Usuários', $dynamicChecks[0]['message']);
+    }
+
+    /**
+     * @test
+     */
+    public function qa_result_blocks_publish_when_text_logo_initials_are_missing(): void
+    {
+        $wedding = Wedding::factory()->create();
+        $coupleUser = \App\Models\User::factory()->create(['name' => 'Noivo QA']);
+        $wedding->users()->attach($coupleUser->id, ['role' => 'couple', 'permissions' => []]);
+
+        $content = SiteContentSchema::getDefaultContent();
+        $content['sections']['header']['logo']['type'] = 'text';
+        $content['sections']['header']['logo']['text']['initials'] = ['A', ''];
+
+        $site = SiteLayout::factory()->create([
+            'wedding_id' => $wedding->id,
+            'draft_content' => $content,
+        ]);
+
+        $result = $this->service->runQAChecklist($site);
+
+        $dynamicChecks = array_values(array_filter(
+            $result->getFailedChecks(),
+            fn (array $check): bool => $check['name'] === 'dynamic_data_readiness'
+        ));
+
+        $this->assertFalse($result->canPublish());
+        $this->assertNotEmpty($dynamicChecks);
+        $this->assertStringContainsString('Iniciais do logo em texto', $dynamicChecks[0]['message']);
     }
 
     /**

@@ -17,6 +17,9 @@ use Illuminate\Support\Collection;
  */
 class PlaceholderService implements PlaceholderServiceInterface
 {
+    private const DATE_PENDING_LABEL = '[DATA A DEFINIR]';
+    private const NAME_PENDING_LABEL = '[NOME A DEFINIR]';
+
     /**
      * Portuguese month names for date formatting.
      */
@@ -114,6 +117,14 @@ class PlaceholderService implements PlaceholderServiceInterface
                 $coupleNames->push($pendingPartnerName);
             }
         }
+
+        if ($coupleNames->count() < 2) {
+            $partnerNameDraft = $this->getPartnerNameDraft($wedding);
+
+            if ($partnerNameDraft !== '') {
+                $coupleNames->push($partnerNameDraft);
+            }
+        }
         
         return [
             '{nome_1}' => $this->getNoivo($coupleNames),
@@ -154,6 +165,18 @@ class PlaceholderService implements PlaceholderServiceInterface
         return trim($name);
     }
 
+    private function getPartnerNameDraft(Wedding $wedding): string
+    {
+        $settings = is_array($wedding->settings ?? null) ? $wedding->settings : [];
+        $name = $settings['partner_name_draft'] ?? null;
+
+        if (!is_string($name)) {
+            return '';
+        }
+
+        return trim($name);
+    }
+
     /**
      * Get the first name from a full name.
      * Extracts the first word from the name.
@@ -163,6 +186,10 @@ class PlaceholderService implements PlaceholderServiceInterface
      */
     private function getFirstName(string $fullName): string
     {
+        if ($fullName === self::NAME_PENDING_LABEL) {
+            return self::NAME_PENDING_LABEL;
+        }
+
         if (empty($fullName)) {
             return '';
         }
@@ -205,7 +232,7 @@ class PlaceholderService implements PlaceholderServiceInterface
     private function getNoiva(Collection $names): string
     {
         if ($names->count() <= 1) {
-            return $names->first() ?? '';
+            return self::NAME_PENDING_LABEL;
         }
 
         return $names->get(1) ?? '';
@@ -225,11 +252,11 @@ class PlaceholderService implements PlaceholderServiceInterface
         $count = $names->count();
 
         if ($count === 0) {
-            return '';
+            return self::NAME_PENDING_LABEL;
         }
 
         if ($count === 1) {
-            return $names->first();
+            return $names->first() . ' e ' . self::NAME_PENDING_LABEL;
         }
 
         if ($count === 2) {
@@ -254,7 +281,7 @@ class PlaceholderService implements PlaceholderServiceInterface
     private function formatDateLong(?Carbon $date): string
     {
         if ($date === null) {
-            return '';
+            return self::DATE_PENDING_LABEL;
         }
 
         $day = $date->day;
@@ -274,7 +301,7 @@ class PlaceholderService implements PlaceholderServiceInterface
     private function formatDateShort(?Carbon $date): string
     {
         if ($date === null) {
-            return '';
+            return self::DATE_PENDING_LABEL;
         }
 
         return $date->format('d/m/Y');

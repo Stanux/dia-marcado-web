@@ -27,6 +27,7 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            \App\Filament\Widgets\EventDataNudgeWidget::class,
             \App\Filament\Widgets\SiteStatsWidget::class,
         ];
     }

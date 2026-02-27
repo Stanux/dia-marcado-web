@@ -1584,7 +1584,7 @@ onUnmounted(() => {
     width: 3rem;
     height: 3rem;
     border: 3px solid #e5e7eb;
-    border-top-color: #b8998a;
+    border-top-color: #d87a8d;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -1649,7 +1649,7 @@ onUnmounted(() => {
 }
 
 .album-card:hover {
-    border-color: #b8998a;
+    border-color: #d87a8d;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
@@ -1730,12 +1730,12 @@ onUnmounted(() => {
 }
 
 .media-card:hover {
-    border-color: #b8998a;
+    border-color: #d87a8d;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .media-card-selected {
-    border-color: #b8998a;
+    border-color: #d87a8d;
     box-shadow: 0 0 0 2px rgba(184, 153, 138, 0.2);
 }
 
@@ -1763,7 +1763,7 @@ onUnmounted(() => {
     position: absolute;
     top: 0.5rem;
     right: 0.5rem;
-    background: #b8998a;
+    background: #d87a8d;
     color: white;
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
@@ -1842,7 +1842,7 @@ onUnmounted(() => {
 
 .crop-resize-slider {
     width: 100%;
-    accent-color: #b8998a;
+    accent-color: #d87a8d;
 }
 
 .crop-footer-resize-slider {
@@ -1882,7 +1882,7 @@ onUnmounted(() => {
 .crop-overlay {
     position: absolute;
     cursor: move;
-    border: 2px solid #b8998a;
+    border: 2px solid #d87a8d;
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
     user-select: none;
 }
@@ -1902,12 +1902,12 @@ onUnmounted(() => {
 }
 
 .button-primary {
-    background: #b8998a;
+    background: #d87a8d;
     color: white;
 }
 
 .button-primary:hover:not(:disabled) {
-    background: #a18072;
+    background: #c45a6f;
 }
 
 .button-primary:disabled {
@@ -1934,7 +1934,7 @@ onUnmounted(() => {
 .upload-progress {
     margin-top: 0.5rem;
     font-size: 0.875rem;
-    color: #8b6b5d;
+    color: #b9163a;
 }
 
 .upload-error {
@@ -1954,7 +1954,7 @@ onUnmounted(() => {
 .retry-button {
     margin-top: 1rem;
     padding: 0.5rem 1rem;
-    background: #b8998a;
+    background: #d87a8d;
     color: white;
     border-radius: 0.375rem;
     font-weight: 500;

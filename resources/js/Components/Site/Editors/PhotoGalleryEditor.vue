@@ -6,7 +6,7 @@
  * Suporta seleção de mídia mista (foto + vídeo), ordem manual e
  * configuração de layout/estilo da seção.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useAttrs, watch } from 'vue';
 import MediaGalleryModal from '@/Components/Site/MediaGalleryModal.vue';
 import { useColorField } from '@/Composables/useColorField';
 import TypographyControl from '@/Components/Site/TypographyControl.vue';
@@ -19,6 +19,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['change']);
+const attrs = useAttrs();
 const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
 const getDefaultAlbums = () => ({
@@ -41,7 +42,7 @@ const getDefaultDisplay = () => ({
 
 const getDefaultTitleTypography = () => ({
     fontFamily: 'Playfair Display',
-    fontColor: '#a18072',
+    fontColor: '#c45a6f',
     fontSize: 40,
     fontWeight: 700,
     fontItalic: false,
@@ -70,7 +71,7 @@ const getDefaultTabsStyle = () => ({
     backgroundColor: '#f3f4f6',
     activeBackgroundColor: '#ffffff',
     borderColor: '#e5e7eb',
-    activeBorderColor: '#b8998a',
+    activeBorderColor: '#d87a8d',
 });
 
 const localContent = ref(JSON.parse(JSON.stringify(props.content || {})));
@@ -420,7 +421,7 @@ const syncSectionEnabledByDisplay = () => {
 </script>
 
 <template>
-    <div class="space-y-6 h-full overflow-y-auto">
+    <div v-bind="attrs" class="space-y-6 h-full overflow-y-auto">
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Título da Seção</h3>
 
@@ -437,7 +438,7 @@ const syncSectionEnabledByDisplay = () => {
 
             <TypographyControl
                 :font-family="titleTypography.fontFamily || 'Playfair Display'"
-                :font-color="titleTypography.fontColor || '#a18072'"
+                :font-color="titleTypography.fontColor || '#c45a6f'"
                 :font-size="titleTypography.fontSize || 40"
                 :font-weight="titleTypography.fontWeight || 700"
                 :font-italic="titleTypography.fontItalic || false"
@@ -846,7 +847,7 @@ const syncSectionEnabledByDisplay = () => {
                         <label class="block text-sm font-medium text-gray-700 mb-1">Borda da Aba Ativa</label>
                         <input
                             type="color"
-                            :value="tabsStyle.activeBorderColor || '#b8998a'"
+                            :value="tabsStyle.activeBorderColor || '#d87a8d'"
                             class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                             @input="updateTabsStyle('activeBorderColor', $event.target.value)"
                             @change="updateTabsStyle('activeBorderColor', $event.target.value)"
@@ -872,19 +873,19 @@ const syncSectionEnabledByDisplay = () => {
 
 <style scoped>
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 .border-wedding-600 {
-    border-color: #a18072;
+    border-color: #c45a6f;
 }
 
 .album-tabs {
@@ -909,7 +910,7 @@ const syncSectionEnabledByDisplay = () => {
 .album-tab-active {
     @apply text-wedding-700;
     background: #ffffff;
-    border-color: #b8998a;
-    box-shadow: inset 0 2px 0 #b8998a;
+    border-color: #d87a8d;
+    box-shadow: inset 0 2px 0 #d87a8d;
 }
 </style>

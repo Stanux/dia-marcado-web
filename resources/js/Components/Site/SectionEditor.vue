@@ -24,6 +24,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    wedding: {
+        type: Object,
+        default: () => ({}),
+    },
     enabledSections: {
         type: Object,
         default: () => ({}),
@@ -117,10 +121,10 @@ const sectionTitles = {
 
 const sectionTitle = computed(() => sectionTitles[props.sectionType] || 'Editor');
 const siteOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-const themePrimaryColorHex = computed(() => normalizeHexColor(localContent.value.primaryColor, '#d4a574'));
-const themeSecondaryColorHex = computed(() => normalizeHexColor(localContent.value.secondaryColor, '#8b7355'));
+const themePrimaryColorHex = computed(() => normalizeHexColor(localContent.value.primaryColor, '#e11d48'));
+const themeSecondaryColorHex = computed(() => normalizeHexColor(localContent.value.secondaryColor, '#be123c'));
 const themeBaseBackgroundColorHex = computed(() => normalizeHexColor(localContent.value.baseBackgroundColor, '#ffffff'));
-const themeSurfaceBackgroundColorHex = computed(() => normalizeHexColor(localContent.value.surfaceBackgroundColor, '#f5ebe4'));
+const themeSurfaceBackgroundColorHex = computed(() => normalizeHexColor(localContent.value.surfaceBackgroundColor, '#f9fafb'));
 const selectedThemePresetId = ref(DEFAULT_THEME_PRESET_ID);
 const showThemePresetConfirmDialog = ref(false);
 const themePresets = THEME_PRESETS;
@@ -190,7 +194,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
 </script>
 
 <template>
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full min-h-0">
+    <div class="bg-white rounded-lg shadow-sm border border-section-card flex flex-col h-full min-h-0">
         <!-- Section Header -->
         <div class="px-6 py-4 border-b border-gray-200 flex-shrink-0">
             <h2 class="text-lg font-semibold text-gray-900">{{ sectionTitle }}</h2>
@@ -208,6 +212,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                 :content="localContent"
                 :enabled-sections="enabledSections"
                 :logo-initials="logoInitials"
+                v-bind="sectionType === 'saveTheDate' ? { wedding } : {}"
                 @change="handleChange"
                 class="flex-1 min-h-0 premium-editor-shell"
             />
@@ -263,7 +268,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
             <!-- Theme Section Editor -->
             <template v-else-if="sectionType === 'theme'">
                 <div class="space-y-6 overflow-y-auto pr-1 min-h-0">
-                    <div class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <div class="space-y-3 rounded-lg border border-section-inner-block bg-gray-50 p-4">
                         <div>
                             <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-900">Temas prontos</h3>
                             <p class="mt-1 text-xs text-gray-600">
@@ -340,7 +345,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                                     </button>
                                     <input
                                         type="text"
-                                        :value="localContent.primaryColor || '#d4a574'"
+                                        :value="localContent.primaryColor || '#e11d48'"
                                         @input="updateField('primaryColor', $event.target.value)"
                                         @change="updateField('primaryColor', $event.target.value)"
                                         @blur="updateField('primaryColor', $event.target.value)"
@@ -371,7 +376,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                                     </button>
                                     <input
                                         type="text"
-                                        :value="localContent.secondaryColor || '#8b7355'"
+                                        :value="localContent.secondaryColor || '#be123c'"
                                         @input="updateField('secondaryColor', $event.target.value)"
                                         @change="updateField('secondaryColor', $event.target.value)"
                                         @blur="updateField('secondaryColor', $event.target.value)"
@@ -433,7 +438,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                                     </button>
                                     <input
                                         type="text"
-                                        :value="localContent.surfaceBackgroundColor || '#f5ebe4'"
+                                        :value="localContent.surfaceBackgroundColor || '#f9fafb'"
                                         @input="updateField('surfaceBackgroundColor', $event.target.value)"
                                         @change="updateField('surfaceBackgroundColor', $event.target.value)"
                                         @blur="updateField('surfaceBackgroundColor', $event.target.value)"
@@ -445,10 +450,11 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Família de Fonte</label>
                             <select
-                                :value="localContent.fontFamily || 'Playfair Display'"
+                                :value="localContent.fontFamily || 'Figtree'"
                                 @change="updateField('fontFamily', $event.target.value)"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                             >
+                                <option value="Figtree">Figtree (Moderna)</option>
                                 <option value="Playfair Display">Playfair Display (Elegante)</option>
                                 <option value="Cormorant Garamond">Cormorant Garamond (Clássico)</option>
                                 <option value="Lora">Lora (Moderno)</option>
@@ -461,11 +467,11 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Tamanho Base da Fonte</label>
                             <select
-                                :value="localContent.fontSize || '16px'"
+                                :value="localContent.fontSize || '14px'"
                                 @change="updateField('fontSize', $event.target.value)"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                             >
-                                <option value="14px">Pequeno (14px)</option>
+                                <option value="14px">Normal (14px)</option>
                                 <option value="16px">Médio (16px)</option>
                                 <option value="18px">Grande (18px)</option>
                                 <option value="20px">Extra Grande (20px)</option>
@@ -528,73 +534,75 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
             <template v-else-if="sectionType === 'settings'">
                 <div class="space-y-6 overflow-y-auto pr-2 min-h-0">
                     <!-- Site Configuration Section -->
-                    <div class="space-y-4">
-                        <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Configurações do Site</h3>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">URL do Site</label>
-                            <div class="flex items-center">
-                                <span class="inline-flex items-center px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-                                    {{ siteOrigin }}/site/
-                                </span>
+                    <div class="premium-editor-shell">
+                        <div class="space-y-4">
+                            <h3>CONFIGURAÇÕES DO SITE</h3>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">URL do Site</label>
+                                <div class="flex items-center">
+                                    <span class="inline-flex items-center px-3 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                                        {{ siteOrigin }}/site/
+                                    </span>
+                                    <input
+                                        type="text"
+                                        :value="localContent.slug"
+                                        @input="updateField('slug', $event.target.value)"
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:ring-wedding-500 focus:border-wedding-500"
+                                        placeholder="meu-casamento"
+                                        pattern="[a-z0-9-]+"
+                                    />
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">Apenas letras minúsculas, números e hífens</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Domínio Personalizado</label>
                                 <input
                                     type="text"
-                                    :value="localContent.slug"
-                                    @input="updateField('slug', $event.target.value)"
-                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:ring-wedding-500 focus:border-wedding-500"
-                                    placeholder="meu-casamento"
-                                    pattern="[a-z0-9-]+"
+                                    inputmode="url"
+                                    :value="localContent.custom_domain"
+                                    @input="updateField('custom_domain', $event.target.value)"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                    placeholder="https://meusite.com.br"
                                 />
+                                <p class="mt-1 text-xs text-gray-500">Opcional: domínio próprio para o site</p>
                             </div>
-                            <p class="mt-1 text-xs text-gray-500">Apenas letras minúsculas, números e hífens</p>
-                        </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Domínio Personalizado</label>
-                            <input
-                                type="text"
-                                inputmode="url"
-                                :value="localContent.custom_domain"
-                                @input="updateField('custom_domain', $event.target.value)"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                                placeholder="https://meusite.com.br"
-                            />
-                            <p class="mt-1 text-xs text-gray-500">Opcional: domínio próprio para o site</p>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Senha de Acesso</label>
-                            <div class="relative">
-                                <input
-                                    :type="showPassword ? 'text' : 'password'"
-                                    :value="localContent.access_token"
-                                    @input="updateField('access_token', $event.target.value)"
-                                    class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                                    placeholder="Deixe em branco para site público"
-                                />
-                                <button
-                                    type="button"
-                                    @click="showPassword = !showPassword"
-                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                                >
-                                    <svg v-if="showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                    </svg>
-                                    <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <p class="mt-1 text-xs text-gray-500">Deixe em branco para site público</p>
-                            <div v-if="localContent.has_password" class="mt-2">
-                                <button
-                                    type="button"
-                                    @click="updateField('access_token', null)"
-                                    class="text-xs text-red-600 hover:text-red-700"
-                                >
-                                    Remover senha
-                                </button>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Senha de Acesso</label>
+                                <div class="relative">
+                                    <input
+                                        :type="showPassword ? 'text' : 'password'"
+                                        :value="localContent.access_token"
+                                        @input="updateField('access_token', $event.target.value)"
+                                        class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                        placeholder="Deixe em branco para site público"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="showPassword = !showPassword"
+                                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                                    >
+                                        <svg v-if="showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                        </svg>
+                                        <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">Deixe em branco para site público</p>
+                                <div v-if="localContent.has_password" class="mt-2">
+                                    <button
+                                        type="button"
+                                        @click="updateField('access_token', null)"
+                                        class="text-xs text-red-600 hover:text-red-700"
+                                    >
+                                        Remover senha
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -617,7 +625,7 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
 
             <!-- Default/Unknown Section -->
             <template v-else>
-                <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div class="p-4 bg-gray-50 border border-section-inner-block rounded-lg">
                     <p class="text-sm text-gray-600">
                         Editor para esta seção ainda não implementado.
                     </p>
@@ -628,18 +636,26 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
 </template>
 
 <style scoped>
+:deep(.border-section-card) {
+    border-color: #ffccd9;
+}
+
+:deep(.border-section-inner-block) {
+    border-color: #ffccd9;
+}
+
 :deep(.premium-editor-shell) {
     padding-right: 0.25rem;
 }
 
 :deep(.premium-editor-shell > div) {
     position: relative;
-    border: 1px solid #e5d5c9 !important;
+    border: 1px solid #ffccd9 !important;
     border-radius: 14px;
-    background: linear-gradient(180deg, #ffffff 0%, #fdfaf7 100%);
+    background: linear-gradient(180deg, #ffffff 0%, #fff1f2 100%);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.95),
-        0 10px 28px -24px rgba(58, 34, 18, 0.55);
+        0 10px 28px -24px rgba(225, 29, 72, 0.35);
     padding: 1rem !important;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
@@ -652,22 +668,22 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
     bottom: 0;
     width: 4px;
     border-radius: 14px 0 0 14px;
-    background: linear-gradient(180deg, #d1a787 0%, #a18072 100%);
+    background: #e11d48;
 }
 
 :deep(.premium-editor-shell > div:focus-within) {
-    border-color: #c29f89 !important;
+    border-color: #e11d48 !important;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 1),
-        0 0 0 3px rgba(161, 128, 114, 0.14),
-        0 14px 32px -24px rgba(58, 34, 18, 0.65);
+        0 0 0 3px rgba(225, 29, 72, 0.18),
+        0 14px 32px -24px rgba(225, 29, 72, 0.45);
 }
 
 :deep(.premium-editor-shell > div > h3) {
     margin: 0;
     padding-left: 0.625rem;
-    color: #6b5347;
-    font-size: 0.72rem;
+    color: #e11d48;
+    font-size: 0.9rem;
     letter-spacing: 0.12em;
 }
 
@@ -692,19 +708,23 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
 
     :deep(.premium-editor-shell > div > h3) {
         padding-left: 0.5rem;
-        font-size: 0.68rem;
+        font-size: 0.9rem;
     }
 }
 </style>
 
 <style scoped>
+.border-gray-300 {
+    border-color: #d1d5db;
+}
+
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #be123c;
 }
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #e11d48;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #b9163a;
 }
 </style>

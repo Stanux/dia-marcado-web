@@ -210,4 +210,26 @@ class WeddingSettingsRoundTripPropertyTest extends TestCase
             $this->assertEquals($initialData['venue_city'], $wedding->city);
         }
     }
+
+    /**
+     * Property test: Partner draft name round-trip.
+     */
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function partner_name_draft_round_trip(): void
+    {
+        for ($i = 0; $i < 100; $i++) {
+            $wedding = Wedding::factory()->create();
+            $partnerNameDraft = fake()->name();
+
+            $this->service->update($wedding, ['partner_name_draft' => $partnerNameDraft]);
+
+            $wedding->refresh();
+
+            $this->assertEquals(
+                $partnerNameDraft,
+                $wedding->settings['partner_name_draft'] ?? null,
+                "Partner draft name should be preserved (iteration $i)"
+            );
+        }
+    }
 }

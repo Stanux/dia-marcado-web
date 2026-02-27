@@ -135,7 +135,7 @@ class PlaceholderPropertyTest extends TestCase
      * @test
      * @group property
      */
-    public function property_single_couple_member_uses_same_name(): void
+    public function property_single_couple_member_marks_partner_name_as_pending(): void
     {
         for ($i = 0; $i < 100; $i++) {
             $wedding = Wedding::factory()->create();
@@ -146,10 +146,14 @@ class PlaceholderPropertyTest extends TestCase
             $content = '{noivo} | {noiva} | {noivos}';
             $result = $this->service->replacePlaceholders($content, $wedding);
             
-            // With single person, noivo and noiva should be the same
             $parts = explode(' | ', $result);
-            $this->assertEquals($parts[0], $parts[1], "Iteration $i: Single person should appear as both noivo and noiva");
-            $this->assertEquals($parts[0], $parts[2], "Iteration $i: Single person should appear in noivos");
+            $this->assertSame('SinglePerson' . $i, $parts[0], "Iteration $i: noivo should be single person");
+            $this->assertSame('[NOME A DEFINIR]', $parts[1], "Iteration $i: noiva should be pending label");
+            $this->assertSame(
+                'SinglePerson' . $i . ' e [NOME A DEFINIR]',
+                $parts[2],
+                "Iteration $i: noivos should indicate pending partner name"
+            );
         }
     }
 
@@ -177,6 +181,26 @@ class PlaceholderPropertyTest extends TestCase
         $result = $this->service->replacePlaceholders($content, $wedding);
 
         $this->assertEquals('Vinicius Augusto | Lilian Souza | Vinicius | Lilian', $result);
+    }
+
+    /**
+     * @test
+     */
+    public function partner_name_draft_is_used_for_noiva_placeholder_when_present(): void
+    {
+        $wedding = Wedding::factory()->create([
+            'settings' => [
+                'partner_name_draft' => 'Camila Prado',
+            ],
+        ]);
+
+        $user = User::factory()->create(['name' => 'Lucas Oliveira']);
+        $wedding->users()->attach($user->id, ['role' => 'couple', 'permissions' => []]);
+
+        $content = '{noivo} | {noiva} | {primeiro_nome_noivo} | {primeiro_nome_noiva}';
+        $result = $this->service->replacePlaceholders($content, $wedding);
+
+        $this->assertEquals('Lucas Oliveira | Camila Prado | Lucas | Camila', $result);
     }
 
     /**
@@ -318,6 +342,7 @@ class PlaceholderPropertyTest extends TestCase
             
             // Should have empty strings but no placeholders
             $this->assertStringNotContainsString('{', $result, "Iteration $i: Placeholders should be replaced even with null data");
+            $this->assertStringContainsString('[DATA A DEFINIR]', $result, "Iteration $i: Missing date placeholders should use [DATA A DEFINIR]");
         }
     }
 

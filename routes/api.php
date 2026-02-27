@@ -135,27 +135,30 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::middleware(['permission:sites'])->prefix('sites')->group(function () {
             Route::get('/', [SiteLayoutController::class, 'index']);
             Route::post('/', [SiteLayoutController::class, 'store']);
-            Route::get('/{site}', [SiteLayoutController::class, 'show']);
-            Route::put('/{site}/draft', [SiteLayoutController::class, 'updateDraft']);
-            Route::put('/{site}/settings', [SiteLayoutController::class, 'updateSettings']);
-            Route::post('/{site}/publish', [SiteLayoutController::class, 'publish']);
-            Route::post('/{site}/rollback', [SiteLayoutController::class, 'rollback']);
-            Route::get('/{site}/versions', [SiteLayoutController::class, 'versions']);
-            Route::post('/{site}/restore', [SiteLayoutController::class, 'restore']);
-            Route::get('/{site}/preview', [SiteLayoutController::class, 'preview']);
-            Route::get('/{site}/qa', [SiteLayoutController::class, 'qa']);
-
-            // Media routes (site-scoped)
-            Route::get('/{site}/media', [SiteMediaController::class, 'index']);
-            Route::post('/{site}/media', [SiteMediaController::class, 'store']);
-            Route::get('/{site}/media/usage', [SiteMediaController::class, 'usage']);
-            Route::delete('/{site}/media/{media}', [SiteMediaController::class, 'destroy']);
 
             // Template routes
             Route::get('/templates', [SiteTemplateController::class, 'index']);
             Route::post('/templates', [SiteTemplateController::class, 'store']);
             Route::get('/templates/{template}', [SiteTemplateController::class, 'show']);
-            Route::post('/{site}/apply-template/{template}', [SiteTemplateController::class, 'apply']);
+            Route::post('/{site}/apply-template/{template}', [SiteTemplateController::class, 'apply'])
+                ->whereUuid('site');
+
+            // Site routes (site-scoped)
+            Route::get('/{site}', [SiteLayoutController::class, 'show'])->whereUuid('site');
+            Route::put('/{site}/draft', [SiteLayoutController::class, 'updateDraft'])->whereUuid('site');
+            Route::put('/{site}/settings', [SiteLayoutController::class, 'updateSettings'])->whereUuid('site');
+            Route::post('/{site}/publish', [SiteLayoutController::class, 'publish'])->whereUuid('site');
+            Route::post('/{site}/rollback', [SiteLayoutController::class, 'rollback'])->whereUuid('site');
+            Route::get('/{site}/versions', [SiteLayoutController::class, 'versions'])->whereUuid('site');
+            Route::post('/{site}/restore', [SiteLayoutController::class, 'restore'])->whereUuid('site');
+            Route::get('/{site}/preview', [SiteLayoutController::class, 'preview'])->whereUuid('site');
+            Route::get('/{site}/qa', [SiteLayoutController::class, 'qa'])->whereUuid('site');
+
+            // Media routes (site-scoped)
+            Route::get('/{site}/media', [SiteMediaController::class, 'index'])->whereUuid('site');
+            Route::post('/{site}/media', [SiteMediaController::class, 'store'])->whereUuid('site');
+            Route::get('/{site}/media/usage', [SiteMediaController::class, 'usage'])->whereUuid('site');
+            Route::delete('/{site}/media/{media}', [SiteMediaController::class, 'destroy'])->whereUuid('site');
         });
 
         // Media module (wedding-scoped)

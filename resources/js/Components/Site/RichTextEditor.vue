@@ -479,30 +479,30 @@ const renderWithPlaceholders = computed(() => {
 
 /* Wedding theme colors */
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 
 .bg-wedding-600 {
-    background-color: #a18072;
+    background-color: #c45a6f;
 }
 
 .bg-wedding-700 {
-    background-color: #8b6b5d;
+    background-color: #b9163a;
 }
 
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 </style>

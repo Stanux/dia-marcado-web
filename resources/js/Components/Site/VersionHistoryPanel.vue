@@ -281,15 +281,15 @@ onMounted(() => {
     background-color: #faf7f5;
 }
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 .bg-wedding-600 {
-    background-color: #a18072;
+    background-color: #c45a6f;
 }
 .bg-wedding-700 {
-    background-color: #8b6b5d;
+    background-color: #b9163a;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 </style>

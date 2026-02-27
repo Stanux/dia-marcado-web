@@ -51,12 +51,12 @@ function deepClone(obj) {
 }
 
 const DEFAULT_THEME_SETTINGS = {
-    primaryColor: '#d4a574',
-    secondaryColor: '#8b7355',
+    primaryColor: '#e11d48',
+    secondaryColor: '#be123c',
     baseBackgroundColor: '#ffffff',
-    surfaceBackgroundColor: '#f5ebe4',
-    fontFamily: 'Playfair Display',
-    fontSize: '16px',
+    surfaceBackgroundColor: '#f9fafb',
+    fontFamily: 'Figtree',
+    fontSize: '14px',
 };
 
 const LEGACY_BASE_BACKGROUND_COLORS = new Set([
@@ -65,7 +65,8 @@ const LEGACY_BASE_BACKGROUND_COLORS = new Set([
 ]);
 
 const LEGACY_SURFACE_BACKGROUND_COLORS = new Set([
-    '#f5ebe4',
+    '#f9fafb',
+    '#fde8ee',
     '#f8f6f4',
     '#f5f5f5',
     '#ffffff',

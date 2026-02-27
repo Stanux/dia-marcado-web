@@ -32,6 +32,23 @@ const props = defineProps({
     },
 });
 
+const EVENT_SETTINGS_URL = '/admin/wedding-settings';
+
+const parseValidWeddingDate = (value) => {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    const normalized = typeof value === 'string' ? value.trim() : value;
+    if (!normalized || normalized === 'null' || normalized === '0000-00-00') {
+        return null;
+    }
+
+    const parsed = normalized instanceof Date ? normalized : new Date(normalized);
+
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 // Computed properties
 const style = computed(() => props.content.style || {});
 const resolvedLayout = computed(() => {
@@ -48,6 +65,14 @@ const sectionTypography = computed(() => props.content.sectionTypography || {});
 const descriptionTypography = computed(() => props.content.descriptionTypography || {});
 const countdownNumbersTypography = computed(() => props.content.countdownNumbersTypography || {});
 const countdownLabelsTypography = computed(() => props.content.countdownLabelsTypography || {});
+const weddingDate = computed(() => {
+    if (props.wedding?.has_wedding_date === false) {
+        return null;
+    }
+
+    return parseValidWeddingDate(props.wedding?.wedding_date);
+});
+const hasWeddingDate = computed(() => weddingDate.value !== null);
 
 // Countdown state
 const countdown = ref({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -55,12 +80,13 @@ let countdownInterval = null;
 
 // Calculate countdown
 const calculateCountdown = () => {
-    const weddingDate = props.wedding.wedding_date 
-        ? new Date(props.wedding.wedding_date)
-        : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // Default: 90 days from now
-    
+    if (!weddingDate.value) {
+        countdown.value = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+        return;
+    }
+
     const now = new Date();
-    const diff = weddingDate.getTime() - now.getTime();
+    const diff = weddingDate.value.getTime() - now.getTime();
     
     if (diff <= 0) {
         countdown.value = { days: 0, hours: 0, minutes: 0, seconds: 0 };
@@ -77,8 +103,10 @@ const calculateCountdown = () => {
 
 // Start countdown timer
 onMounted(() => {
-    calculateCountdown();
-    countdownInterval = setInterval(calculateCountdown, 1000);
+    if (hasWeddingDate.value) {
+        calculateCountdown();
+        countdownInterval = setInterval(calculateCountdown, 1000);
+    }
 });
 
 onUnmounted(() => {
@@ -155,7 +183,7 @@ const descriptionStyle = computed(() => ({
 // Section elements style (title, date, location) - uses sectionTypography
 const sectionElementsStyle = computed(() => ({
     fontFamily: sectionTypography.value.fontFamily || descriptionTypography.value.fontFamily || 'Playfair Display',
-    color: sectionTypography.value.fontColor || '#d4a574',
+    color: sectionTypography.value.fontColor || '#f97373',
     fontSize: `${sectionTypography.value.fontSize || 18}px`,
     fontWeight: sectionTypography.value.fontWeight || 400,
     fontStyle: sectionTypography.value.fontItalic ? 'italic' : 'normal',
@@ -167,7 +195,7 @@ const countdownNumbersStyle = computed(() => {
     const baseFontSize = countdownNumbersTypography.value.fontSize || 48;
     return {
         fontFamily: countdownNumbersTypography.value.fontFamily || 'Playfair Display',
-        color: countdownNumbersTypography.value.fontColor || '#d4a574',
+        color: countdownNumbersTypography.value.fontColor || '#f97373',
         fontSize: `${baseFontSize}px`,
         fontWeight: countdownNumbersTypography.value.fontWeight || 700,
         fontStyle: countdownNumbersTypography.value.fontItalic ? 'italic' : 'normal',
@@ -190,9 +218,9 @@ const countdownLabelsStyle = computed(() => {
 
 // Format wedding date
 const formattedDate = computed(() => {
-    if (!props.wedding.wedding_date) return 'Data a definir';
+    if (!weddingDate.value) return 'Data a definir';
     
-    return new Date(props.wedding.wedding_date).toLocaleDateString('pt-BR', {
+    return weddingDate.value.toLocaleDateString('pt-BR', {
         weekday: 'long',
         day: 'numeric',
         month: 'long',
@@ -268,7 +296,6 @@ const formattedDate = computed(() => {
                     >
                         <span v-if="wedding.settings?.venue_address">{{ wedding.settings.venue_address }}</span><span v-if="wedding.settings?.venue_address && (wedding.settings?.venue_neighborhood || wedding.city)">, </span><span v-if="wedding.settings?.venue_neighborhood">{{ wedding.settings.venue_neighborhood }}</span><span v-if="wedding.settings?.venue_neighborhood && wedding.city">, </span><span v-if="wedding.city">{{ wedding.city }}</span><span v-if="wedding.state"> - {{ wedding.state }}</span>
                     </p>
-                    </p>
                     
                     <!-- Description -->
                     <p 
@@ -282,7 +309,7 @@ const formattedDate = computed(() => {
 
                     <!-- Countdown -->
                     <div 
-                        v-if="content.showCountdown"
+                        v-if="content.showCountdown && hasWeddingDate"
                         class="mb-6"
                     >
                         <div 
@@ -308,6 +335,19 @@ const formattedDate = computed(() => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div
+                        v-else-if="content.showCountdown && !hasWeddingDate"
+                        class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+                    >
+                        Evento sem data definida,
+                        <a
+                            :href="EVENT_SETTINGS_URL"
+                            class="font-semibold underline decoration-amber-500 underline-offset-2 hover:text-amber-900"
+                        >
+                            clique aqui para definir.
+                        </a>
                     </div>
                 </div>
 
@@ -369,6 +409,7 @@ const formattedDate = computed(() => {
                 class="mt-12 text-center"
             >
                 <button
+                    v-if="hasWeddingDate"
                     class="inline-flex items-center px-6 py-3 text-sm font-medium rounded-md text-white transition-colors hover:opacity-90"
                     :style="{ backgroundColor: theme.primaryColor }"
                 >
@@ -377,6 +418,27 @@ const formattedDate = computed(() => {
                     </svg>
                     Adicionar ao Calendário
                 </button>
+
+                <div v-else class="space-y-3">
+                    <span
+                        class="inline-flex items-center px-6 py-3 text-sm font-medium rounded-md text-white"
+                        :style="{ backgroundColor: theme.primaryColor, opacity: 0.55, cursor: 'not-allowed' }"
+                    >
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Adicionar ao Calendário
+                    </span>
+                    <p class="text-sm text-amber-800">
+                        Evento sem data definida,
+                        <a
+                            :href="EVENT_SETTINGS_URL"
+                            class="font-semibold underline decoration-amber-500 underline-offset-2 hover:text-amber-900"
+                        >
+                            clique aqui para definir.
+                        </a>
+                    </p>
+                </div>
             </div>
         </div>
 

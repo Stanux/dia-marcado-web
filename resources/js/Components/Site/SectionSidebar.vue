@@ -165,7 +165,7 @@ const handleDragEnd = () => {
                     >
                         <div
                             @click="handleSelect(section.key)"
-                            class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors"
+                            class="w-full flex items-start gap-2 px-3 py-2.5 rounded-lg text-left transition-colors"
                             :class="[
                                 activeSection === section.key
                                     ? 'bg-wedding-100 text-wedding-900'
@@ -176,7 +176,7 @@ const handleDragEnd = () => {
                                     : ''
                             ]"
                         >
-                            <div class="flex items-center min-w-0">
+                            <div class="flex items-center min-w-0 flex-1">
                                 <!-- Drag Handle -->
                                 <button
                                     v-if="canReorder(section.key)"
@@ -202,7 +202,7 @@ const handleDragEnd = () => {
 
                                 <!-- Section Icon -->
                                 <svg
-                                    class="w-5 h-5 mr-3 flex-shrink-0"
+                                    class="w-5 h-5 mr-2 flex-shrink-0"
                                     :class="activeSection === section.key ? 'text-wedding-600' : 'text-gray-400'"
                                     fill="none"
                                     stroke="currentColor"
@@ -217,7 +217,7 @@ const handleDragEnd = () => {
                                 </svg>
 
                                 <!-- Section Label -->
-                                <span class="truncate text-sm font-medium">
+                                <span class="min-w-0 text-sm font-medium leading-tight whitespace-normal break-words">
                                     {{ section.label }}
                                 </span>
                             </div>
@@ -226,8 +226,8 @@ const handleDragEnd = () => {
                             <button
                                 v-if="canToggle(section.key)"
                                 @click="(e) => handleToggle(e, section.key)"
-                                class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-wedding-500 focus:ring-offset-2"
-                                :class="section.enabled ? 'bg-wedding-600' : 'bg-gray-200'"
+                                class="relative inline-flex h-5 w-9 self-center flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-editor-switch focus:ring-offset-2"
+                                :class="section.enabled ? 'bg-switch-on' : 'bg-switch-off'"
                                 role="switch"
                                 :aria-checked="section.enabled"
                                 :aria-label="`${section.enabled ? 'Desativar' : 'Ativar'} ${section.label}`"
@@ -243,30 +243,8 @@ const handleDragEnd = () => {
             </ul>
         </nav>
 
-        <!-- Footer with Meta/Theme links -->
+        <!-- Footer -->
         <div class="p-4 border-t border-gray-200 space-y-2">
-            <button
-                @click="$emit('select', 'meta')"
-                class="w-full flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-                :class="activeSection === 'meta' ? 'bg-gray-100 text-gray-900' : ''"
-            >
-                <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                SEO & Meta Tags
-            </button>
-
-            <button
-                @click="$emit('select', 'theme')"
-                class="w-full flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
-                :class="activeSection === 'theme' ? 'bg-gray-100 text-gray-900' : ''"
-            >
-                <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
-                Tema & Cores
-            </button>
-
             <button
                 @click="$emit('select', 'settings')"
                 class="w-full flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -284,18 +262,24 @@ const handleDragEnd = () => {
 
 <style scoped>
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #ffccd9;
 }
-.bg-wedding-600 {
-    background-color: #a18072;
+.bg-switch-on {
+    background-color: #e11d48;
+}
+.bg-switch-off {
+    background-color: #ffccd9;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #b9163a;
 }
 .text-wedding-900 {
-    color: #4a3f3a;
+    color: #4A2F39;
 }
 .ring-wedding-500 {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #e11d48;
+}
+.focus\:ring-editor-switch:focus {
+    --tw-ring-color: #e11d48;
 }
 </style>

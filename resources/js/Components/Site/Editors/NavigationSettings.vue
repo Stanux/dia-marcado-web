@@ -92,12 +92,12 @@ const updateField = (field, value) => {
 
 <style scoped>
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 </style>

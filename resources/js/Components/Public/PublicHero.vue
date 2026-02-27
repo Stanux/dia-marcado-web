@@ -117,7 +117,7 @@ const vimeoId = computed(() => {
 
 // Placeholder gradient for empty state
 const placeholderStyle = computed(() => ({
-    background: `linear-gradient(135deg, ${props.theme.primaryColor || '#d4a574'}, ${props.theme.secondaryColor || '#8b7355'})`,
+    background: `linear-gradient(135deg, ${props.theme.primaryColor || '#f97373'}, ${props.theme.secondaryColor || '#b85c5c'})`,
 }));
 
 // Gallery carousel state

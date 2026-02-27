@@ -47,8 +47,8 @@ class SiteTemplateSeeder extends Seeder
         
         // Theme customization
         $content['theme'] = [
-            'primaryColor' => '#d4a574',
-            'secondaryColor' => '#8b7355',
+            'primaryColor' => '#f97373',
+            'secondaryColor' => '#b85c5c',
             'fontFamily' => 'Playfair Display',
             'fontSize' => '16px',
         ];
@@ -69,7 +69,7 @@ class SiteTemplateSeeder extends Seeder
         $content['sections']['hero']['layout'] = 'full-bleed';
         $content['sections']['hero']['style'] = [
             'overlay' => [
-                'color' => '#8b7355',
+                'color' => '#b85c5c',
                 'opacity' => 0.4,
             ],
             'textAlign' => 'center',
@@ -102,7 +102,7 @@ class SiteTemplateSeeder extends Seeder
 
         // Footer style
         $content['sections']['footer']['style'] = [
-            'backgroundColor' => '#8b7355',
+            'backgroundColor' => '#b85c5c',
             'textColor' => '#ffffff',
             'borderTop' => true,
         ];

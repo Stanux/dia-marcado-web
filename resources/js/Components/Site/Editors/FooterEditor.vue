@@ -149,7 +149,7 @@ const socialPlatforms = [
         <!-- Social Links -->
         <div class="space-y-4">
             <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Redes Sociais</h3>
+                <h3 class="footer-section-title">Redes Sociais</h3>
                 <button
                     @click="addSocialLink"
                     class="text-sm text-wedding-600 hover:text-wedding-700 font-medium"
@@ -233,7 +233,7 @@ const socialPlatforms = [
 
         <!-- Copyright -->
         <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Copyright</h3>
+            <h3 class="footer-section-title">Copyright</h3>
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Texto de Copyright</label>
@@ -263,7 +263,7 @@ const socialPlatforms = [
 
         <!-- Privacy Policy -->
         <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Política de Privacidade</h3>
+            <h3 class="footer-section-title">Política de Privacidade</h3>
             
             <div class="flex items-center">
                 <input
@@ -289,7 +289,7 @@ const socialPlatforms = [
 
         <!-- Back to Top -->
         <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Navegação</h3>
+            <h3 class="footer-section-title">Navegação</h3>
             
             <div class="flex items-center">
                 <input
@@ -304,7 +304,7 @@ const socialPlatforms = [
 
         <!-- Style Settings -->
         <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Estilo</h3>
+            <h3 class="footer-section-title">Estilo</h3>
             
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -382,15 +382,23 @@ const socialPlatforms = [
 
 <style scoped>
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
+}
+
+.footer-section-title {
+    color: #e11d48;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
 }
 </style>

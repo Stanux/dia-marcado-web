@@ -154,7 +154,7 @@ const remainingMinutes = computed(() => {
     width: 72px;
     height: 72px;
     margin: 0 auto 24px;
-    background: linear-gradient(135deg, #f0e6df 0%, #e8ddd4 100%);
+    background: linear-gradient(135deg, #f0e6df 0%, #F2E6EA 100%);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -164,7 +164,7 @@ const remainingMinutes = computed(() => {
 .lock-icon svg {
     width: 36px;
     height: 36px;
-    color: #a18072;
+    color: #c45a6f;
 }
 
 .title {
@@ -237,7 +237,7 @@ const remainingMinutes = computed(() => {
 
 .form-input:focus {
     outline: none;
-    border-color: #d4a574;
+    border-color: #f97373;
     box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.1);
 }
 
@@ -259,7 +259,7 @@ const remainingMinutes = computed(() => {
 .submit-button {
     width: 100%;
     padding: 14px 24px;
-    background: linear-gradient(135deg, #d4a574 0%, #c49464 100%);
+    background: linear-gradient(135deg, #f97373 0%, #C27A92 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -302,7 +302,7 @@ const remainingMinutes = computed(() => {
     margin-top: 32px;
     height: 4px;
     width: 60px;
-    background: linear-gradient(90deg, #d4a574, #e8ddd4);
+    background: linear-gradient(90deg, #f97373, #F2E6EA);
     border-radius: 2px;
     margin-left: auto;
     margin-right: auto;

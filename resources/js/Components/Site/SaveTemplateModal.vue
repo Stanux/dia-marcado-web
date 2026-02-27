@@ -219,16 +219,16 @@ const handleKeydown = (event) => {
 
 <style scoped>
 .bg-wedding-600 {
-    background-color: #8b6b5d;
+    background-color: #b9163a;
 }
 .bg-wedding-700 {
-    background-color: #6b5347;
+    background-color: #4A2F39;
 }
 .focus\:border-wedding-500:focus {
-    border-color: #a18072;
+    border-color: #c45a6f;
 }
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: rgba(161, 128, 114, 0.5);
+    --tw-ring-color: rgba(216, 122, 141, 0.5);
 }
 
 /* Modal transitions */

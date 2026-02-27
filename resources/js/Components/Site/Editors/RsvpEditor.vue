@@ -30,7 +30,7 @@ const DEFAULT_NAVIGATION = {
 const DEFAULTS = {
     titleTypography: {
         fontFamily: 'Playfair Display',
-        fontColor: '#b8998a',
+        fontColor: '#d87a8d',
         fontSize: 36,
         fontWeight: 700,
         fontItalic: false,
@@ -444,9 +444,9 @@ harmonize();
 
 <template>
     <div class="space-y-6 h-full overflow-y-auto">
-        <div class="p-4 rounded-lg border border-emerald-200 bg-emerald-50">
-            <h4 class="text-sm font-semibold text-emerald-900">Configuração inteligente de RSVP</h4>
-            <p class="mt-1 text-sm text-emerald-800">
+        <div class="p-4 rounded-lg border border-rose-200 bg-rose-50">
+            <h4 class="text-sm font-semibold text-rose-900">Configuração inteligente de RSVP</h4>
+            <p class="mt-1 text-sm text-rose-800">
                 Configure abaixo como os convidados vão confirmar presença no site.
                 As regras já estão conectadas ao módulo de convidados da plataforma.
             </p>
@@ -479,7 +479,7 @@ harmonize();
 
             <TypographyControl
                 :font-family="titleTypography.fontFamily || 'Playfair Display'"
-                :font-color="titleTypography.fontColor || '#b8998a'"
+                :font-color="titleTypography.fontColor || '#d87a8d'"
                 :font-size="titleTypography.fontSize || 36"
                 :font-weight="titleTypography.fontWeight || 700"
                 :font-italic="titleTypography.fontItalic || false"
@@ -911,22 +911,22 @@ harmonize();
 
 <style scoped>
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #be123c;
 }
 
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #e11d48;
 }
 
 .text-wedding-600 {
-    color: #a18072;
+    color: #b9163a;
 }
 
 .border-wedding-500 {
-    border-color: #b8998a;
+    border-color: #e11d48;
 }
 
 .ring-wedding-300 {
-    --tw-ring-color: #d8b8aa;
+    --tw-ring-color: #ffccd9;
 }
 </style>

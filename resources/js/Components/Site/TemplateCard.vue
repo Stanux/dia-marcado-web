@@ -7,7 +7,7 @@
  * 
  * @Requirements: 15.1
  */
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     template: {
@@ -21,6 +21,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['preview', 'select']);
+const hasImageError = ref(false);
+const TEMPLATE_FALLBACK_THUMBNAIL = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff1f4"/><stop offset="100%" stop-color="#fde8ee"/></linearGradient></defs><rect width="800" height="500" fill="url(#bg)"/><rect x="88" y="72" width="624" height="356" rx="18" fill="#ffffff" stroke="#ffccd9" stroke-width="4"/><rect x="120" y="112" width="560" height="32" rx="8" fill="#fde8ee"/><rect x="120" y="164" width="360" height="20" rx="8" fill="#fff1f4"/><rect x="120" y="198" width="280" height="20" rx="8" fill="#fff1f4"/><rect x="120" y="246" width="170" height="128" rx="10" fill="#fff1f4" stroke="#ffccd9" stroke-width="2"/><rect x="314" y="246" width="170" height="128" rx="10" fill="#fff1f4" stroke="#ffccd9" stroke-width="2"/><rect x="508" y="246" width="170" height="128" rx="10" fill="#fff1f4" stroke="#ffccd9" stroke-width="2"/><circle cx="400" cy="302" r="36" fill="#ffccd9"/><path d="M382 314l14-15 11 10 13-14 16 19h-54z" fill="#b9163a"/><text x="400" y="422" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#4A2F39">Template sem imagem</text></svg>')}`;
 
 // Determine badge type based on template ownership
 const badgeType = computed(() => {
@@ -29,10 +31,10 @@ const badgeType = computed(() => {
     }
 
     if (props.template.is_system) {
-        return { label: 'Sistema', class: 'bg-blue-100 text-blue-800' };
+        return { label: 'Sistema', class: 'bg-wedding-100 text-wedding-700' };
     }
     if (props.template.is_public) {
-        return { label: 'Público', class: 'bg-green-100 text-green-800' };
+        return { label: 'Público', class: 'bg-rose-100 text-rose-700' };
     }
     return { label: 'Privado', class: 'bg-gray-100 text-gray-800' };
 });
@@ -57,8 +59,36 @@ const planHint = computed(() => {
 
 // Default thumbnail placeholder
 const thumbnailUrl = computed(() => {
-    return props.template.thumbnail || '/images/template-placeholder.svg';
+    if (hasImageError.value) {
+        return TEMPLATE_FALLBACK_THUMBNAIL;
+    }
+
+    const thumbnail = typeof props.template.thumbnail === 'string'
+        ? props.template.thumbnail.trim()
+        : '';
+
+    return thumbnail !== '' ? thumbnail : TEMPLATE_FALLBACK_THUMBNAIL;
 });
+
+const handleImageError = (event) => {
+    hasImageError.value = true;
+
+    const image = event?.target;
+    if (!image) {
+        return;
+    }
+
+    image.onerror = null;
+    image.src = TEMPLATE_FALLBACK_THUMBNAIL;
+    image.alt = 'Imagem padrao de template';
+};
+
+watch(
+    () => [props.template?.id, props.template?.thumbnail],
+    () => {
+        hasImageError.value = false;
+    },
+);
 
 const handlePreview = () => {
     emit('preview', props.template);
@@ -88,7 +118,7 @@ const handleSelect = () => {
                 :src="thumbnailUrl"
                 :alt="template.name"
                 class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                @error="$event.target.src = '/images/template-placeholder.svg'"
+                @error="handleImageError"
             />
             
             <!-- Hover Overlay with Actions -->
@@ -169,25 +199,31 @@ const handleSelect = () => {
 
 <style scoped>
 .bg-wedding-500 {
-    background-color: #a18072;
+    background-color: #c45a6f;
+}
+.bg-wedding-100 {
+    background-color: #fde8ee;
 }
 .bg-wedding-600 {
-    background-color: #8b6b5d;
+    background-color: #b9163a;
 }
 .bg-wedding-700 {
-    background-color: #6b5347;
+    background-color: #4A2F39;
 }
 .border-wedding-300 {
-    border-color: #c9b8ae;
+    border-color: #ffccd9;
 }
 .border-wedding-500 {
-    border-color: #a18072;
+    border-color: #c45a6f;
 }
 .ring-wedding-200 {
-    --tw-ring-color: rgba(161, 128, 114, 0.3);
+    --tw-ring-color: rgba(216, 122, 141, 0.3);
 }
 .text-wedding-600 {
-    color: #8b6b5d;
+    color: #b9163a;
+}
+.text-wedding-700 {
+    color: #4A2F39;
 }
 
 .line-clamp-2 {

@@ -14,6 +14,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    wedding: {
+        type: Object,
+        default: () => ({}),
+    },
     siteId: {
         type: String,
         required: true,
@@ -174,6 +178,7 @@ watch(
                         <SitePreview
                             v-else
                             :content="previewContent || content"
+                            :wedding="wedding"
                             :mode="previewMode"
                         />
                     </div>
@@ -185,14 +190,14 @@ watch(
 
 <style scoped>
 .bg-wedding-600 {
-    background-color: #a18072;
+    background-color: #c45a6f;
 }
 
 .bg-wedding-600:hover {
-    background-color: #8b6b5d;
+    background-color: #b9163a;
 }
 
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 </style>

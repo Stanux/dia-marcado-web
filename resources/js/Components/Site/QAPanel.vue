@@ -62,6 +62,12 @@ const CHECK_PRESENTATION = {
         fail: 'Faltam informações obrigatórias para publicar com segurança.',
         warning: 'Revise os campos obrigatórios antes de publicar.',
     },
+    dynamic_data_readiness: {
+        title: 'Dados dinâmicos',
+        pass: 'Os placeholders dinâmicos essenciais estão prontos para publicação.',
+        fail: 'Faltam dados dinâmicos essenciais (data, nomes ou iniciais).',
+        warning: 'Revise os dados dinâmicos antes de publicar.',
+    },
     wcag_contrast: {
         title: 'Legibilidade das cores',
         pass: 'As combinações de cor atendem ao contraste recomendado.',
@@ -105,6 +111,10 @@ const getDisplayMessage = (check) => {
 
     if (check.name === 'rsvp_readiness' && check.message) {
         return `${friendly}\n\nItens encontrados:\n${check.message}`;
+    }
+
+    if (check.name === 'dynamic_data_readiness' && check.message) {
+        return `${friendly}\n\n${check.message}`;
     }
 
     return friendly || check.message || '';
@@ -280,9 +290,9 @@ const getSectionLabel = (section) => {
 
 <style scoped>
 .text-wedding-600 {
-    color: #a18072;
+    color: #c45a6f;
 }
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 </style>

@@ -365,7 +365,7 @@ const copyToClipboard = async (placeholder) => {
 }
 
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 
 .bg-wedding-200 {
@@ -373,6 +373,6 @@ const copyToClipboard = async (placeholder) => {
 }
 
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 </style>

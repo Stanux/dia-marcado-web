@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Template placeholder">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7f4f1"/>
+      <stop offset="100%" stop-color="#F2E6EA"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <rect x="88" y="72" width="624" height="356" rx="18" fill="#ffffff" stroke="#cdb8ab" stroke-width="4"/>
+  <rect x="120" y="112" width="560" height="32" rx="8" fill="#efe6df"/>
+  <rect x="120" y="164" width="360" height="20" rx="8" fill="#f3ece6"/>
+  <rect x="120" y="198" width="280" height="20" rx="8" fill="#f3ece6"/>
+  <rect x="120" y="246" width="170" height="128" rx="10" fill="#f6f0ea" stroke="#decec2" stroke-width="2"/>
+  <rect x="314" y="246" width="170" height="128" rx="10" fill="#f6f0ea" stroke="#decec2" stroke-width="2"/>
+  <rect x="508" y="246" width="170" height="128" rx="10" fill="#f6f0ea" stroke="#decec2" stroke-width="2"/>
+  <circle cx="400" cy="302" r="36" fill="#e3d1c5"/>
+  <path d="M382 314l14-15 11 10 13-14 16 19h-54z" fill="#9a7f71"/>
+  <text x="400" y="422" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#7a6256">
+    Template sem imagem
+  </text>
+</svg>

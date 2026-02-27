@@ -293,12 +293,12 @@ const previewContainerStyle = computed(() => {
 
 <style scoped>
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 .bg-wedding-600 {
-    background-color: #a18072;
+    background-color: #c45a6f;
 }
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 </style>

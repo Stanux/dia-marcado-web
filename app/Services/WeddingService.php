@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\Wedding;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class WeddingService
@@ -20,7 +21,7 @@ class WeddingService
         return DB::transaction(function () use ($creator, $data) {
             $wedding = Wedding::create([
                 'title' => $data['title'],
-                'wedding_date' => $data['wedding_date'] ?? null,
+                'wedding_date' => $this->normalizeWeddingDate($data['wedding_date'] ?? null),
                 'venue' => $data['venue'] ?? null,
                 'city' => $data['city'] ?? null,
                 'state' => $data['state'] ?? null,
@@ -39,6 +40,37 @@ class WeddingService
 
             return $wedding;
         });
+    }
+
+    private function normalizeWeddingDate(mixed $value): ?string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $normalized = trim($value);
+
+        if ($normalized === '' || strtolower($normalized) === 'null' || $normalized === '0000-00-00') {
+            return null;
+        }
+
+        if (preg_match('/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/', $normalized, $matches) === 1) {
+            $year = (int) $matches['year'];
+            $month = (int) $matches['month'];
+            $day = (int) $matches['day'];
+
+            return checkdate($month, $day, $year) ? $normalized : null;
+        }
+
+        try {
+            return Carbon::parse($normalized)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

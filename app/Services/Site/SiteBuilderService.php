@@ -6,6 +6,7 @@ namespace App\Services\Site;
 
 use App\Contracts\Site\ContentSanitizerServiceInterface;
 use App\Contracts\Site\SiteBuilderServiceInterface;
+use App\Contracts\Site\SiteValidatorServiceInterface;
 use App\Contracts\Site\SiteVersionServiceInterface;
 use App\Contracts\Site\SlugGeneratorServiceInterface;
 use App\Events\SitePublished;
@@ -30,6 +31,7 @@ class SiteBuilderService implements SiteBuilderServiceInterface
     public function __construct(
         private readonly SlugGeneratorServiceInterface $slugGenerator,
         private readonly SiteVersionServiceInterface $versionService,
+        private readonly SiteValidatorServiceInterface $validator,
         private readonly ContentSanitizerServiceInterface $sanitizer,
         private readonly TemplateWorkspaceService $templateWorkspaceService,
         private readonly TemplateMediaCloneService $templateMediaCloneService,
@@ -53,20 +55,6 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         // Get default content and populate with wedding data
         $defaultContent = SiteContentSchema::getDefaultContent();
         
-        // Set meta.title with couple names and date using placeholders
-        if ($wedding->wedding_date) {
-            $defaultContent['meta']['title'] = 'Casamento de {primeiro_nome_noivo} & {primeiro_nome_noiva} em {data_curta}';
-        } else {
-            $defaultContent['meta']['title'] = 'Casamento de {primeiro_nome_noivo} & {primeiro_nome_noiva}';
-        }
-        
-        // Set meta.description with wedding date if available
-        if ($wedding->wedding_date) {
-            $defaultContent['meta']['description'] = "Casamento de {noivo} e {noiva} - {data}";
-        } else {
-            $defaultContent['meta']['description'] = "Casamento de {noivo} e {noiva}";
-        }
-
         // Create site with populated content
         $site = SiteLayout::create([
             'wedding_id' => $wedding->id,
@@ -130,6 +118,37 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         if (!empty($errors)) {
             throw ValidationException::withMessages([
                 'content' => $errors,
+            ]);
+        }
+
+        $qaResult = $this->validator->runQAChecklist($site);
+        if (!$qaResult->canPublish()) {
+            $failedChecks = $qaResult->getFailedChecks();
+            $messages = array_values(array_filter(array_map(static function (array $check): string {
+                $title = trim((string) ($check['name'] ?? ''));
+                $message = trim((string) ($check['message'] ?? ''));
+
+                if ($title === '' && $message === '') {
+                    return '';
+                }
+
+                if ($title === '') {
+                    return $message;
+                }
+
+                if ($message === '') {
+                    return $title;
+                }
+
+                return "{$title}: {$message}";
+            }, $failedChecks)));
+
+            if ($messages === []) {
+                $messages[] = 'Checklist de qualidade reprovado para publicação.';
+            }
+
+            throw ValidationException::withMessages([
+                'qa' => $messages,
             ]);
         }
 

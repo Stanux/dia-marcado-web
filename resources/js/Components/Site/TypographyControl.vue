@@ -540,22 +540,22 @@ const previewContainerStyle = computed(() => ({
 
 /* Wedding theme colors */
 .focus\:ring-wedding-500:focus {
-    --tw-ring-color: #b8998a;
+    --tw-ring-color: #d87a8d;
 }
 
 .focus\:border-wedding-500:focus {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 
 .bg-wedding-100 {
-    background-color: #f5ebe4;
+    background-color: #fde8ee;
 }
 
 .border-wedding-500 {
-    border-color: #b8998a;
+    border-color: #d87a8d;
 }
 
 .text-wedding-700 {
-    color: #8b6b5d;
+    color: #b9163a;
 }
 </style>

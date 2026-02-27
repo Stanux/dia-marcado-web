@@ -7,7 +7,8 @@
  * 
  * @Requirements: 5.7
  */
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import axios from 'axios';
 import PublicSiteLayout from '@/Layouts/PublicSiteLayout.vue';
 import PublicHeader from '@/Components/Public/PublicHeader.vue';
 import PublicHero from '@/Components/Public/PublicHero.vue';
@@ -40,6 +41,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    templateApplyContext: {
+        type: Object,
+        default: null,
+    },
 });
 
 // Extract sections from content
@@ -47,12 +52,12 @@ const sections = computed(() => props.content.sections || {});
 
 // Extract theme from content
 const theme = computed(() => ({
-    primaryColor: '#d4a574',
-    secondaryColor: '#8b7355',
+    primaryColor: '#e11d48',
+    secondaryColor: '#be123c',
     baseBackgroundColor: '#ffffff',
-    surfaceBackgroundColor: '#f5ebe4',
-    fontFamily: 'Georgia, serif',
-    fontSize: '16px',
+    surfaceBackgroundColor: '#f9fafb',
+    fontFamily: 'Figtree',
+    fontSize: '14px',
     ...(props.content.theme || {}),
 }));
 
@@ -199,6 +204,92 @@ const renderedSections = computed(() => {
         })
         .filter(Boolean);
 });
+
+const isApplyingTemplate = ref(false);
+const applyingMode = ref(null);
+const templateApplyError = ref('');
+
+const canApplyTemplateFromPreview = computed(() => {
+    return props.isTemplatePreview
+        && Boolean(props.templateApplyContext?.enabled)
+        && Boolean(props.templateApplyContext?.site_id)
+        && Boolean(props.templateApplyContext?.template_id);
+});
+
+const templateApplyHint = computed(() => {
+    const reason = props.templateApplyContext?.reason;
+
+    if (!reason) {
+        return 'Você pode aplicar este template sem sair da navegação.';
+    }
+
+    if (reason === 'template_locked_by_plan') {
+        return 'Template indisponível para o plano atual.';
+    }
+
+    return 'Abra este template pela tela do Editor para aplicar no seu site.';
+});
+
+const notifyEditorAndClose = (mode) => {
+    const openerWindow = window.opener;
+    const payload = {
+        type: 'site-template-applied',
+        siteId: props.templateApplyContext?.site_id || null,
+        templateId: props.templateApplyContext?.template_id || null,
+        mode,
+        session: props.templateApplyContext?.session || null,
+    };
+
+    if (openerWindow && !openerWindow.closed) {
+        try {
+            openerWindow.postMessage(payload, window.location.origin);
+            openerWindow.focus();
+        } catch (error) {
+            console.error('Não foi possível notificar a janela do editor:', error);
+        }
+    }
+
+    window.close();
+
+    if (!window.closed && props.templateApplyContext?.return_url) {
+        window.location.href = props.templateApplyContext.return_url;
+    }
+};
+
+const applyTemplateFromPreview = async (mode) => {
+    if (isApplyingTemplate.value || !canApplyTemplateFromPreview.value) {
+        return;
+    }
+
+    isApplyingTemplate.value = true;
+    applyingMode.value = mode;
+    templateApplyError.value = '';
+
+    try {
+        const endpoint = `/api/sites/${props.templateApplyContext.site_id}/apply-template/${props.templateApplyContext.template_id}`;
+        const response = await axios.post(endpoint, { mode });
+
+        if (response?.data?.error) {
+            throw new Error(response.data.message || 'Não foi possível aplicar o template.');
+        }
+
+        notifyEditorAndClose(mode);
+    } catch (error) {
+        templateApplyError.value = error?.response?.data?.message
+            || error?.message
+            || 'Não foi possível aplicar este template agora.';
+    } finally {
+        isApplyingTemplate.value = false;
+        applyingMode.value = null;
+    }
+};
+
+onMounted(() => {
+    const weddingId = props.templateApplyContext?.wedding_id;
+    if (weddingId) {
+        window.__weddingId = weddingId;
+    }
+});
 </script>
 
 <template>
@@ -209,6 +300,42 @@ const renderedSections = computed(() => {
             :key="section.key"
             v-bind="section.props"
         />
+
+        <div
+            v-if="isTemplatePreview"
+            class="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-xs rounded-xl border border-gray-200 bg-white/95 p-3 shadow-xl backdrop-blur sm:max-w-sm"
+        >
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Template</p>
+            <p class="mt-1 text-sm font-medium text-gray-900">
+                Aplicar no site em edição
+            </p>
+            <p class="mt-1 text-xs text-gray-600">
+                {{ templateApplyHint }}
+            </p>
+
+            <p v-if="templateApplyError" class="mt-2 text-xs font-medium text-red-600">
+                {{ templateApplyError }}
+            </p>
+
+            <div class="mt-3 space-y-2">
+                <button
+                    @click="applyTemplateFromPreview('merge')"
+                    :disabled="isApplyingTemplate || !canApplyTemplateFromPreview"
+                    class="w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Merge: aplica seções, estilo e textos sem sobrescrever mídias já existentes."
+                >
+                    {{ isApplyingTemplate && applyingMode === 'merge' ? 'Aplicando...' : 'Aplicar parcial' }}
+                </button>
+                <button
+                    @click="applyTemplateFromPreview('overwrite')"
+                    :disabled="isApplyingTemplate || !canApplyTemplateFromPreview"
+                    class="w-full rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Aplicação total: sobrescreve o conteúdo atual com o conteúdo do template."
+                >
+                    {{ isApplyingTemplate && applyingMode === 'overwrite' ? 'Aplicando...' : 'Aplicar total' }}
+                </button>
+            </div>
+        </div>
     </PublicSiteLayout>
 </template>
 

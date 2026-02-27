@@ -300,15 +300,15 @@ const isMobileMenuOpen = computed(() => false); // Static for preview
 
 <style scoped>
 .text-primary {
-    color: var(--primary-color, #d4a574);
+    color: var(--primary-color, #f97373);
 }
 .bg-primary {
-    background-color: var(--primary-color, #d4a574);
+    background-color: var(--primary-color, #f97373);
 }
 .hover\:text-primary:hover {
-    color: var(--primary-color, #d4a574);
+    color: var(--primary-color, #f97373);
 }
 .hover\:bg-primary:hover {
-    background-color: var(--primary-color, #d4a574);
+    background-color: var(--primary-color, #f97373);
 }
 </style>

@@ -28,10 +28,10 @@
     
     @php
         // Theme variables
-        $primaryColor = $content['theme']['primaryColor'] ?? '#d4a574';
-        $secondaryColor = $content['theme']['secondaryColor'] ?? '#8b7355';
-        $fontFamily = $content['theme']['fontFamily'] ?? 'Georgia, serif';
-        $fontSize = $content['theme']['fontSize'] ?? '16px';
+        $primaryColor = $content['theme']['primaryColor'] ?? '#e11d48';
+        $secondaryColor = $content['theme']['secondaryColor'] ?? '#be123c';
+        $fontFamily = $content['theme']['fontFamily'] ?? 'Figtree';
+        $fontSize = $content['theme']['fontSize'] ?? '14px';
         
         // Header styles
         $headerBg = $content['sections']['header']['style']['backgroundColor'] ?? '#ffffff';

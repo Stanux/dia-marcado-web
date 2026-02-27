@@ -57,18 +57,18 @@ class SiteContentSchema
                 'footer' => self::getFooterSection(),
             ],
             'meta' => [
-                'title' => '',
-                'description' => '',
+                'title' => '{primeiro_nome_noivo} & {primeiro_nome_noiva} em {data_curta}',
+                'description' => '{primeiro_nome_noivo} & {primeiro_nome_noiva} em {data_curta}',
                 'ogImage' => '',
                 'canonical' => '',
             ],
             'theme' => [
-                'primaryColor' => '#d4a574',
-                'secondaryColor' => '#8b7355',
+                'primaryColor' => '#e11d48',
+                'secondaryColor' => '#be123c',
                 'baseBackgroundColor' => '#ffffff',
-                'surfaceBackgroundColor' => '#f5ebe4',
-                'fontFamily' => 'Playfair Display',
-                'fontSize' => '16px',
+                'surfaceBackgroundColor' => '#f9fafb',
+                'fontFamily' => 'Figtree',
+                'fontSize' => '14px',
             ],
         ];
     }
@@ -102,7 +102,7 @@ class SiteContentSchema
             ],
             'menuHoverTypography' => [
                 'fontFamily' => 'Montserrat',
-                'fontColor' => '#d4a574',
+                'fontColor' => '#f97373',
                 'fontSize' => 14,
                 'fontWeight' => 500,
                 'fontItalic' => false,
@@ -178,7 +178,7 @@ class SiteContentSchema
             ],
             'sectionTypography' => [
                 'fontFamily' => 'Playfair Display',
-                'fontColor' => '#d4a574',
+                'fontColor' => '#f97373',
                 'fontSize' => 18,
                 'fontWeight' => 400,
                 'fontItalic' => false,
@@ -203,7 +203,7 @@ class SiteContentSchema
             'countdownFormat' => 'days',
             'countdownNumbersTypography' => [
                 'fontFamily' => 'Playfair Display',
-                'fontColor' => '#d4a574',
+                'fontColor' => '#f97373',
                 'fontSize' => 48,
                 'fontWeight' => 700,
                 'fontItalic' => false,
@@ -227,8 +227,8 @@ class SiteContentSchema
                 'fontUnderline' => false,
             ],
             'calendarButtonStyle' => [
-                'backgroundColor' => '#d4a574',
-                'borderColor' => '#d4a574',
+                'backgroundColor' => '#f97373',
+                'borderColor' => '#f97373',
                 'borderWidth' => 0,
                 'borderRadius' => 8,
                 'paddingX' => 24,
@@ -275,7 +275,7 @@ class SiteContentSchema
             'description' => '',
             'titleTypography' => [
                 'fontFamily' => 'Playfair Display',
-                'fontColor' => '#b8998a',
+                'fontColor' => '#d87a8d',
                 'fontSize' => 36,
                 'fontWeight' => 700,
                 'fontItalic' => false,
@@ -398,7 +398,7 @@ class SiteContentSchema
             ],
             'titleTypography' => [
                 'fontFamily' => 'Playfair Display',
-                'fontColor' => '#a18072',
+                'fontColor' => '#c45a6f',
                 'fontSize' => 40,
                 'fontWeight' => 700,
                 'fontItalic' => false,
@@ -424,7 +424,7 @@ class SiteContentSchema
                 'backgroundColor' => '#f3f4f6',
                 'activeBackgroundColor' => '#ffffff',
                 'borderColor' => '#e5e7eb',
-                'activeBorderColor' => '#b8998a',
+                'activeBorderColor' => '#d87a8d',
             ],
             'style' => [
                 'backgroundColor' => '#ffffff',

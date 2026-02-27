@@ -21,7 +21,7 @@ const props = defineProps({
 
 const DEFAULT_TITLE_TYPOGRAPHY = {
     fontFamily: 'Playfair Display',
-    fontColor: '#a18072',
+    fontColor: '#c45a6f',
     fontSize: 40,
     fontWeight: 700,
     fontItalic: false,
@@ -50,7 +50,7 @@ const DEFAULT_TABS_STYLE = {
     backgroundColor: '#f3f4f6',
     activeBackgroundColor: '#ffffff',
     borderColor: '#e5e7eb',
-    activeBorderColor: '#b8998a',
+    activeBorderColor: '#d87a8d',
 };
 
 const DEFAULT_DISPLAY = {
@@ -191,7 +191,7 @@ const tabsStyle = computed(() => ({
 
 const titleTextStyle = computed(() => ({
     fontFamily: titleTypography.value.fontFamily || props.theme?.fontFamily || 'Playfair Display',
-    color: titleTypography.value.fontColor || props.theme?.primaryColor || '#a18072',
+    color: titleTypography.value.fontColor || props.theme?.primaryColor || '#c45a6f',
     fontSize: titleTypography.value.fontSize ? `${titleTypography.value.fontSize}px` : undefined,
     fontWeight: titleTypography.value.fontWeight || 700,
     fontStyle: titleTypography.value.fontItalic ? 'italic' : 'normal',
@@ -869,7 +869,7 @@ onUnmounted(() => {
                         type="button"
                         class="w-3 h-3 rounded-full transition-all duration-200"
                         :class="slideshowIndex === index ? 'scale-125' : 'opacity-50 hover:opacity-75'"
-                        :style="{ backgroundColor: slideshowIndex === index ? (theme.primaryColor || '#a18072') : '#9ca3af' }"
+                        :style="{ backgroundColor: slideshowIndex === index ? (theme.primaryColor || '#c45a6f') : '#9ca3af' }"
                         @click="slideshowIndex = index"
                     ></button>
                 </div>

@@ -7,11 +7,7 @@ use App\Models\SiteLayout;
 use App\Models\SiteVersion;
 use App\Models\User;
 use App\Models\Wedding;
-use App\Services\Site\SiteBuilderService;
 use App\Services\Site\SiteContentSchema;
-use App\Services\Site\ContentSanitizerService;
-use App\Services\Site\SiteVersionService;
-use App\Services\Site\SlugGeneratorService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -32,11 +28,7 @@ class PublishRoundTripPropertyTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->builderService = new SiteBuilderService(
-            new SlugGeneratorService(),
-            new SiteVersionService(),
-            new ContentSanitizerService()
-        );
+        $this->builderService = $this->app->make(SiteBuilderServiceInterface::class);
     }
 
     /**
@@ -48,6 +40,7 @@ class PublishRoundTripPropertyTest extends TestCase
         for ($i = 0; $i < 100; $i++) {
             $wedding = Wedding::factory()->create();
             $user = User::factory()->create();
+            $wedding->users()->attach($user->id, ['role' => 'couple', 'permissions' => []]);
             
             // Generate random valid content
             $draftContent = $this->generateRandomValidContent();
@@ -60,8 +53,8 @@ class PublishRoundTripPropertyTest extends TestCase
                 'is_published' => false,
             ]);
 
-            // Store draft content before publish
-            $draftBeforePublish = $site->draft_content;
+            // Store draft content before publish (normalized, as publish normalizes payload)
+            $draftBeforePublish = SiteContentSchema::normalize((array) $site->draft_content);
 
             // Publish the site
             $publishedSite = $this->builderService->publish($site, $user);
@@ -96,6 +89,7 @@ class PublishRoundTripPropertyTest extends TestCase
         for ($i = 0; $i < 50; $i++) {
             $wedding = Wedding::factory()->create();
             $user = User::factory()->create();
+            $wedding->users()->attach($user->id, ['role' => 'couple', 'permissions' => []]);
             
             $draftContent = $this->generateRandomValidContent();
             
@@ -125,14 +119,14 @@ class PublishRoundTripPropertyTest extends TestCase
                 "Iteration {$i}: Publish should create a new published version"
             );
 
-            // Verify the published version content matches draft
+            // Verify the published version content matches normalized draft
             $latestPublishedVersion = SiteVersion::where('site_layout_id', $site->id)
                 ->where('is_published', true)
                 ->orderByDesc('created_at')
                 ->first();
 
             $this->assertEquals(
-                $draftContent,
+                SiteContentSchema::normalize($draftContent),
                 $latestPublishedVersion->content,
                 "Iteration {$i}: Published version content should match draft"
             );
@@ -147,6 +141,7 @@ class PublishRoundTripPropertyTest extends TestCase
     {
         $wedding = Wedding::factory()->create();
         $user = User::factory()->create();
+        $wedding->users()->attach($user->id, ['role' => 'couple', 'permissions' => []]);
         
         $site = SiteLayout::withoutGlobalScopes()->create([
             'wedding_id' => $wedding->id,
@@ -162,8 +157,8 @@ class PublishRoundTripPropertyTest extends TestCase
             $site->save();
             $site->refresh();
 
-            // Store draft before publish
-            $draftBeforePublish = $site->draft_content;
+            // Store draft before publish (normalized, as publish normalizes payload)
+            $draftBeforePublish = SiteContentSchema::normalize((array) $site->draft_content);
 
             // Publish
             $publishedSite = $this->builderService->publish($site, $user);
@@ -188,6 +183,7 @@ class PublishRoundTripPropertyTest extends TestCase
         for ($i = 0; $i < 30; $i++) {
             $wedding = Wedding::factory()->create();
             $user = User::factory()->create();
+            $wedding->users()->attach($user->id, ['role' => 'couple', 'permissions' => []]);
             
             // Generate complex nested content
             $complexContent = $this->generateComplexNestedContent();
@@ -198,8 +194,8 @@ class PublishRoundTripPropertyTest extends TestCase
                 'draft_content' => $complexContent,
             ]);
 
-            // Store draft before publish
-            $draftBeforePublish = $site->draft_content;
+            // Store draft before publish (normalized, as publish normalizes payload)
+            $draftBeforePublish = SiteContentSchema::normalize((array) $site->draft_content);
 
             // Publish
             $publishedSite = $this->builderService->publish($site, $user);
@@ -237,6 +233,11 @@ class PublishRoundTripPropertyTest extends TestCase
         $defaultContent['sections']['hero']['subtitle'] = fake()->paragraph();
         $defaultContent['sections']['hero']['enabled'] = fake()->boolean(80);
         $defaultContent['sections']['hero']['media']['url'] = fake()->imageUrl();
+        $defaultContent['sections']['hero']['media']['alt'] = fake()->sentence(4);
+
+        if (!$defaultContent['sections']['header']['enabled'] && !$defaultContent['sections']['hero']['enabled']) {
+            $defaultContent['sections']['header']['enabled'] = true;
+        }
         
         $defaultContent['sections']['saveTheDate']['description'] = fake()->paragraph();
         $defaultContent['sections']['saveTheDate']['enabled'] = fake()->boolean(80);
@@ -245,9 +246,10 @@ class PublishRoundTripPropertyTest extends TestCase
         $defaultContent['sections']['giftRegistry']['enabled'] = fake()->boolean(30);
         
         $defaultContent['sections']['rsvp']['title'] = fake()->sentence();
-        $defaultContent['sections']['rsvp']['enabled'] = fake()->boolean(30);
+        $defaultContent['sections']['rsvp']['enabled'] = false;
         
-        $defaultContent['sections']['photoGallery']['enabled'] = fake()->boolean(50);
+        // Mantém desabilitado para o foco deste teste ser round-trip de conteúdo.
+        $defaultContent['sections']['photoGallery']['enabled'] = false;
         
         $defaultContent['sections']['footer']['copyrightText'] = fake()->company();
         $defaultContent['sections']['footer']['enabled'] = fake()->boolean(90);
@@ -269,11 +271,17 @@ class PublishRoundTripPropertyTest extends TestCase
         $content = SiteContentSchema::getDefaultContent();
         
         // Add complex navigation
-        $content['sections']['header']['navigation'] = array_map(fn() => [
-            'label' => fake()->word(),
-            'target' => fake()->randomElement(['#section1', '#section2', fake()->url()]),
-            'type' => fake()->randomElement(['anchor', 'url', 'action']),
-        ], range(1, fake()->numberBetween(2, 6)));
+        $content['sections']['header']['navigation'] = array_map(function () {
+            $type = fake()->randomElement(['anchor', 'url']);
+
+            return [
+                'label' => fake()->word(),
+                'target' => $type === 'anchor'
+                    ? fake()->randomElement(['#section1', '#section2', '#save-the-date'])
+                    : fake()->url(),
+                'type' => $type,
+            ];
+        }, range(1, fake()->numberBetween(2, 6)));
         
         // Add complex action button
         $content['sections']['header']['actionButton'] = [
@@ -288,6 +296,7 @@ class PublishRoundTripPropertyTest extends TestCase
             'type' => fake()->randomElement(['image', 'video', 'gallery']),
             'url' => fake()->imageUrl(),
             'fallback' => fake()->imageUrl(),
+            'alt' => fake()->sentence(4),
             'autoplay' => fake()->boolean(),
             'loop' => fake()->boolean(),
         ];
