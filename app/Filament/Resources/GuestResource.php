@@ -202,8 +202,12 @@ class GuestResource extends WeddingScopedResource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar este convidado'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Excluir este convidado'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

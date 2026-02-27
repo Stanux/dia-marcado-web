@@ -21,7 +21,7 @@ class Dashboard extends BaseDashboard
         $user = auth()->user();
         $name = $user?->name ?? 'Usuário';
         
-        return new \Illuminate\Support\HtmlString("Bem Vindo, <strong>{$name}</strong>!");
+        return new \Illuminate\Support\HtmlString("Boas-vindas, <strong>{$name}</strong>");
     }
 
     public function getWidgets(): array

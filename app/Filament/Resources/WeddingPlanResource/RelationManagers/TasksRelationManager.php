@@ -31,12 +31,16 @@ class TasksRelationManager extends RelationManager
                 Tables\Actions\Action::make('edit_full')
                     ->label('Editar')
                     ->icon('heroicon-o-pencil-square')
+                    ->iconButton()
+                    ->tooltip('Editar tarefa completa')
                     ->url(fn (Model $record): string => TaskResource::getUrl('edit', [
                         'record' => $record,
                         'return_to_plan' => $this->getOwnerRecord()?->getKey(),
                     ]))
                     ->visible(fn (Model $record): bool => $this->canEdit($record)),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Excluir esta tarefa'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

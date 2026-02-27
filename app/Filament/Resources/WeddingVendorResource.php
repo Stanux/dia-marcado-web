@@ -97,8 +97,12 @@ class WeddingVendorResource extends WeddingScopedResource
                     ->toggleable(),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar este fornecedor'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Excluir este fornecedor'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

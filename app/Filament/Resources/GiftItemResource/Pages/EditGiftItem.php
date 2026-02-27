@@ -14,7 +14,7 @@ class EditGiftItem extends EditRecord
     {
         return [
             Actions\Action::make('restore')
-                ->label('Restaurar Original')
+                ->label('Restaurar')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->requiresConfirmation()

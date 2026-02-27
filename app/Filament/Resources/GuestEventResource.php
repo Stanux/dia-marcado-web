@@ -132,6 +132,8 @@ class GuestEventResource extends WeddingScopedResource
                     ->label('Histórico')
                     ->icon('heroicon-o-clock')
                     ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Ver histórico deste evento')
                     ->action(function (GuestEvent $record): void {
                         $historyText = app(GuestEventHistoryService::class)->timelineText($record, 20);
 
@@ -141,8 +143,12 @@ class GuestEventResource extends WeddingScopedResource
                             ->persistent()
                             ->send();
                     }),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar este evento'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Excluir este evento'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

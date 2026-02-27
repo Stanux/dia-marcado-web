@@ -157,10 +157,14 @@ class UserResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar este usuário'),
                 Tables\Actions\Action::make('manage_permissions')
                     ->label('Permissões')
                     ->icon('heroicon-o-key')
+                    ->iconButton()
+                    ->tooltip('Gerenciar permissões do usuário')
                     ->visible(function (User $record): bool {
                         $weddingId = auth()->user()?->current_wedding_id ?? session('filament_wedding_id');
                         $wedding = $record->weddings->firstWhere('id', $weddingId);
@@ -169,6 +173,8 @@ class UserResource extends Resource
                     ->url(fn (User $record): string => route('filament.admin.resources.users.permissions', $record)),
                 Tables\Actions\DeleteAction::make()
                     ->label('Remover')
+                    ->iconButton()
+                    ->tooltip('Remover usuário deste casamento')
                     ->modalHeading('Remover usuário do casamento')
                     ->modalDescription('O usuário será removido deste casamento, mas sua conta continuará existindo.'),
             ])

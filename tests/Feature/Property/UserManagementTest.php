@@ -2,11 +2,15 @@
 
 namespace Tests\Feature\Property;
 
+use App\Http\Middleware\EnsureOnboardingComplete;
 use App\Models\User;
 use App\Models\Wedding;
 use App\Services\PermissionService;
 use App\Services\UserManagementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Routing\Route;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Tests\TestCase;
@@ -308,6 +312,50 @@ class UserManagementTest extends TestCase
                 $wedding->id,
                 $createdCouple->current_wedding_id,
                 "Iteration {$i}: created couple should have current_wedding_id set"
+            );
+
+            $wedding->users()->detach();
+            $createdCouple->delete();
+            $creator->delete();
+            $wedding->delete();
+        }
+    }
+
+    /**
+     * Test: Couple criado via Usuários não deve ser redirecionado ao onboarding.
+     * @test
+     */
+    public function created_couple_can_pass_onboarding_middleware(): void
+    {
+        $middleware = new EnsureOnboardingComplete();
+
+        for ($i = 0; $i < 50; $i++) {
+            $wedding = Wedding::create(['title' => "Wedding Middleware {$i}"]);
+            $creator = User::factory()->create(['role' => 'couple']);
+            $creator->weddings()->attach($wedding->id, ['role' => 'couple', 'permissions' => []]);
+
+            $createdCouple = $this->userManagementService->createCouple($creator, $wedding, [
+                'name' => fake()->name(),
+                'email' => fake()->unique()->safeEmail(),
+            ]);
+
+            $request = Request::create('/admin/dashboard', 'GET');
+            $request->setUserResolver(fn () => $createdCouple);
+            $request->setRouteResolver(function () {
+                $route = new Route('GET', '/admin/dashboard', static fn () => 'ok');
+                $route->name('filament.admin.pages.dashboard');
+                return $route;
+            });
+
+            $response = $middleware->handle(
+                $request,
+                static fn () => new Response('ok', 200)
+            );
+
+            $this->assertSame(
+                200,
+                $response->getStatusCode(),
+                "Iteration {$i}: created couple should not be redirected to onboarding"
             );
 
             $wedding->users()->detach();

@@ -127,7 +127,9 @@ class SystemConfigResource extends Resource
                     ->query(fn (Builder $query): Builder => $query->where('key', 'like', 'guests.%')),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar esta configuração'),
             ])
             ->bulkActions([
                 // No bulk actions for system configs

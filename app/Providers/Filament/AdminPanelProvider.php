@@ -37,6 +37,7 @@ class AdminPanelProvider extends PanelProvider
             ->registration(Register::class)
             ->passwordReset()
             ->maxContentWidth(MaxWidth::Full)
+            ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop()
             ->renderHook(
                 'panels::topbar.start',

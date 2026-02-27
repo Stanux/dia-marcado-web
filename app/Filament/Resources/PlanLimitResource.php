@@ -129,7 +129,9 @@ class PlanLimitResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar limite do plano'),
             ])
             ->bulkActions([
                 //

@@ -89,14 +89,20 @@ class WeddingPlanResource extends WeddingScopedResource
                     ->label('Dashboard')
                     ->icon('heroicon-o-chart-bar-square')
                     ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Abrir dashboard do planejamento')
                     ->url(fn (WeddingPlan $record): string => PlanningDashboard::getUrl(['plan' => $record->getKey()]))
                     ->visible(fn (): bool => PlanningDashboard::canAccess()),
                 Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar planejamento')
                     ->disabled(fn (WeddingPlan $record): bool => $record->isArchived() && !auth()->user()?->isAdmin()),
                 Tables\Actions\Action::make('archive')
                     ->label('Arquivar')
                     ->icon('heroicon-o-archive-box')
                     ->color('warning')
+                    ->iconButton()
+                    ->tooltip('Arquivar planejamento')
                     ->visible(fn (WeddingPlan $record): bool => !$record->isArchived())
                     ->requiresConfirmation()
                     ->action(function (WeddingPlan $record): void {
@@ -109,6 +115,8 @@ class WeddingPlanResource extends WeddingScopedResource
                     ->label('Reativar')
                     ->icon('heroicon-o-arrow-path')
                     ->color('success')
+                    ->iconButton()
+                    ->tooltip('Reativar planejamento')
                     ->visible(fn (WeddingPlan $record): bool => $record->isArchived() && auth()->user()?->isAdmin())
                     ->requiresConfirmation()
                     ->action(fn (WeddingPlan $record) => $record->update([
@@ -118,12 +126,16 @@ class WeddingPlanResource extends WeddingScopedResource
                 Tables\Actions\Action::make('duplicate')
                     ->label('Duplicar')
                     ->icon('heroicon-o-square-2-stack')
+                    ->iconButton()
+                    ->tooltip('Duplicar planejamento')
                     ->action(function (WeddingPlan $record): void {
                         app(WeddingPlanService::class)->duplicate($record);
                     }),
                 Tables\Actions\Action::make('export')
                     ->label('Exportar Excel')
                     ->icon('heroicon-o-arrow-down-tray')
+                    ->iconButton()
+                    ->tooltip('Exportar planejamento em Excel')
                     ->url(fn (WeddingPlan $record) => route('planning.export', $record))
                     ->openUrlInNewTab(),
             ])

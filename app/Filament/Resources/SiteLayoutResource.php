@@ -152,6 +152,8 @@ class SiteLayoutResource extends WeddingScopedResource
                 Tables\Actions\Action::make('view_site')
                     ->label('Ver Site')
                     ->icon('heroicon-o-eye')
+                    ->iconButton()
+                    ->tooltip('Abrir site público')
                     ->url(fn (SiteLayout $record): string => route('public.site.show', ['slug' => $record->slug]))
                     ->openUrlInNewTab()
                     ->visible(fn (SiteLayout $record): bool => $record->is_published),

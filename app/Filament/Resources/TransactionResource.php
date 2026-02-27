@@ -315,7 +315,9 @@ class TransactionResource extends Resource
                     }),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Ver detalhes da transação'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('export')

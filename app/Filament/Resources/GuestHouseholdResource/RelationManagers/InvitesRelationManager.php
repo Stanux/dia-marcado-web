@@ -226,6 +226,8 @@ class InvitesRelationManager extends RelationManager
                 Tables\Actions\Action::make('copyLink')
                     ->label('Copiar link')
                     ->icon('heroicon-o-clipboard')
+                    ->iconButton()
+                    ->tooltip('Copiar link do convite')
                     ->action(function (GuestInvite $record): void {
                         $siteSlug = $this->getOwnerRecord()->wedding?->siteLayout?->slug;
                         $link = $siteSlug
@@ -242,6 +244,8 @@ class InvitesRelationManager extends RelationManager
                     ->label('Histórico')
                     ->icon('heroicon-o-clock')
                     ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Ver histórico do convite')
                     ->action(function (GuestInvite $record): void {
                         $timelineText = app(InviteObservabilityService::class)->timelineText($record, 15);
 
@@ -255,6 +259,8 @@ class InvitesRelationManager extends RelationManager
                     ->label('Reemitir')
                     ->icon('heroicon-o-arrow-path')
                     ->color('info')
+                    ->iconButton()
+                    ->tooltip('Reemitir convite')
                     ->form([
                         Forms\Components\TextInput::make('expires_in_days')
                             ->label('Expira em (dias)')
@@ -294,6 +300,8 @@ class InvitesRelationManager extends RelationManager
                     ->label('Revogar')
                     ->icon('heroicon-o-no-symbol')
                     ->color('danger')
+                    ->iconButton()
+                    ->tooltip('Revogar convite')
                     ->requiresConfirmation()
                     ->form([
                         Forms\Components\Textarea::make('reason')
@@ -323,7 +331,9 @@ class InvitesRelationManager extends RelationManager
                             ->success()
                             ->send();
                     }),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Excluir convite'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

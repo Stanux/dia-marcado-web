@@ -179,6 +179,8 @@ class SiteTemplateResource extends Resource
                     ->label('Aplicar')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('primary')
+                    ->iconButton()
+                    ->tooltip('Aplicar template ao site')
                     ->requiresConfirmation()
                     ->modalHeading('Aplicar Template')
                     ->modalDescription(fn (SiteTemplate $record) => "Escolha como aplicar o template \"{$record->name}\".")
@@ -255,12 +257,16 @@ class SiteTemplateResource extends Resource
                 Tables\Actions\Action::make('visual_editor')
                     ->label('Editor Visual')
                     ->icon('heroicon-o-pencil-square')
+                    ->iconButton()
+                    ->tooltip('Abrir editor visual do template')
                     ->url(fn (SiteTemplate $record): string => static::templateEditorUrl($record))
                     ->visible(fn () => auth()->user()?->isAdmin() ?? false),
 
                 Tables\Actions\Action::make('view_site')
                     ->label('Ver')
                     ->icon('heroicon-o-eye')
+                    ->iconButton()
+                    ->tooltip('Visualizar template')
                     ->url(fn (SiteTemplate $record): ?string => $record->slug
                         ? route('public.site.template.preview', ['slug' => $record->slug])
                         : null)
@@ -268,6 +274,8 @@ class SiteTemplateResource extends Resource
                     ->visible(fn (SiteTemplate $record): bool => (bool) $record->slug && $record->is_public && $record->wedding_id === null),
 
                 Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar template')
                     ->visible(fn () => auth()->user()?->isAdmin() ?? false),
             ])
             ->bulkActions([])

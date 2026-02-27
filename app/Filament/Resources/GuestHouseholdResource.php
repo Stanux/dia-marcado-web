@@ -171,6 +171,8 @@ class GuestHouseholdResource extends WeddingScopedResource
                     ->label('Gerar convite')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
+                    ->iconButton()
+                    ->tooltip('Gerar convite para este grupo')
                     ->form([
                         Forms\Components\Select::make('guest_id')
                             ->label('Convidado específico (opcional)')
@@ -239,8 +241,12 @@ class GuestHouseholdResource extends WeddingScopedResource
                             ->body($link ? ('Link: ' . $link) : ('Token: ' . $invite->token))
                             ->send();
                     }),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar este grupo'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Excluir este grupo'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

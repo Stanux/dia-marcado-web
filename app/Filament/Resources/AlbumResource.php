@@ -103,8 +103,12 @@ class AlbumResource extends Resource
                     ->options(AlbumType::pluck('name', 'id')),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar este álbum'),
                 Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Excluir este álbum')
                     ->requiresConfirmation()
                     ->modalDescription('Tem certeza que deseja excluir este álbum? As mídias associadas ficarão sem álbum.'),
             ])

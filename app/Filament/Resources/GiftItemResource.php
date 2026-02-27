@@ -27,11 +27,11 @@ class GiftItemResource extends Resource
 
     protected static ?string $navigationGroup = 'CASAMENTO';
 
-    protected static ?string $navigationLabel = 'Itens de Presente';
+    protected static ?string $navigationLabel = 'Lista de presentes';
 
-    protected static ?string $modelLabel = 'Item de Presente';
+    protected static ?string $modelLabel = 'Presente';
 
-    protected static ?string $pluralModelLabel = 'Itens de Presente';
+    protected static ?string $pluralModelLabel = 'Presentes';
 
     protected static ?int $navigationSort = 3;
 
@@ -112,7 +112,9 @@ class GiftItemResource extends Resource
 
                 Tables\Columns\TextColumn::make('price')
                     ->label('Preço')
-                    ->money('BRL', divideBy: 100)
+                    ->formatStateUsing(
+                        fn ($state): string => 'R$ ' . number_format(((int) $state) / 100, 2, ',', '.')
+                    )
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('quantity_available')
@@ -135,11 +137,6 @@ class GiftItemResource extends Resource
                     ->boolean()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Criado em')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_enabled')
@@ -158,9 +155,11 @@ class GiftItemResource extends Resource
             ])
             ->actions([
                 Tables\Actions\Action::make('restore')
-                    ->label('Restaurar Original')
+                    ->label('Restaurar')
                     ->icon('heroicon-o-arrow-path')
                     ->color('warning')
+                    ->iconButton()
+                    ->tooltip('Restaurar este item para os valores originais')
                     ->requiresConfirmation()
                     ->modalHeading('Restaurar valores originais')
                     ->modalDescription('Tem certeza que deseja restaurar este item aos valores originais? As alterações atuais serão perdidas.')
@@ -174,9 +173,13 @@ class GiftItemResource extends Resource
                             ->send();
                     }),
 
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar este presente'),
                 
                 Tables\Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Excluir este presente')
                     ->requiresConfirmation()
                     ->modalDescription('Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.'),
             ])
