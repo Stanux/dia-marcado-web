@@ -176,6 +176,35 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         $weddingData['wedding_date'] = $wedding->wedding_date?->format('Y-m-d');
         $weddingData['has_wedding_date'] = $wedding->wedding_date !== null;
 
+        // Keep editor draft gift registry operational config in sync with database model.
+        $giftRegistryConfig = $wedding->giftRegistryConfig;
+        if ($giftRegistryConfig) {
+            if (!is_array($siteData['draft_content'] ?? null)) {
+                $siteData['draft_content'] = [];
+            }
+
+            if (!is_array($siteData['draft_content']['sections'] ?? null)) {
+                $siteData['draft_content']['sections'] = [];
+            }
+
+            if (!is_array($siteData['draft_content']['sections']['giftRegistry'] ?? null)) {
+                $siteData['draft_content']['sections']['giftRegistry'] = [];
+            }
+
+            $giftRegistrySection = $siteData['draft_content']['sections']['giftRegistry'];
+            $giftRegistrySectionConfig = is_array($giftRegistrySection['config'] ?? null)
+                ? $giftRegistrySection['config']
+                : [];
+
+            $giftRegistrySection['config'] = [
+                ...$giftRegistrySectionConfig,
+                'registry_mode' => $giftRegistryConfig->registry_mode ?? 'quantity',
+                'fee_modality' => $giftRegistryConfig->fee_modality ?? ($giftRegistrySectionConfig['fee_modality'] ?? 'couple_pays'),
+            ];
+
+            $siteData['draft_content']['sections']['giftRegistry'] = $giftRegistrySection;
+        }
+
         // Build default logo initials from onboarding/couple data
         $coupleNames = $wedding->couple
             ->pluck('name')
