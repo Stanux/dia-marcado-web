@@ -19,6 +19,7 @@ class Transaction extends WeddingScopedModel
         'pagseguro_transaction_id',
         'wedding_id',
         'gift_item_id',
+        'purchased_quantity',
         'original_unit_price',
         'fee_percentage',
         'fee_modality',
@@ -42,6 +43,7 @@ class Transaction extends WeddingScopedModel
     {
         return [
             'original_unit_price' => 'integer',
+            'purchased_quantity' => 'integer',
             'fee_percentage' => 'decimal:2',
             'fee_amount' => 'integer',
             'gross_amount' => 'integer',

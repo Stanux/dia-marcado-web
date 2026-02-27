@@ -20,6 +20,7 @@ interface GiftItem {
   display_price: number;
   quantity_available: number;
   is_sold_out: boolean;
+  registry_mode: 'quantity' | 'quota';
   is_fallback_donation: boolean;
   minimum_custom_amount: number | null;
   allows_custom_amount: boolean;
@@ -47,6 +48,7 @@ const emit = defineEmits<{
 const paymentMethod = ref<'credit_card' | 'pix' | null>(null);
 const pixData = ref<{ qr_code: string; qr_code_text?: string; qr_code_base64: string; transaction_id: string } | null>(null);
 const customAmountInput = ref('50,00');
+const quotaQuantityInput = ref(1);
 
 // Use gift registry composable for API calls and error handling
 const { loading, error, purchaseGift, clearError, retryLastOperation } = useGiftRegistry();
@@ -58,6 +60,22 @@ const showPaymentForm = computed(() => {
 
 const minimumCustomAmount = computed(() => {
   return props.gift.minimum_custom_amount ?? 5000;
+});
+
+const isQuotaPurchase = computed(() => {
+  return props.gift.registry_mode === 'quota' && !props.gift.is_fallback_donation;
+});
+
+const maxQuotaQuantity = computed(() => {
+  return Math.max(1, props.gift.quantity_available);
+});
+
+const selectedQuotaQuantity = computed(() => {
+  if (!isQuotaPurchase.value) {
+    return 1;
+  }
+
+  return Math.min(maxQuotaQuantity.value, Math.max(1, quotaQuantityInput.value));
 });
 
 const selectedCustomAmount = computed(() => {
@@ -74,9 +92,15 @@ const selectedCustomAmount = computed(() => {
 });
 
 const effectiveAmountInCents = computed(() => {
-  return props.gift.is_fallback_donation
-    ? selectedCustomAmount.value
-    : props.gift.display_price;
+  if (props.gift.is_fallback_donation) {
+    return selectedCustomAmount.value;
+  }
+
+  if (isQuotaPurchase.value) {
+    return props.gift.display_price * selectedQuotaQuantity.value;
+  }
+
+  return props.gift.display_price;
 });
 
 const customAmountError = computed(() => {
@@ -91,8 +115,20 @@ const customAmountError = computed(() => {
   return null;
 });
 
+const quotaQuantityError = computed(() => {
+  if (!isQuotaPurchase.value) {
+    return null;
+  }
+
+  if (selectedQuotaQuantity.value > props.gift.quantity_available) {
+    return 'Quantidade de cotas indisponível para este presente.';
+  }
+
+  return null;
+});
+
 const displayError = computed(() => {
-  return customAmountError.value || error.value;
+  return customAmountError.value || quotaQuantityError.value || error.value;
 });
 
 // Methods
@@ -115,8 +151,18 @@ function handleCustomAmountInput(event: Event) {
   customAmountInput.value = formatCurrencyInput(input.value);
 }
 
+function updateQuotaQuantity(value: number) {
+  quotaQuantityInput.value = Math.min(maxQuotaQuantity.value, Math.max(1, value));
+}
+
+function handleQuotaQuantityInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const parsedValue = Number.parseInt(input.value || '1', 10);
+  updateQuotaQuantity(Number.isFinite(parsedValue) ? parsedValue : 1);
+}
+
 function selectPaymentMethod(method: 'credit_card' | 'pix') {
-  if (customAmountError.value) {
+  if (customAmountError.value || quotaQuantityError.value) {
     return;
   }
 
@@ -145,6 +191,8 @@ async function handleCreditCardPayment(paymentData: any) {
     };
     if (props.gift.is_fallback_donation) {
       payload.custom_amount = effectiveAmountInCents.value;
+    } else if (isQuotaPurchase.value) {
+      payload.quantity = selectedQuotaQuantity.value;
     }
 
     const result = await purchaseGift(props.eventId, props.gift.id, payload);
@@ -166,6 +214,8 @@ async function handlePixPayment(payerData: any) {
     };
     if (props.gift.is_fallback_donation) {
       payload.custom_amount = effectiveAmountInCents.value;
+    } else if (isQuotaPurchase.value) {
+      payload.quantity = selectedQuotaQuantity.value;
     }
 
     const result = await purchaseGift(props.eventId, props.gift.id, payload);
@@ -260,6 +310,39 @@ async function handleRetry() {
           <h4 class="summary-name">{{ gift.name }}</h4>
           <p class="summary-description">{{ gift.description }}</p>
 
+          <div v-if="isQuotaPurchase" class="quota-quantity-group">
+            <label for="quota-quantity" class="custom-amount-label">Quantidade de cotas</label>
+            <div class="quota-quantity-controls">
+              <button
+                type="button"
+                class="quota-qty-button"
+                :disabled="loading || selectedQuotaQuantity <= 1"
+                @click="updateQuotaQuantity(selectedQuotaQuantity - 1)"
+              >
+                -
+              </button>
+              <input
+                id="quota-quantity"
+                type="number"
+                min="1"
+                :max="maxQuotaQuantity"
+                :value="selectedQuotaQuantity"
+                class="quota-qty-input"
+                :disabled="loading"
+                @input="handleQuotaQuantityInput"
+              />
+              <button
+                type="button"
+                class="quota-qty-button"
+                :disabled="loading || selectedQuotaQuantity >= maxQuotaQuantity"
+                @click="updateQuotaQuantity(selectedQuotaQuantity + 1)"
+              >
+                +
+              </button>
+            </div>
+            <p class="custom-amount-hint">Disponíveis: {{ gift.quantity_available }}</p>
+          </div>
+
           <div v-if="gift.is_fallback_donation" class="custom-amount-group">
             <label for="custom-amount" class="custom-amount-label">Valor da doação</label>
             <input
@@ -277,6 +360,9 @@ async function handleRetry() {
             <span class="price-label">Valor:</span>
             <span class="price-value">R$ {{ formatPrice(effectiveAmountInCents) }}</span>
           </div>
+          <p v-if="isQuotaPurchase" class="custom-amount-hint">
+            {{ selectedQuotaQuantity }} cota(s) x R$ {{ formatPrice(gift.display_price) }}
+          </p>
         </div>
       </div>
 
@@ -289,7 +375,7 @@ async function handleRetry() {
           <p class="error-message">{{ displayError }}</p>
           <div class="error-actions">
             <button
-              v-if="!customAmountError"
+              v-if="!customAmountError && !quotaQuantityError"
               @click="handleRetry"
               class="error-retry"
             >
@@ -308,7 +394,7 @@ async function handleRetry() {
           <button
             @click="selectPaymentMethod('credit_card')"
             :class="['payment-method-button', { active: paymentMethod === 'credit_card' }]"
-            :disabled="loading || !!customAmountError"
+            :disabled="loading || !!customAmountError || !!quotaQuantityError"
           >
             <svg class="method-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -319,7 +405,7 @@ async function handleRetry() {
           <button
             @click="selectPaymentMethod('pix')"
             :class="['payment-method-button', { active: paymentMethod === 'pix' }]"
-            :disabled="loading || !!customAmountError"
+            :disabled="loading || !!customAmountError || !!quotaQuantityError"
           >
             <svg class="method-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -485,6 +571,60 @@ async function handleRetry() {
   flex-direction: column;
   gap: 0.375rem;
   margin-top: 0.5rem;
+}
+
+.quota-quantity-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+.quota-quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.quota-qty-button {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: white;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.quota-qty-button:hover:not(:disabled) {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.quota-qty-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quota-qty-input {
+  width: 5rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.quota-qty-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 .custom-amount-label {

@@ -259,7 +259,7 @@ class GiftService
      * @param string $itemId
      * @return bool
      */
-    public function validateGiftAvailability(string $itemId): bool
+    public function validateGiftAvailability(string $itemId, int $quantity = 1): bool
     {
         $giftItem = GiftItem::withoutGlobalScopes()->find($itemId);
 
@@ -267,7 +267,15 @@ class GiftService
             return false;
         }
 
-        return $giftItem->isAvailable();
+        if (!$giftItem->isAvailable()) {
+            return false;
+        }
+
+        if ($giftItem->is_fallback_donation) {
+            return true;
+        }
+
+        return $giftItem->quantity_available >= max(1, $quantity);
     }
 
     /**
@@ -276,11 +284,11 @@ class GiftService
      * @param string $itemId
      * @return void
      */
-    public function decrementGiftQuantity(string $itemId): void
+    public function decrementGiftQuantity(string $itemId, int $quantity = 1): void
     {
-        DB::transaction(function () use ($itemId) {
+        DB::transaction(function () use ($itemId, $quantity) {
             $giftItem = GiftItem::withoutGlobalScopes()->lockForUpdate()->findOrFail($itemId);
-            $giftItem->decrementQuantity();
+            $giftItem->decrementQuantity(max(1, $quantity));
         });
     }
 }

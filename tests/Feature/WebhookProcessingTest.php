@@ -234,4 +234,47 @@ class WebhookProcessingTest extends TestCase
 
         $response->assertStatus(400);
     }
+
+    /** @test */
+    public function it_decrements_gift_by_purchased_quantity_when_payment_is_confirmed()
+    {
+        $wedding = Wedding::factory()->create();
+        $giftItem = GiftItem::factory()->create([
+            'wedding_id' => $wedding->id,
+            'quantity_available' => 10,
+            'quantity_sold' => 0,
+        ]);
+
+        $transaction = Transaction::factory()->create([
+            'wedding_id' => $wedding->id,
+            'gift_item_id' => $giftItem->id,
+            'purchased_quantity' => 3,
+            'pagseguro_transaction_id' => 'PAGSEG-TEST-MULTI-QUOTA',
+            'status' => 'pending',
+            'confirmed_at' => null,
+        ]);
+
+        $payload = json_encode([
+            'event_type' => 'CHARGE.PAID',
+            'data' => [
+                'id' => 'PAGSEG-TEST-MULTI-QUOTA',
+                'status' => 'PAID',
+            ],
+        ]);
+
+        $signature = hash_hmac('sha256', $payload, 'test-webhook-secret');
+
+        $response = $this->postJson('/api/webhooks/pagseguro', json_decode($payload, true), [
+            'X-PagSeguro-Signature' => $signature,
+        ]);
+
+        $response->assertStatus(204);
+
+        $transaction->refresh();
+        $this->assertEquals('confirmed', $transaction->status);
+
+        $giftItem->refresh();
+        $this->assertEquals(7, $giftItem->quantity_available);
+        $this->assertEquals(3, $giftItem->quantity_sold);
+    }
 }

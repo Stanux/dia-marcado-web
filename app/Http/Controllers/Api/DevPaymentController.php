@@ -30,7 +30,10 @@ class DevPaymentController extends Controller
 
         DB::transaction(function () use ($transaction, $giftService) {
             $transaction->markAsConfirmed();
-            $giftService->decrementGiftQuantity($transaction->gift_item_id);
+            $giftService->decrementGiftQuantity(
+                $transaction->gift_item_id,
+                (int) ($transaction->purchased_quantity ?? 1)
+            );
         });
 
         return response()->json([

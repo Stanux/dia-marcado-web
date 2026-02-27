@@ -192,14 +192,20 @@ class GiftItem extends WeddingScopedModel
     /**
      * Decrement the quantity available.
      */
-    public function decrementQuantity(): void
+    public function decrementQuantity(int $quantity = 1): void
     {
         if ($this->is_fallback_donation) {
             return;
         }
 
-        $this->decrement('quantity_available');
-        $this->increment('quantity_sold');
+        $quantity = max(1, $quantity);
+
+        if ($this->quantity_available < $quantity) {
+            throw new \InvalidArgumentException('Quantidade solicitada indisponível para este presente.');
+        }
+
+        $this->decrement('quantity_available', $quantity);
+        $this->increment('quantity_sold', $quantity);
         
         // Mark as sold out if quantity reaches zero
         if ($this->quantity_available <= 0) {

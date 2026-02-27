@@ -516,4 +516,118 @@ class GiftControllerTest extends TestCase
         $this->assertEquals($customAmount, $transaction->gross_amount);
         $this->assertEquals($customAmount, $transaction->original_unit_price);
     }
+
+    /** @test */
+    public function it_allows_buying_multiple_quotas_in_quota_mode()
+    {
+        $wedding = Wedding::factory()->create();
+        $config = GiftRegistryConfig::withoutGlobalScopes()->where('wedding_id', $wedding->id)->first();
+        $config->update([
+            'registry_mode' => 'quota',
+            'fee_modality' => 'couple_pays',
+        ]);
+
+        $gift = GiftItem::factory()->create([
+            'wedding_id' => $wedding->id,
+            'price' => 100000, // total target
+            'quantity_available' => 4,
+            'quantity_sold' => 0,
+            'is_enabled' => true,
+            'is_fallback_donation' => false,
+        ]);
+
+        // quota unit price = round(100000 / 4) = 25000
+        // buying 2 quotas => 50000
+        $mockPagSeguroClient = Mockery::mock(PagSeguroClient::class);
+        $mockPagSeguroClient->shouldReceive('createPixCharge')
+            ->once()
+            ->andReturn([
+                'transaction_id' => 'PAGSEG-PIX-' . Str::random(20),
+                'status' => 'WAITING',
+                'qr_code' => 'qr-code-content',
+                'qr_code_text' => 'qr-code-text',
+                'qr_code_base64' => 'base64',
+                'expires_at' => now()->addMinutes(30)->toIso8601String(),
+            ]);
+        $this->app->instance(PagSeguroClient::class, $mockPagSeguroClient);
+
+        $response = $this->postJson("/api/events/{$wedding->id}/gifts/{$gift->id}/purchase", [
+            'payment_method' => 'pix',
+            'idempotency_key' => Str::random(32),
+            'quantity' => 2,
+            'payer' => [
+                'name' => 'Test Buyer',
+                'email' => 'buyer@example.com',
+                'document' => '12345678901',
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.quantity', 2);
+        $response->assertJsonPath('data.amount', 50000);
+
+        $transaction = Transaction::withoutGlobalScopes()
+            ->where('internal_id', $response->json('data.transaction_id'))
+            ->firstOrFail();
+
+        $this->assertEquals(2, $transaction->purchased_quantity);
+        $this->assertEquals(25000, $transaction->original_unit_price);
+        $this->assertEquals(50000, $transaction->gross_amount);
+    }
+
+    /** @test */
+    public function it_rejects_multiple_units_purchase_when_registry_mode_is_quantity()
+    {
+        $wedding = Wedding::factory()->create();
+        $gift = GiftItem::factory()->create([
+            'wedding_id' => $wedding->id,
+            'quantity_available' => 5,
+            'is_enabled' => true,
+            'is_fallback_donation' => false,
+        ]);
+
+        $response = $this->postJson("/api/events/{$wedding->id}/gifts/{$gift->id}/purchase", [
+            'payment_method' => 'pix',
+            'idempotency_key' => Str::random(32),
+            'quantity' => 2,
+            'payer' => [
+                'name' => 'Test Buyer',
+                'email' => 'buyer@example.com',
+                'document' => '12345678901',
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('message', 'Compra de múltiplas unidades está disponível apenas no modo Cota.');
+    }
+
+    /** @test */
+    public function it_rejects_quota_purchase_above_available_quantity()
+    {
+        $wedding = Wedding::factory()->create();
+        $config = GiftRegistryConfig::withoutGlobalScopes()->where('wedding_id', $wedding->id)->first();
+        $config->update(['registry_mode' => 'quota']);
+
+        $gift = GiftItem::factory()->create([
+            'wedding_id' => $wedding->id,
+            'quantity_available' => 2,
+            'quantity_sold' => 1,
+            'is_enabled' => true,
+            'is_fallback_donation' => false,
+        ]);
+
+        $response = $this->postJson("/api/events/{$wedding->id}/gifts/{$gift->id}/purchase", [
+            'payment_method' => 'pix',
+            'idempotency_key' => Str::random(32),
+            'quantity' => 3,
+            'payer' => [
+                'name' => 'Test Buyer',
+                'email' => 'buyer@example.com',
+                'document' => '12345678901',
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('message', 'Quantidade de cotas indisponível para este presente.');
+    }
 }

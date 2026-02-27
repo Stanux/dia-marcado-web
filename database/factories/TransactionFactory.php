@@ -44,6 +44,7 @@ class TransactionFactory extends Factory
             'pagseguro_transaction_id' => 'PS-' . Str::upper(Str::random(20)),
             'wedding_id' => Wedding::factory(),
             'gift_item_id' => GiftItem::factory(),
+            'purchased_quantity' => 1,
             'original_unit_price' => $originalPrice,
             'fee_percentage' => $feePercentage,
             'fee_modality' => $feeModality,

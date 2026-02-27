@@ -6,6 +6,7 @@ use App\Models\GiftItem;
 use App\Models\GiftRegistryConfig;
 use App\Models\Transaction;
 use App\Services\FeeCalculator;
+use App\Services\GiftRegistryModeService;
 use App\ValueObjects\PaymentAmounts;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -38,10 +39,12 @@ class PaymentService
         string $paymentMethod,
         array $paymentData,
         string $idempotencyKey,
-        ?int $customAmount = null
+        ?int $customAmount = null,
+        int $quantity = 1
     ): Transaction {
         // Validate single item purchase limit (Requirement 2.7)
         $this->validateSingleItemPurchase($giftItem);
+        $effectiveQuantity = $this->resolvePurchaseQuantity($giftItem, $quantity);
 
         // Validate idempotency key format
         if (!$this->idempotencyService->isValidKeyFormat($idempotencyKey)) {
@@ -69,10 +72,10 @@ class PaymentService
             ->firstOrFail();
 
         // Calculate payment amounts
-        $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount);
+        $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount, $effectiveQuantity);
         $originalUnitPrice = $giftItem->is_fallback_donation
             ? ($customAmount ?? $giftItem->minimum_custom_amount ?? $giftItem->price)
-            : $giftItem->price;
+            : $this->resolveChargeUnitPrice($giftItem, $config);
 
         // Create transaction record with idempotency key in a single DB transaction
         $transaction = DB::transaction(function () use (
@@ -81,7 +84,8 @@ class PaymentService
             $amounts,
             $config,
             $idempotencyKey,
-            $originalUnitPrice
+            $originalUnitPrice,
+            $effectiveQuantity
         ) {
             // Double-check idempotency within transaction (race condition protection)
             $existingTransaction = $this->idempotencyService->getTransaction($idempotencyKey);
@@ -93,6 +97,7 @@ class PaymentService
                 'internal_id' => $this->generateInternalId(),
                 'wedding_id' => $giftItem->wedding_id,
                 'gift_item_id' => $giftItem->id,
+                'purchased_quantity' => $effectiveQuantity,
                 'original_unit_price' => $originalUnitPrice,
                 'fee_percentage' => $config->getFeePercentage(),
                 'fee_modality' => $config->fee_modality,
@@ -118,6 +123,7 @@ class PaymentService
             'transaction_id' => $transaction->id,
             'internal_id' => $transaction->internal_id,
             'payment_method' => $paymentMethod,
+            'purchased_quantity' => $effectiveQuantity,
             'gross_amount' => $amounts->grossAmount,
         ]);
 
@@ -134,7 +140,8 @@ class PaymentService
     public function calculatePaymentAmounts(
         GiftItem $giftItem,
         GiftRegistryConfig $config,
-        ?int $customAmount = null
+        ?int $customAmount = null,
+        int $quantity = 1
     ): PaymentAmounts {
         if ($giftItem->is_fallback_donation) {
             $minimumAmount = max(5000, (int) ($giftItem->minimum_custom_amount ?? 0));
@@ -149,8 +156,31 @@ class PaymentService
             return $this->calculateFallbackDonationAmounts($effectiveAmount, $config->getFeePercentage());
         }
 
+        $quantity = max(1, $quantity);
+        $unitPrice = $this->resolveChargeUnitPrice($giftItem, $config);
+        $lineTotalPrice = (int) ($unitPrice * $quantity);
+
+        if ($config->fee_modality === 'guest_pays') {
+            $displayUnitPrice = $this->feeCalculator->calculateDisplayPrice(
+                $unitPrice,
+                $config->getFeePercentage(),
+                $config->fee_modality
+            );
+            $grossAmount = $displayUnitPrice * $quantity;
+            $netAmountCouple = $lineTotalPrice;
+            $feeAmount = $grossAmount - $netAmountCouple;
+
+            return new PaymentAmounts(
+                displayPrice: $grossAmount,
+                grossAmount: $grossAmount,
+                feeAmount: $feeAmount,
+                netAmountCouple: $netAmountCouple,
+                platformAmount: $feeAmount,
+            );
+        }
+
         return $this->feeCalculator->calculate(
-            $giftItem->price,
+            $lineTotalPrice,
             $config->getFeePercentage(),
             $config->fee_modality
         );
@@ -171,11 +201,17 @@ class PaymentService
         string $cardToken,
         array $billingData,
         string $idempotencyKey,
-        ?int $customAmount = null
+        ?int $customAmount = null,
+        int $quantity = 1
     ): Transaction {
+        $effectiveQuantity = $this->resolvePurchaseQuantity($giftItem, $quantity);
+
         // Validate gift availability
         if (!$giftItem->isAvailable()) {
             throw new \InvalidArgumentException('Presente não está disponível para compra');
+        }
+        if (!$giftItem->is_fallback_donation && $giftItem->quantity_available < $effectiveQuantity) {
+            throw new \InvalidArgumentException('Quantidade de cotas indisponível para este presente.');
         }
 
         // Create transaction record first
@@ -184,7 +220,8 @@ class PaymentService
             'credit_card',
             ['card_token' => $cardToken, 'billing_data' => $billingData],
             $idempotencyKey,
-            $customAmount
+            $customAmount,
+            $effectiveQuantity
         );
 
         // If transaction already existed (idempotency), return it
@@ -197,14 +234,19 @@ class PaymentService
             $config = GiftRegistryConfig::withoutGlobalScopes()
                 ->where('wedding_id', $giftItem->wedding_id)
                 ->firstOrFail();
-            $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount);
+            $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount, $effectiveQuantity);
+
+            $description = $giftItem->is_fallback_donation
+                ? 'Doação livre para o casal'
+                : "Presente: {$giftItem->name}";
+            if (!$giftItem->is_fallback_donation && $effectiveQuantity > 1) {
+                $description .= " ({$effectiveQuantity} cotas)";
+            }
 
             // Prepare charge data for PagSeguro
             $chargeData = [
                 'reference_id' => $transaction->internal_id,
-                'description' => $giftItem->is_fallback_donation
-                    ? 'Doação livre para o casal'
-                    : "Presente: {$giftItem->name}",
+                'description' => $description,
                 'amount' => [
                     'value' => $amounts->grossAmount, // Amount in cents
                     'currency' => 'BRL',
@@ -271,11 +313,17 @@ class PaymentService
         GiftItem $giftItem,
         array $payerData,
         string $idempotencyKey,
-        ?int $customAmount = null
+        ?int $customAmount = null,
+        int $quantity = 1
     ): array {
+        $effectiveQuantity = $this->resolvePurchaseQuantity($giftItem, $quantity);
+
         // Validate gift availability
         if (!$giftItem->isAvailable()) {
             throw new \InvalidArgumentException('Presente não está disponível para compra');
+        }
+        if (!$giftItem->is_fallback_donation && $giftItem->quantity_available < $effectiveQuantity) {
+            throw new \InvalidArgumentException('Quantidade de cotas indisponível para este presente.');
         }
 
         // Create transaction record first
@@ -284,7 +332,8 @@ class PaymentService
             'pix',
             ['payer_data' => $payerData],
             $idempotencyKey,
-            $customAmount
+            $customAmount,
+            $effectiveQuantity
         );
 
         // If transaction already existed (idempotency), return stored QR code
@@ -303,7 +352,14 @@ class PaymentService
             $config = GiftRegistryConfig::withoutGlobalScopes()
                 ->where('wedding_id', $giftItem->wedding_id)
                 ->firstOrFail();
-            $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount);
+            $amounts = $this->calculatePaymentAmounts($giftItem, $config, $customAmount, $effectiveQuantity);
+
+            $itemName = $giftItem->is_fallback_donation
+                ? 'Doação livre para o casal'
+                : $giftItem->name;
+            if (!$giftItem->is_fallback_donation && $effectiveQuantity > 1) {
+                $itemName .= " ({$effectiveQuantity} cotas)";
+            }
 
             $orderData = [
                 'reference_id' => $transaction->internal_id,
@@ -314,9 +370,7 @@ class PaymentService
                 ],
                 'items' => [
                     [
-                        'name' => $giftItem->is_fallback_donation
-                            ? 'Doação livre para o casal'
-                            : $giftItem->name,
+                        'name' => $itemName,
                         'quantity' => 1,
                         'unit_amount' => $amounts->grossAmount,
                     ],
@@ -485,5 +539,29 @@ class PaymentService
             'gift_item_id' => $giftItem->id,
             'gift_name' => $giftItem->name,
         ]);
+    }
+
+    private function resolvePurchaseQuantity(GiftItem $giftItem, int $quantity): int
+    {
+        if ($giftItem->is_fallback_donation) {
+            return 1;
+        }
+
+        return max(1, $quantity);
+    }
+
+    private function resolveChargeUnitPrice(GiftItem $giftItem, GiftRegistryConfig $config): int
+    {
+        if ($giftItem->is_fallback_donation) {
+            return (int) ($giftItem->minimum_custom_amount ?? $giftItem->price);
+        }
+
+        $registryMode = strtolower((string) ($config->registry_mode ?? GiftRegistryModeService::MODE_QUANTITY));
+
+        if ($registryMode === GiftRegistryModeService::MODE_QUOTA) {
+            return $giftItem->getQuotaUnitPrice();
+        }
+
+        return (int) $giftItem->price;
     }
 }

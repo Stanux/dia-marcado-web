@@ -142,10 +142,35 @@ class GiftController extends Controller
         $validated = $request->validated();
         $paymentMethod = $validated['payment_method'];
         $idempotencyKey = $validated['idempotency_key'];
+        $requestedQuantity = max(1, (int) ($validated['quantity'] ?? 1));
+        $purchaseQuantity = 1;
         $customAmount = null;
 
+        $config = GiftRegistryConfig::withoutGlobalScopes()
+            ->where('wedding_id', $eventId)
+            ->first();
+        $registryMode = strtolower((string) ($config?->registry_mode ?? GiftRegistryModeService::MODE_QUANTITY));
+
+        if (!$gift->is_fallback_donation) {
+            if ($registryMode === GiftRegistryModeService::MODE_QUOTA) {
+                $purchaseQuantity = $requestedQuantity;
+            } elseif ($requestedQuantity > 1) {
+                return response()->json([
+                    'error' => 'Validation Error',
+                    'message' => 'Compra de múltiplas unidades está disponível apenas no modo Cota.',
+                ], 422);
+            }
+
+            if ($purchaseQuantity > 1 && $purchaseQuantity > $gift->quantity_available) {
+                return response()->json([
+                    'error' => 'Validation Error',
+                    'message' => 'Quantidade de cotas indisponível para este presente.',
+                ], 422);
+            }
+        }
+
         // Validate gift availability
-        if (!$this->giftService->validateGiftAvailability($giftId)) {
+        if (!$this->giftService->validateGiftAvailability($giftId, $purchaseQuantity)) {
             return response()->json([
                 'error' => 'Unavailable',
                 'message' => 'Este presente não está mais disponível.',
@@ -188,7 +213,8 @@ class GiftController extends Controller
                     $validated['card_token'],
                     $billingData,
                     $idempotencyKey,
-                    $customAmount
+                    $customAmount,
+                    $purchaseQuantity
                 );
 
                 return response()->json([
@@ -196,6 +222,7 @@ class GiftController extends Controller
                         'transaction_id' => $transaction->internal_id,
                         'status' => $transaction->status,
                         'payment_method' => 'credit_card',
+                        'quantity' => $transaction->purchased_quantity,
                         'amount' => $transaction->gross_amount,
                         'amount_formatted' => 'R$ ' . number_format($transaction->gross_amount / 100, 2, ',', '.'),
                     ],
@@ -216,7 +243,8 @@ class GiftController extends Controller
                     $gift,
                     $payerData,
                     $idempotencyKey,
-                    $customAmount
+                    $customAmount,
+                    $purchaseQuantity
                 );
 
                 return response()->json([
@@ -224,6 +252,7 @@ class GiftController extends Controller
                         'transaction_id' => $result['transaction']->internal_id,
                         'status' => $result['transaction']->status,
                         'payment_method' => 'pix',
+                        'quantity' => $result['transaction']->purchased_quantity,
                         'amount' => $result['transaction']->gross_amount,
                         'amount_formatted' => 'R$ ' . number_format($result['transaction']->gross_amount / 100, 2, ',', '.'),
                         'qr_code' => $result['qr_code'],
