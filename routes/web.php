@@ -8,6 +8,7 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\Planning\PlanExportController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\TemplateEditorController;
+use App\Filament\Resources\TransactionResource;
 use App\Models\PartnerInvite;
 use App\Models\SiteLayout;
 use App\Models\SiteTemplate;
@@ -96,6 +97,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth'])->prefix('admin/site-templates')->group(function () {
     Route::get('/{template}/editor', [TemplateEditorController::class, 'edit'])
         ->name('site-templates.editor');
+});
+
+Route::middleware(['auth'])->prefix('admin')->group(function () {
+    Route::get('/transactions/export-all', function () {
+        abort_unless(TransactionResource::canAccess(), 403);
+
+        $records = TransactionResource::getEloquentQuery()
+            ->with('giftItem')
+            ->get();
+
+        return TransactionResource::exportToCsv($records);
+    })->name('admin.transactions.export-all');
 });
 
 // Site Editor routes (Inertia-based)

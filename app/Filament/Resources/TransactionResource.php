@@ -10,7 +10,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Tables\Actions\Action;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 
@@ -327,24 +326,13 @@ class TransactionResource extends Resource
                         return static::exportToCsv($records);
                     }),
             ])
-            ->headerActions([
-                Action::make('export_all')
-                    ->label('Exportar Tudo (CSV)')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('success')
-                    ->action(function () {
-                        $query = static::getEloquentQuery();
-                        $records = $query->with('giftItem')->get();
-                        return static::exportToCsv($records);
-                    }),
-            ])
             ->defaultSort('created_at', 'desc');
     }
 
     /**
      * Export transactions to CSV
      */
-    protected static function exportToCsv($records)
+    public static function exportToCsv($records)
     {
         $filename = 'transacoes_' . now()->format('Y-m-d_His') . '.csv';
         $headers = [

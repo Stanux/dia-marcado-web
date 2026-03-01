@@ -9,6 +9,16 @@ class ListTransactions extends ListRecords
 {
     protected static string $resource = TransactionResource::class;
 
+    public function getTitle(): string
+    {
+        return 'Recebimentos';
+    }
+
+    public function getHeading(): string
+    {
+        return '';
+    }
+
     protected function getHeaderActions(): array
     {
         return [];

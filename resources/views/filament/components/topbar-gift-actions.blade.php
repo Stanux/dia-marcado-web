@@ -1,0 +1,2 @@
+@livewire('topbar-gift-actions')
+

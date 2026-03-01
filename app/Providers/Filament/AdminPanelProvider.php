@@ -2,6 +2,13 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Resources\GiftItemResource\Pages\ListGiftItems;
+use App\Filament\Resources\GiftItemResource\Pages\CreateGiftItem;
+use App\Filament\Resources\SiteLayoutResource\Pages\ListSiteLayouts;
+use App\Filament\Resources\SiteTemplateResource\Pages\ListSiteTemplates;
+use App\Filament\Resources\TransactionResource\Pages\ListTransactions;
+use App\Filament\Resources\WeddingPlanResource\Pages\ListWeddingPlans;
+use App\Filament\Pages\WeddingSettings;
 use App\Filament\Pages\Auth\Register;
 use App\Filament\Pages\MyPlan;
 use App\Http\Middleware\EnsureOnboardingComplete;
@@ -42,7 +49,42 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 'panels::topbar.start',
                 fn () => view('filament.components.topbar')
-            )            
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-gift-actions'),
+                scopes: ListGiftItems::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-gift-create-actions'),
+                scopes: CreateGiftItem::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-settings-actions'),
+                scopes: WeddingSettings::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-transactions-actions'),
+                scopes: ListTransactions::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-site-layouts-actions'),
+                scopes: ListSiteLayouts::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-site-templates-actions'),
+                scopes: ListSiteTemplates::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-plans-actions'),
+                scopes: ListWeddingPlans::class,
+            )
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
                 fn () => view('filament.auth.google-oauth-button')

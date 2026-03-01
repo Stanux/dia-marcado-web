@@ -4,10 +4,27 @@ namespace App\Filament\Resources\GiftItemResource\Pages;
 
 use App\Filament\Resources\GiftItemResource;
 use Filament\Resources\Pages\CreateRecord;
+use Livewire\Attributes\On;
 
 class CreateGiftItem extends CreateRecord
 {
     protected static string $resource = GiftItemResource::class;
+
+    public function getHeading(): string
+    {
+        return '';
+    }
+
+    #[On('topbar-gift-create-another')]
+    public function createAnotherFromTopbar(): void
+    {
+        $this->create(another: true);
+    }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {

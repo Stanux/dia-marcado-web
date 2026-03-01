@@ -18,6 +18,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -78,6 +79,11 @@ class WeddingSettings extends Page implements HasForms
             'venue_neighborhood' => $wedding->settings['venue_neighborhood'] ?? null,
             'venue_phone' => $wedding->settings['venue_phone'] ?? null,
         ], $partnerData));
+    }
+
+    public function getHeading(): string|Htmlable
+    {
+        return '';
     }
 
     /**
