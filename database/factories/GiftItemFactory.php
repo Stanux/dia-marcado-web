@@ -68,7 +68,7 @@ class GiftItemFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'quantity_available' => 0,
             'quantity_sold' => $attributes['original_quantity'],
-            'is_enabled' => false,
+            'is_enabled' => true,
         ]);
     }
 

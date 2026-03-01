@@ -237,20 +237,43 @@ class GiftService
     {
         $registryMode = strtolower(trim($registryMode));
 
-        $regularGifts = $this->getAvailableGifts($weddingId, $sortBy);
+        $regularGifts = $this->getVisibleRegularGifts($weddingId, $sortBy);
 
         if ($registryMode !== GiftRegistryModeService::MODE_QUOTA) {
             return $regularGifts;
         }
 
-        if ($regularGifts->isNotEmpty()) {
+        $hasAvailableRegularGift = $regularGifts->contains(static function (GiftItem $gift): bool {
+            return $gift->isAvailable();
+        });
+
+        if ($hasAvailableRegularGift) {
             return $regularGifts;
         }
 
         $modeService = $this->modeService ?? app(GiftRegistryModeService::class);
         $fallback = $modeService->ensureFallbackDonationItem($weddingId);
 
-        return collect([$fallback]);
+        return $regularGifts->push($fallback);
+    }
+
+    /**
+     * Get gifts visible in the public catalog, including sold out items.
+     */
+    private function getVisibleRegularGifts(string $weddingId, ?string $sortBy = 'price'): Collection
+    {
+        $query = GiftItem::withoutGlobalScopes()
+            ->where('wedding_id', $weddingId)
+            ->where('is_fallback_donation', false)
+            ->where('is_enabled', true);
+
+        if ($sortBy === 'price' || $sortBy === 'price_asc') {
+            $query->orderBy('price', 'asc');
+        } elseif ($sortBy === 'price_desc') {
+            $query->orderBy('price', 'desc');
+        }
+
+        return $query->get();
     }
 
     /**

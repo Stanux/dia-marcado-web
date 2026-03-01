@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Models\GiftItem;
+use App\Models\GiftRegistryConfig;
 use App\Models\Wedding;
 use App\Services\GiftService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -232,6 +233,57 @@ class GiftServiceTest extends TestCase
     }
 
     /** @test */
+    public function it_includes_sold_out_items_in_public_catalog()
+    {
+        GiftItem::factory()->create([
+            'wedding_id' => $this->wedding->id,
+            'is_enabled' => true,
+            'quantity_available' => 1,
+            'price' => 10000,
+        ]);
+
+        $soldOut = GiftItem::factory()->create([
+            'wedding_id' => $this->wedding->id,
+            'is_enabled' => true,
+            'quantity_available' => 0,
+            'quantity_sold' => 2,
+            'price' => 20000,
+        ]);
+
+        $gifts = $this->giftService->getPublicGifts($this->wedding->id, 'quantity');
+
+        $this->assertCount(2, $gifts);
+        $this->assertTrue($gifts->contains(fn (GiftItem $gift) => $gift->id === $soldOut->id));
+    }
+
+    /** @test */
+    public function it_appends_fallback_in_quota_mode_when_all_regular_items_are_sold_out()
+    {
+        GiftRegistryConfig::create([
+            'wedding_id' => $this->wedding->id,
+            'registry_mode' => 'quota',
+            'is_enabled' => true,
+            'section_title' => 'Lista de Presentes',
+            'fee_modality' => 'couple_pays',
+        ]);
+
+        $soldOut = GiftItem::factory()->create([
+            'wedding_id' => $this->wedding->id,
+            'is_enabled' => true,
+            'quantity_available' => 0,
+            'quantity_sold' => 3,
+            'is_fallback_donation' => false,
+            'price' => 30000,
+        ]);
+
+        $gifts = $this->giftService->getPublicGifts($this->wedding->id, 'quota');
+
+        $this->assertCount(2, $gifts);
+        $this->assertTrue($gifts->contains(fn (GiftItem $gift) => $gift->id === $soldOut->id));
+        $this->assertTrue($gifts->contains(fn (GiftItem $gift) => $gift->is_fallback_donation));
+    }
+
+    /** @test */
     public function it_validates_gift_availability_correctly()
     {
         $availableGift = GiftItem::factory()->create([
@@ -275,7 +327,7 @@ class GiftServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_disables_gift_when_quantity_reaches_zero()
+    public function it_keeps_gift_enabled_when_quantity_reaches_zero()
     {
         $giftItem = GiftItem::factory()->create([
             'wedding_id' => $this->wedding->id,
@@ -288,6 +340,7 @@ class GiftServiceTest extends TestCase
 
         $giftItem->refresh();
         $this->assertEquals(0, $giftItem->quantity_available);
-        $this->assertFalse($giftItem->is_enabled);
+        $this->assertTrue($giftItem->is_enabled);
+        $this->assertTrue($giftItem->isSoldOut());
     }
 }

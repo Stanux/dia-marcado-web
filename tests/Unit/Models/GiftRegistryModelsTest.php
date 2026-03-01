@@ -184,7 +184,7 @@ class GiftRegistryModelsTest extends TestCase
     }
 
     /** @test */
-    public function gift_item_decrement_quantity_marks_as_sold_out_when_zero()
+    public function gift_item_decrement_quantity_marks_as_sold_out_when_zero_without_disabling_item()
     {
         $wedding = Wedding::factory()->create();
         $giftItem = GiftItem::factory()->create([
@@ -198,7 +198,7 @@ class GiftRegistryModelsTest extends TestCase
 
         $giftItem->decrementQuantity();
 
-        $this->assertFalse($giftItem->is_enabled);
+        $this->assertTrue($giftItem->is_enabled);
         $this->assertEquals(0, $giftItem->quantity_available);
         $this->assertEquals(1, $giftItem->quantity_sold);
     }

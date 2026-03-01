@@ -17,7 +17,7 @@ class GiftControllerTest extends TestCase
     use RefreshDatabase;
 
     /** @test */
-    public function it_lists_available_gifts_for_an_event()
+    public function it_lists_public_gifts_for_an_event_including_sold_out_items()
     {
         // Disable observer to prevent auto-creation of default catalog
         Wedding::withoutEvents(function () use (&$wedding) {
@@ -49,7 +49,7 @@ class GiftControllerTest extends TestCase
             'is_enabled' => true,
         ]);
 
-        // Create unavailable gift (should not appear)
+        // Create unavailable gift (should still appear as sold out)
         GiftItem::factory()->create([
             'wedding_id' => $wedding->id,
             'name' => 'Unavailable Gift',
@@ -71,10 +71,13 @@ class GiftControllerTest extends TestCase
         $response = $this->getJson("/api/events/{$wedding->id}/gifts");
 
         $response->assertStatus(200);
-        $response->assertJsonCount(2, 'data');
+        $response->assertJsonCount(3, 'data');
         $response->assertJsonFragment(['name' => 'Gift 1']);
         $response->assertJsonFragment(['name' => 'Gift 2']);
-        $response->assertJsonMissing(['name' => 'Unavailable Gift']);
+        $response->assertJsonFragment([
+            'name' => 'Unavailable Gift',
+            'is_sold_out' => true,
+        ]);
         $response->assertJsonMissing(['name' => 'Disabled Gift']);
     }
 
@@ -386,7 +389,7 @@ class GiftControllerTest extends TestCase
     }
 
     /** @test */
-    public function it_returns_fallback_item_only_when_all_quota_items_are_sold_out()
+    public function it_returns_fallback_item_when_all_quota_items_are_sold_out()
     {
         $wedding = Wedding::factory()->create();
         $config = GiftRegistryConfig::withoutGlobalScopes()->where('wedding_id', $wedding->id)->first();
@@ -395,7 +398,7 @@ class GiftControllerTest extends TestCase
             'fee_modality' => 'guest_pays',
         ]);
 
-        GiftItem::factory()->create([
+        $soldOutGift = GiftItem::factory()->create([
             'wedding_id' => $wedding->id,
             'price' => 20000,
             'quantity_available' => 0,
@@ -417,21 +420,27 @@ class GiftControllerTest extends TestCase
                 'is_enabled' => true,
             ]);
 
+        $expectedCount = GiftItem::withoutGlobalScopes()
+            ->where('wedding_id', $wedding->id)
+            ->where('is_fallback_donation', false)
+            ->count() + 1;
+
         $response = $this->getJson("/api/events/{$wedding->id}/gifts");
 
         $response->assertStatus(200);
-        $response->assertJsonCount(1, 'data');
-        $response->assertJson([
-            'registry_mode' => 'quota',
-            'data' => [
-                [
-                    'id' => $fallback->id,
-                    'is_fallback_donation' => true,
-                    'allows_custom_amount' => true,
-                    'minimum_custom_amount' => 5000,
-                    'display_price' => 5000,
-                ],
-            ],
+        $response->assertJsonPath('registry_mode', 'quota');
+        $response->assertJsonCount($expectedCount, 'data');
+        $response->assertJsonFragment([
+            'id' => $soldOutGift->id,
+            'is_fallback_donation' => false,
+            'is_sold_out' => true,
+        ]);
+        $response->assertJsonFragment([
+            'id' => $fallback->id,
+            'is_fallback_donation' => true,
+            'allows_custom_amount' => true,
+            'minimum_custom_amount' => 5000,
+            'display_price' => 5000,
         ]);
     }
 

@@ -206,11 +206,5 @@ class GiftItem extends WeddingScopedModel
 
         $this->decrement('quantity_available', $quantity);
         $this->increment('quantity_sold', $quantity);
-        
-        // Mark as sold out if quantity reaches zero
-        if ($this->quantity_available <= 0) {
-            $this->is_enabled = false;
-            $this->save();
-        }
     }
 }
