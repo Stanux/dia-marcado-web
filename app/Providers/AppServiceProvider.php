@@ -45,6 +45,9 @@ use App\Services\Site\SiteBuilderService;
 use App\Services\Site\SiteValidatorService;
 use App\Services\Site\SiteVersionService;
 use App\Services\Site\SlugGeneratorService;
+use Filament\Notifications\Livewire\Notifications as FilamentNotifications;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\VerticalAlignment;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -92,6 +95,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        FilamentNotifications::alignment(Alignment::Right);
+        FilamentNotifications::verticalAlignment(VerticalAlignment::End);
+
         RateLimiter::for('filament-login', function (Request $request): array {
             $email = Str::lower((string) $request->input('email'));
             $identifier = $email !== '' ? $email : 'guest';

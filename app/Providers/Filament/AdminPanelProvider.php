@@ -4,14 +4,21 @@ namespace App\Providers\Filament;
 
 use App\Filament\Resources\GiftItemResource\Pages\ListGiftItems;
 use App\Filament\Resources\GiftItemResource\Pages\CreateGiftItem;
+use App\Filament\Resources\GiftItemResource\Pages\EditGiftItem;
 use App\Filament\Resources\SiteLayoutResource\Pages\ListSiteLayouts;
 use App\Filament\Resources\SiteTemplateResource\Pages\ListSiteTemplates;
+use App\Filament\Resources\TaskResource\Pages\CreateTask;
+use App\Filament\Resources\TaskResource\Pages\EditTask;
 use App\Filament\Resources\TransactionResource\Pages\ListTransactions;
 use App\Filament\Resources\UserResource\Pages\CreateUser;
 use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
 use App\Filament\Resources\WeddingPlanResource\Pages\CreateWeddingPlan;
+use App\Filament\Resources\WeddingPlanResource\Pages\EditWeddingPlan;
 use App\Filament\Resources\WeddingPlanResource\Pages\ListWeddingPlans;
+use App\Filament\Resources\WeddingVendorResource\Pages\CreateWeddingVendor;
+use App\Filament\Resources\WeddingVendorResource\Pages\EditWeddingVendor;
+use App\Filament\Resources\WeddingVendorResource\Pages\ListWeddingVendors;
 use App\Filament\Pages\WeddingSettings;
 use App\Filament\Pages\Auth\Register;
 use App\Filament\Pages\MyPlan;
@@ -66,6 +73,11 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-gift-edit-actions'),
+                scopes: EditGiftItem::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
                 fn () => view('filament.components.topbar-wedding-settings-actions'),
                 scopes: WeddingSettings::class,
             )
@@ -96,6 +108,21 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-plan-edit-actions'),
+                scopes: EditWeddingPlan::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-task-create-actions'),
+                scopes: CreateTask::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-task-edit-actions'),
+                scopes: EditTask::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
                 fn () => view('filament.components.topbar-users-actions'),
                 scopes: ListUsers::class,
             )
@@ -108,6 +135,21 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::TOPBAR_AFTER,
                 fn () => view('filament.components.topbar-user-edit-actions'),
                 scopes: EditUser::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-vendors-actions'),
+                scopes: ListWeddingVendors::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-vendor-create-actions'),
+                scopes: CreateWeddingVendor::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-vendor-edit-actions'),
+                scopes: EditWeddingVendor::class,
             )
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,

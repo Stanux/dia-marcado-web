@@ -3,32 +3,6 @@
 
     {{ \Filament\Support\Facades\FilamentView::renderHook(\Filament\View\PanelsRenderHook::RESOURCE_RELATION_MANAGER_BEFORE, scopes: $this->getRenderHookScopes()) }}
 
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <x-filament::button
-            type="button"
-            size="sm"
-            color="gray"
-            :icon="$this->isTimelineView ? 'heroicon-o-table-cells' : 'heroicon-o-calendar-days'"
-            wire:click="{{ $this->isTimelineView ? 'showTableView' : 'showTimelineView' }}"
-        >
-            {{ $this->isTimelineView ? 'Ver tabela' : 'Ver timeline' }}
-        </x-filament::button>
-
-        @if ($this->canCreate())
-            <x-filament::button
-                tag="a"
-                size="sm"
-                icon="heroicon-o-plus"
-                href="{{ \App\Filament\Resources\TaskResource::getUrl('create', [
-                    'plan' => $this->getOwnerRecord()->getKey(),
-                    'return_to_plan' => $this->getOwnerRecord()->getKey(),
-                ]) }}"
-            >
-                Criar tarefa
-            </x-filament::button>
-        @endif
-    </div>
-
     @if ($this->isTimelineView)
         @php
             $tasks = $this->getTimelineTasks();

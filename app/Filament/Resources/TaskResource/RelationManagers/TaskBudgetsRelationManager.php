@@ -142,7 +142,16 @@ class TaskBudgetsRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make(),
+                Tables\Actions\CreateAction::make()
+                    ->label('Cadastrar orçamento')
+                    ->modalHeading('Cadastrar orçamento')
+                    ->modalSubmitActionLabel('Salvar')
+                    ->createAnother()
+                    ->extraModalFooterActions(fn (Tables\Actions\CreateAction $action): array => [
+                        $action
+                            ->makeModalSubmitAction('createAnother', ['another' => true])
+                            ->label('Salvar e criar outro'),
+                    ]),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()

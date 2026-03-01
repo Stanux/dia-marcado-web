@@ -2,16 +2,23 @@
 
 namespace App\Livewire;
 
+use App\Filament\Pages\PlanningDashboard;
 use App\Filament\Pages\WeddingSettings;
 use App\Filament\Resources\GiftItemResource;
 use App\Filament\Resources\SiteLayoutResource;
 use App\Filament\Resources\SiteTemplateResource;
+use App\Filament\Resources\TaskResource;
 use App\Filament\Resources\TransactionResource;
 use App\Filament\Resources\UserResource;
 use App\Filament\Resources\WeddingPlanResource;
+use App\Filament\Resources\WeddingVendorResource;
+use App\Models\GiftItem;
 use App\Models\GiftRegistryConfig;
 use App\Models\SiteLayout;
+use App\Models\Task;
 use App\Models\Wedding;
+use App\Models\WeddingPlan;
+use App\Models\WeddingVendor;
 use App\Services\GiftRegistryModeService;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -23,18 +30,26 @@ class TopbarTitle extends Component
     public string $title = '';
     public bool $isGiftItemsListPage = false;
     public bool $isGiftItemsCreatePage = false;
+    public bool $isGiftItemsEditPage = false;
     public bool $isWeddingSettingsPage = false;
     public bool $isTransactionsListPage = false;
     public bool $isSiteLayoutsListPage = false;
     public bool $isSiteTemplatesListPage = false;
     public bool $isWeddingPlansListPage = false;
     public bool $isWeddingPlansCreatePage = false;
+    public bool $isWeddingPlansEditPage = false;
+    public bool $isTaskCreatePage = false;
+    public bool $isTaskEditPage = false;
     public bool $isUsersListPage = false;
     public bool $isUsersCreatePage = false;
     public bool $isUsersEditPage = false;
+    public bool $isWeddingVendorsListPage = false;
+    public bool $isWeddingVendorsCreatePage = false;
+    public bool $isWeddingVendorsEditPage = false;
     public string $giftRegistryMode = GiftRegistryModeService::MODE_QUANTITY;
     public string $giftItemsIndexUrl = '';
     public string $giftItemsCreateUrl = '';
+    public bool $canDeleteGiftItem = false;
     public string $transactionsIndexUrl = '';
     public string $transactionsExportUrl = '';
     public string $siteLayoutsIndexUrl = '';
@@ -45,11 +60,23 @@ class TopbarTitle extends Component
     public bool $canCreateTemplate = false;
     public string $weddingPlansIndexUrl = '';
     public string $weddingPlansCreateUrl = '';
+    public string $weddingPlanDashboardUrl = '';
+    public string $weddingPlanCreateTaskUrl = '';
+    public bool $isWeddingPlanTimelineView = false;
+    public bool $canCreateWeddingPlanTask = false;
+    public bool $canArchiveWeddingPlan = false;
+    public bool $canUnarchiveWeddingPlan = false;
     public bool $canCreateWeddingPlan = false;
+    public string $taskCreateReturnUrl = '';
+    public bool $canDeleteTask = false;
     public string $usersIndexUrl = '';
     public string $usersCreateUrl = '';
     public bool $canCreateUser = false;
     public string $usersCreateLabel = 'Novo Usuário';
+    public string $weddingVendorsIndexUrl = '';
+    public string $weddingVendorsCreateUrl = '';
+    public bool $canCreateWeddingVendor = false;
+    public bool $canDeleteWeddingVendor = false;
 
     public function mount(): void
     {
@@ -62,19 +89,39 @@ class TopbarTitle extends Component
         $routeName = request()->route()?->getName() ?? '';
         $this->isGiftItemsListPage = $routeName === 'filament.admin.resources.gift-items.index';
         $this->isGiftItemsCreatePage = $routeName === 'filament.admin.resources.gift-items.create';
+        $this->isGiftItemsEditPage = $routeName === 'filament.admin.resources.gift-items.edit';
         $this->isWeddingSettingsPage = $routeName === 'filament.admin.pages.wedding-settings';
         $this->isTransactionsListPage = $routeName === 'filament.admin.resources.transactions.index';
         $this->isSiteLayoutsListPage = $routeName === 'filament.admin.resources.site-layouts.index';
         $this->isSiteTemplatesListPage = $routeName === 'filament.admin.resources.site-templates.index';
         $this->isWeddingPlansListPage = $routeName === 'filament.admin.resources.wedding-plans.index';
         $this->isWeddingPlansCreatePage = $routeName === 'filament.admin.resources.wedding-plans.create';
+        $this->isWeddingPlansEditPage = $routeName === 'filament.admin.resources.wedding-plans.edit';
+        $this->isTaskCreatePage = $routeName === 'filament.admin.resources.plan-tasks.create';
+        $this->isTaskEditPage = $routeName === 'filament.admin.resources.plan-tasks.edit';
         $this->isUsersListPage = $routeName === 'filament.admin.resources.users.index';
         $this->isUsersCreatePage = $routeName === 'filament.admin.resources.users.create';
         $this->isUsersEditPage = $routeName === 'filament.admin.resources.users.edit';
+        $this->isWeddingVendorsListPage = $routeName === 'filament.admin.resources.wedding-vendors.index';
+        $this->isWeddingVendorsCreatePage = $routeName === 'filament.admin.resources.wedding-vendors.create';
+        $this->isWeddingVendorsEditPage = $routeName === 'filament.admin.resources.wedding-vendors.edit';
+        $this->isWeddingPlanTimelineView = false;
+        $this->weddingPlanDashboardUrl = '';
+        $this->weddingPlanCreateTaskUrl = '';
+        $this->canCreateWeddingPlanTask = false;
+        $this->canArchiveWeddingPlan = false;
+        $this->canUnarchiveWeddingPlan = false;
+        $this->taskCreateReturnUrl = '';
+        $this->canDeleteTask = false;
         $this->usersIndexUrl = '';
         $this->usersCreateUrl = '';
         $this->canCreateUser = false;
         $this->usersCreateLabel = 'Novo Usuário';
+        $this->weddingVendorsIndexUrl = '';
+        $this->weddingVendorsCreateUrl = '';
+        $this->canCreateWeddingVendor = false;
+        $this->canDeleteWeddingVendor = false;
+        $this->canDeleteGiftItem = false;
 
         if ($this->isGiftItemsListPage) {
             $this->title = (string) GiftItemResource::getPluralModelLabel();
@@ -111,6 +158,39 @@ class TopbarTitle extends Component
             $this->weddingPlansIndexUrl = '';
             $this->weddingPlansCreateUrl = '';
             $this->canCreateWeddingPlan = false;
+
+            return;
+        }
+
+        if ($this->isGiftItemsEditPage) {
+            $this->title = (string) GiftItemResource::getPluralModelLabel();
+            $this->giftItemsIndexUrl = GiftItemResource::getUrl('index');
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = '';
+            $this->usersCreateUrl = '';
+            $this->canCreateUser = false;
+            $this->usersCreateLabel = 'Novo Usuário';
+            $this->weddingVendorsIndexUrl = '';
+            $this->weddingVendorsCreateUrl = '';
+            $this->canCreateWeddingVendor = false;
+            $this->canDeleteWeddingVendor = false;
+
+            $routeRecord = request()->route('record');
+            $gift = $routeRecord instanceof GiftItem
+                ? $routeRecord
+                : GiftItem::withoutGlobalScopes()->find($routeRecord);
+            $this->canDeleteGiftItem = $gift ? GiftItemResource::canDelete($gift) : false;
 
             return;
         }
@@ -229,6 +309,105 @@ class TopbarTitle extends Component
             return;
         }
 
+        if ($this->isWeddingPlansEditPage) {
+            $this->title = (string) WeddingPlanResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = WeddingPlanResource::getUrl('index');
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+
+            $routeRecord = request()->route('record');
+            $plan = $routeRecord instanceof WeddingPlan
+                ? $routeRecord
+                : WeddingPlan::withoutGlobalScopes()->find($routeRecord);
+
+            if ($plan) {
+                $isAdmin = auth()->user()?->isAdmin() ?? false;
+
+                $this->weddingPlanDashboardUrl = PlanningDashboard::getUrl(['plan' => $plan->getKey()]);
+                $this->weddingPlanCreateTaskUrl = TaskResource::getUrl('create', [
+                    'plan' => $plan->getKey(),
+                    'return_to_plan' => $plan->getKey(),
+                ]);
+                $this->canCreateWeddingPlanTask = TaskResource::canCreate() && (! $plan->isArchived() || $isAdmin);
+                $this->canArchiveWeddingPlan = ! $plan->isArchived();
+                $this->canUnarchiveWeddingPlan = $plan->isArchived() && $isAdmin;
+            }
+
+            return;
+        }
+
+        if ($this->isTaskCreatePage) {
+            $this->title = (string) WeddingPlanResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = '';
+            $this->usersCreateUrl = '';
+            $this->canCreateUser = false;
+            $this->usersCreateLabel = 'Novo Usuário';
+
+            $planId = request()->query('return_to_plan') ?? request()->query('plan');
+            $this->taskCreateReturnUrl = $planId
+                ? WeddingPlanResource::getUrl('edit', ['record' => $planId])
+                : TaskResource::getUrl('index');
+
+            return;
+        }
+
+        if ($this->isTaskEditPage) {
+            $this->title = (string) WeddingPlanResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = '';
+            $this->usersCreateUrl = '';
+            $this->canCreateUser = false;
+            $this->usersCreateLabel = 'Novo Usuário';
+
+            $routeRecord = request()->route('record');
+            $task = $routeRecord instanceof Task
+                ? $routeRecord
+                : Task::withoutGlobalScopes()->find($routeRecord);
+
+            $planId = request()->query('return_to_plan') ?? $task?->wedding_plan_id;
+            $this->taskCreateReturnUrl = $planId
+                ? WeddingPlanResource::getUrl('edit', ['record' => $planId])
+                : TaskResource::getUrl('index');
+            $this->canDeleteTask = $task ? TaskResource::canDelete($task) : false;
+
+            return;
+        }
+
         if ($this->isUsersListPage) {
             $this->title = (string) UserResource::getNavigationLabel();
             $this->giftItemsIndexUrl = '';
@@ -293,6 +472,90 @@ class TopbarTitle extends Component
             return;
         }
 
+        if ($this->isWeddingVendorsListPage) {
+            $this->title = (string) WeddingVendorResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = '';
+            $this->usersCreateUrl = '';
+            $this->canCreateUser = false;
+            $this->usersCreateLabel = 'Novo Usuário';
+            $this->weddingVendorsIndexUrl = WeddingVendorResource::getUrl('index');
+            $this->weddingVendorsCreateUrl = WeddingVendorResource::getUrl('create');
+            $this->canCreateWeddingVendor = WeddingVendorResource::canCreate();
+
+            return;
+        }
+
+        if ($this->isWeddingVendorsCreatePage) {
+            $this->title = (string) WeddingVendorResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = '';
+            $this->usersCreateUrl = '';
+            $this->canCreateUser = false;
+            $this->usersCreateLabel = 'Novo Usuário';
+            $this->weddingVendorsIndexUrl = WeddingVendorResource::getUrl('index');
+            $this->weddingVendorsCreateUrl = '';
+            $this->canCreateWeddingVendor = false;
+
+            return;
+        }
+
+        if ($this->isWeddingVendorsEditPage) {
+            $this->title = (string) WeddingVendorResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = '';
+            $this->usersCreateUrl = '';
+            $this->canCreateUser = false;
+            $this->usersCreateLabel = 'Novo Usuário';
+            $this->weddingVendorsIndexUrl = WeddingVendorResource::getUrl('index');
+            $this->weddingVendorsCreateUrl = '';
+            $this->canCreateWeddingVendor = false;
+
+            $routeRecord = request()->route('record');
+            $vendor = $routeRecord instanceof WeddingVendor
+                ? $routeRecord
+                : WeddingVendor::withoutGlobalScopes()->find($routeRecord);
+            $this->canDeleteWeddingVendor = $vendor ? WeddingVendorResource::canDelete($vendor) : false;
+
+            return;
+        }
+
         $this->title = $this->getCurrentPageTitle();
         $this->giftItemsIndexUrl = '';
         $this->giftItemsCreateUrl = '';
@@ -311,6 +574,11 @@ class TopbarTitle extends Component
         $this->usersCreateUrl = '';
         $this->canCreateUser = false;
         $this->usersCreateLabel = 'Novo Usuário';
+        $this->weddingVendorsIndexUrl = '';
+        $this->weddingVendorsCreateUrl = '';
+        $this->canCreateWeddingVendor = false;
+        $this->canDeleteWeddingVendor = false;
+        $this->canDeleteGiftItem = false;
     }
 
     public function changeGiftRegistryMode(string $mode): void
@@ -357,9 +625,78 @@ class TopbarTitle extends Component
         $this->dispatch('topbar-gift-create-another');
     }
 
+    public function restoreGiftFromTopbar(): void
+    {
+        $this->dispatch('topbar-gift-restore');
+    }
+
+    public function deleteGiftFromTopbar(): void
+    {
+        $this->dispatch('topbar-gift-delete');
+    }
+
     public function createAnotherWeddingPlanFromTopbar(): void
     {
         $this->dispatch('topbar-wedding-plan-create-another');
+    }
+
+    public function createAnotherTaskFromTopbar(): void
+    {
+        $this->dispatch('topbar-task-create-another');
+    }
+
+    public function createTaskFromTopbar(): void
+    {
+        $this->dispatch('topbar-task-submit');
+    }
+
+    public function returnToPlanFromTopbar(): void
+    {
+        $this->dispatch('topbar-task-return');
+    }
+
+    public function saveTaskFromTopbar(): void
+    {
+        $this->dispatch('topbar-task-save');
+    }
+
+    public function deleteTaskFromTopbar(): void
+    {
+        $this->dispatch('topbar-task-delete');
+    }
+
+    public function showWeddingPlanTimelineFromTopbar(): void
+    {
+        $this->isWeddingPlanTimelineView = true;
+        $this->dispatch('topbar-wedding-plan-show-timeline');
+    }
+
+    public function showWeddingPlanTableFromTopbar(): void
+    {
+        $this->isWeddingPlanTimelineView = false;
+        $this->dispatch('topbar-wedding-plan-show-table');
+    }
+
+    #[On('topbar-wedding-plan-show-timeline')]
+    public function markWeddingPlanTimelineView(): void
+    {
+        $this->isWeddingPlanTimelineView = true;
+    }
+
+    #[On('topbar-wedding-plan-show-table')]
+    public function markWeddingPlanTableView(): void
+    {
+        $this->isWeddingPlanTimelineView = false;
+    }
+
+    public function archiveWeddingPlanFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-plan-archive');
+    }
+
+    public function unarchiveWeddingPlanFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-plan-unarchive');
     }
 
     public function createAnotherUserFromTopbar(): void
@@ -370,6 +707,16 @@ class TopbarTitle extends Component
     public function deleteUserFromTopbar(): void
     {
         $this->dispatch('topbar-user-delete');
+    }
+
+    public function createAnotherWeddingVendorFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-vendor-create-another');
+    }
+
+    public function deleteWeddingVendorFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-vendor-delete');
     }
 
     protected function getCurrentPageTitle(): string

@@ -2,7 +2,7 @@
     <div class="flex items-center justify-end gap-2">
         <x-filament::button
             type="submit"
-            form="wedding-settings-form"
+            form-id="wedding-settings-form"
             color="danger"
             icon="heroicon-o-check"
             size="sm"
@@ -11,4 +11,3 @@
         </x-filament::button>
     </div>
 </div>
-

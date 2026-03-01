@@ -4,7 +4,6 @@ namespace App\Filament\Resources\WeddingPlanResource\Pages;
 
 use App\Filament\Resources\WeddingPlanResource;
 use Filament\Resources\Pages\CreateRecord;
-use Livewire\Attributes\On;
 
 class CreateWeddingPlan extends CreateRecord
 {
@@ -15,14 +14,13 @@ class CreateWeddingPlan extends CreateRecord
         return '';
     }
 
-    #[On('topbar-wedding-plan-create-another')]
-    public function createAnotherFromTopbar(): void
-    {
-        $this->create(another: true);
-    }
-
     protected function getFormActions(): array
     {
         return [];
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return WeddingPlanResource::getUrl('edit', ['record' => $this->getRecord()]);
     }
 }

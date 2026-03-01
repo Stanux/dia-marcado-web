@@ -1,7 +1,7 @@
 <div
     @class([
         'dm-topbar-title flex min-w-0 items-center gap-x-4',
-        'flex-1' => $isGiftItemsListPage || $isGiftItemsCreatePage || $isWeddingSettingsPage || $isTransactionsListPage || $isSiteLayoutsListPage || $isSiteTemplatesListPage || $isWeddingPlansListPage || $isWeddingPlansCreatePage || $isUsersListPage || $isUsersCreatePage || $isUsersEditPage,
+        'flex-1' => $isGiftItemsListPage || $isGiftItemsCreatePage || $isGiftItemsEditPage || $isWeddingSettingsPage || $isTransactionsListPage || $isSiteLayoutsListPage || $isSiteTemplatesListPage || $isWeddingPlansListPage || $isWeddingPlansCreatePage || $isWeddingPlansEditPage || $isTaskCreatePage || $isTaskEditPage || $isUsersListPage || $isUsersCreatePage || $isUsersEditPage || $isWeddingVendorsListPage || $isWeddingVendorsCreatePage || $isWeddingVendorsEditPage,
     ])
     x-data
     @navigate.window="$wire.updateTitle()"
@@ -110,12 +110,75 @@
 
                 <x-filament::button
                     type="submit"
-                    form="form"
+                    form-id="form"
                     color="danger"
                     icon="heroicon-o-check"
                     size="sm"
                 >
                     Criar Presente
+                </x-filament::button>
+            </div>
+        </div>
+    @elseif ($isGiftItemsEditPage)
+        <div class="dm-topbar-gifts-edit flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $giftItemsIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Editar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    tag="a"
+                    :href="$giftItemsIndexUrl"
+                    color="gray"
+                    size="sm"
+                >
+                    Cancelar
+                </x-filament::button>
+
+                <x-filament::button
+                    type="button"
+                    color="warning"
+                    icon="heroicon-o-arrow-path"
+                    size="sm"
+                    wire:click="restoreGiftFromTopbar"
+                >
+                    Restaurar
+                </x-filament::button>
+
+                @if ($canDeleteGiftItem)
+                    <x-filament::button
+                        type="button"
+                        color="danger"
+                        icon="heroicon-o-trash"
+                        size="sm"
+                        wire:click="deleteGiftFromTopbar"
+                    >
+                        Excluir
+                    </x-filament::button>
+                @endif
+
+                <x-filament::button
+                    type="submit"
+                    form-id="form"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                >
+                    Salvar Alterações
                 </x-filament::button>
             </div>
         </div>
@@ -139,7 +202,7 @@
             <div class="hidden shrink-0 items-center gap-2 md:flex">
                 <x-filament::button
                     type="submit"
-                    form="wedding-settings-form"
+                    form-id="wedding-settings-form"
                     color="danger"
                     icon="heroicon-o-check"
                     size="sm"
@@ -304,10 +367,117 @@
 
             <div class="hidden shrink-0 items-center gap-2 md:flex">
                 <x-filament::button
+                    type="submit"
+                    form-id="form"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                >
+                    Salvar Planejamento
+                </x-filament::button>
+            </div>
+        </div>
+    @elseif ($isWeddingPlansEditPage)
+        <div class="dm-topbar-wedding-plans-edit flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $weddingPlansIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Editar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
                     tag="a"
                     :href="$weddingPlansIndexUrl"
                     color="gray"
                     size="sm"
+                >
+                    Cancelar
+                </x-filament::button>
+
+                @if ($isWeddingPlanTimelineView)
+                    <x-filament::button
+                        type="button"
+                        color="gray"
+                        icon="heroicon-o-table-cells"
+                        size="sm"
+                        wire:click="showWeddingPlanTableFromTopbar"
+                    >
+                        Tabela
+                    </x-filament::button>
+                @else
+                    <x-filament::button
+                        type="button"
+                        color="gray"
+                        icon="heroicon-o-calendar-days"
+                        size="sm"
+                        wire:click="showWeddingPlanTimelineFromTopbar"
+                    >
+                        Timeline
+                    </x-filament::button>
+                @endif
+
+                @if ($canCreateWeddingPlanTask && $weddingPlanCreateTaskUrl)
+                    <x-filament::button
+                        tag="a"
+                        :href="$weddingPlanCreateTaskUrl"
+                        color="gray"
+                        icon="heroicon-o-plus"
+                        size="sm"
+                    >
+                        Criar Tarefa
+                    </x-filament::button>
+                @endif
+
+                <x-filament::button
+                    type="submit"
+                    form-id="form"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                >
+                    Salvar Alterações
+                </x-filament::button>
+            </div>
+        </div>
+    @elseif ($isTaskCreatePage)
+        <div class="dm-topbar-task-create flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $taskCreateReturnUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Criar Tarefa
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    type="button"
+                    color="gray"
+                    size="sm"
+                    wire:click="returnToPlanFromTopbar"
                 >
                     Cancelar
                 </x-filament::button>
@@ -317,19 +487,72 @@
                     color="gray"
                     icon="heroicon-o-document-duplicate"
                     size="sm"
-                    wire:click="createAnotherWeddingPlanFromTopbar"
+                    wire:click="createAnotherTaskFromTopbar"
                 >
                     Salvar e criar outro
                 </x-filament::button>
 
                 <x-filament::button
-                    type="submit"
-                    form="form"
+                    type="button"
                     color="danger"
                     icon="heroicon-o-check"
                     size="sm"
+                    wire:click="createTaskFromTopbar"
                 >
-                    Criar Planejamento
+                    Salvar Tarefa
+                </x-filament::button>
+            </div>
+        </div>
+    @elseif ($isTaskEditPage)
+        <div class="dm-topbar-task-edit flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $taskCreateReturnUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Editar Tarefa
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    type="button"
+                    color="gray"
+                    size="sm"
+                    wire:click="returnToPlanFromTopbar"
+                >
+                    Cancelar
+                </x-filament::button>
+
+                @if ($canDeleteTask)
+                    <x-filament::button
+                        type="button"
+                        color="danger"
+                        icon="heroicon-o-trash"
+                        size="sm"
+                        wire:click="deleteTaskFromTopbar"
+                    >
+                        Excluir
+                    </x-filament::button>
+                @endif
+
+                <x-filament::button
+                    type="button"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                    wire:click="saveTaskFromTopbar"
+                >
+                    Salvar Alterações
                 </x-filament::button>
             </div>
         </div>
@@ -409,7 +632,7 @@
 
                 <x-filament::button
                     type="submit"
-                    form="form"
+                    form-id="form"
                     color="danger"
                     icon="heroicon-o-check"
                     size="sm"
@@ -460,7 +683,145 @@
 
                 <x-filament::button
                     type="submit"
-                    form="form"
+                    form-id="form"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                >
+                    Salvar Alterações
+                </x-filament::button>
+            </div>
+        </div>
+    @elseif ($isWeddingVendorsListPage)
+        <div class="dm-topbar-wedding-vendors flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $weddingVendorsIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Listar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                @if ($canCreateWeddingVendor)
+                    <x-filament::button
+                        tag="a"
+                        :href="$weddingVendorsCreateUrl"
+                        color="danger"
+                        icon="heroicon-o-plus"
+                        size="sm"
+                    >
+                        Novo Fornecedor
+                    </x-filament::button>
+                @endif
+            </div>
+        </div>
+    @elseif ($isWeddingVendorsCreatePage)
+        <div class="dm-topbar-wedding-vendors-create flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $weddingVendorsIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Criar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    tag="a"
+                    :href="$weddingVendorsIndexUrl"
+                    color="gray"
+                    size="sm"
+                >
+                    Cancelar
+                </x-filament::button>
+
+                <x-filament::button
+                    type="button"
+                    color="gray"
+                    icon="heroicon-o-document-duplicate"
+                    size="sm"
+                    wire:click="createAnotherWeddingVendorFromTopbar"
+                >
+                    Salvar e criar outro
+                </x-filament::button>
+
+                <x-filament::button
+                    type="submit"
+                    form-id="form"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                >
+                    Criar Fornecedor
+                </x-filament::button>
+            </div>
+        </div>
+    @elseif ($isWeddingVendorsEditPage)
+        <div class="dm-topbar-wedding-vendors-edit flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $weddingVendorsIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Editar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    tag="a"
+                    :href="$weddingVendorsIndexUrl"
+                    color="gray"
+                    size="sm"
+                >
+                    Cancelar
+                </x-filament::button>
+
+                @if ($canDeleteWeddingVendor)
+                    <x-filament::button
+                        type="button"
+                        color="danger"
+                        icon="heroicon-o-trash"
+                        size="sm"
+                        wire:click="deleteWeddingVendorFromTopbar"
+                    >
+                        Excluir
+                    </x-filament::button>
+                @endif
+
+                <x-filament::button
+                    type="submit"
+                    form-id="form"
                     color="danger"
                     icon="heroicon-o-check"
                     size="sm"

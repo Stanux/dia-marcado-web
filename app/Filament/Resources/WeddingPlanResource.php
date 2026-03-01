@@ -9,6 +9,7 @@ use App\Models\WeddingPlan;
 use App\Services\Planning\WeddingPlanService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Support\RawJs;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -44,10 +45,12 @@ class WeddingPlanResource extends WeddingScopedResource
 
                         Forms\Components\TextInput::make('total_budget')
                             ->label('Orçamento Total')
-                            ->numeric()
-                            ->minValue(0)
                             ->required()
-                            ->prefix('R$'),
+                            ->prefix('R$')
+                            ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
+                            ->formatStateUsing(fn ($state): ?string => static::formatMoneyForInput($state))
+                            ->dehydrateStateUsing(fn ($state): ?string => static::normalizeMoneyForStorage($state))
+                            ->helperText('Defina o teto de gastos do planejamento.'),
 
                         Forms\Components\Placeholder::make('archived_at')
                             ->label('Arquivado em')
@@ -174,5 +177,36 @@ class WeddingPlanResource extends WeddingScopedResource
         }
 
         return true;
+    }
+
+    private static function formatMoneyForInput(mixed $state): ?string
+    {
+        if ($state === null || $state === '') {
+            return null;
+        }
+
+        return number_format((float) $state, 2, ',', '.');
+    }
+
+    private static function normalizeMoneyForStorage(mixed $state): ?string
+    {
+        if ($state === null || $state === '') {
+            return null;
+        }
+
+        $value = preg_replace('/[^\d,\.]/', '', (string) $state) ?? '';
+
+        if ($value === '') {
+            return null;
+        }
+
+        $value = str_replace('.', '', $value);
+        $value = str_replace(',', '.', $value);
+
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        return number_format((float) $value, 2, '.', '');
     }
 }

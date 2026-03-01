@@ -21,7 +21,7 @@
 
         <x-filament::button
             type="submit"
-            form="form"
+            form-id="form"
             color="danger"
             icon="heroicon-o-check"
             size="sm"

@@ -9,6 +9,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\On;
 
 class TasksRelationManager extends RelationManager
 {
@@ -50,11 +51,13 @@ class TasksRelationManager extends RelationManager
             ->defaultSort('due_date', 'asc');
     }
 
+    #[On('topbar-wedding-plan-show-timeline')]
     public function showTimelineView(): void
     {
         $this->isTimelineView = true;
     }
 
+    #[On('topbar-wedding-plan-show-table')]
     public function showTableView(): void
     {
         $this->isTimelineView = false;

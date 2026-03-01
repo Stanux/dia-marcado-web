@@ -36,37 +36,40 @@ class WeddingVendorResource extends WeddingScopedResource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->label('Nome')
-                    ->required()
-                    ->maxLength(255),
+                Forms\Components\Section::make('Dados do Fornecedor')
+                    ->schema([
+                        Forms\Components\TextInput::make('name')
+                            ->label('Nome')
+                            ->required()
+                            ->maxLength(255),
 
-                Forms\Components\TextInput::make('document')
-                    ->label('CPF/CNPJ')
-                    ->required()
-                    ->maxLength(20),
+                        Forms\Components\TextInput::make('document')
+                            ->label('CPF/CNPJ')
+                            ->required()
+                            ->maxLength(20),
 
-                Forms\Components\TextInput::make('phone')
-                    ->label('Telefone')
-                    ->maxLength(30),
+                        Forms\Components\TextInput::make('phone')
+                            ->label('Telefone')
+                            ->maxLength(30),
 
-                Forms\Components\TextInput::make('email')
-                    ->label('Email')
-                    ->email()
-                    ->maxLength(255),
+                        Forms\Components\TextInput::make('email')
+                            ->label('Email')
+                            ->email()
+                            ->maxLength(255),
 
-                Forms\Components\TextInput::make('website')
-                    ->label('Site')
-                    ->maxLength(255),
+                        Forms\Components\TextInput::make('website')
+                            ->label('Site')
+                            ->maxLength(255),
 
-                Forms\Components\Select::make('categories')
-                    ->label('Categorias')
-                    ->relationship('categories', 'name')
-                    ->options(VendorCategory::orderBy('sort')->pluck('name', 'id'))
-                    ->multiple()
-                    ->required(),
-            ])
-            ->columns(2);
+                        Forms\Components\Select::make('categories')
+                            ->label('Categorias')
+                            ->relationship('categories', 'name')
+                            ->options(VendorCategory::orderBy('sort')->pluck('name', 'id'))
+                            ->multiple()
+                            ->required(),
+                    ])
+                    ->columns(2),
+            ]);
     }
 
     public static function table(Table $table): Table
@@ -130,6 +133,15 @@ class WeddingVendorResource extends WeddingScopedResource
     {
         return parent::getEloquentQuery()
             ->with('categories');
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        if (! parent::canDelete($record)) {
+            return false;
+        }
+
+        return ! $record->budgets()->exists();
     }
 
     protected function mutateFormDataBeforeCreate(array $data): array

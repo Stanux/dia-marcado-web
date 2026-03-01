@@ -1,3 +1,45 @@
 @import '/vendor/filament/filament/resources/css/theme.css';
 
 @config '../../../../tailwind.config.js';
+
+/* Toast / Notification background colors */
+:root {
+    --dm-toast-bg-default: #ffffff;
+    --dm-toast-bg-success: #ecfdf3;
+    --dm-toast-bg-warning: #fff9e8;
+    --dm-toast-bg-danger: #fef2f2;
+    --dm-toast-bg-info: #eff6ff;
+}
+
+.dark {
+    --dm-toast-bg-default: #111827;
+    --dm-toast-bg-success: #052e1b;
+    --dm-toast-bg-warning: #3a2a06;
+    --dm-toast-bg-danger: #3f1d1d;
+    --dm-toast-bg-info: #1e293b;
+}
+
+.fi-no-notification {
+    background-color: var(--dm-toast-bg-default) !important;
+}
+
+.fi-no-notification.fi-status-success {
+    background-color: var(--dm-toast-bg-success) !important;
+}
+
+.fi-no-notification.fi-status-warning {
+    background-color: var(--dm-toast-bg-warning) !important;
+}
+
+.fi-no-notification.fi-status-danger {
+    background-color: var(--dm-toast-bg-danger) !important;
+}
+
+.fi-no-notification.fi-status-info {
+    background-color: var(--dm-toast-bg-info) !important;
+}
+
+/* Neutralize inner notification layer so outer background is visible */
+.fi-no-notification > div {
+    background-color: transparent !important;
+}

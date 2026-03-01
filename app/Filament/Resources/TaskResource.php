@@ -7,12 +7,18 @@ use App\Filament\Resources\TaskResource\RelationManagers\TaskBudgetsRelationMana
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\User;
+use App\Models\VendorCategory;
 use App\Models\Wedding;
+use App\Models\WeddingVendor;
 use App\Models\WeddingPlan;
+use App\Services\Planning\WeddingVendorService;
 use Closure;
 use Filament\Forms;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Get;
 use Filament\Forms\Form;
+use Filament\Support\Enums\MaxWidth;
+use Filament\Support\RawJs;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,6 +59,13 @@ class TaskResource extends WeddingScopedResource
                 Forms\Components\Section::make('Detalhes da Tarefa')
                     ->schema(static::taskFormFields())
                     ->columns(2),
+                Forms\Components\Section::make('Orçamentos')
+                    ->description('Opcional: adicione orçamentos já no cadastro da tarefa.')
+                    ->schema([
+                        static::taskBudgetRepeater(),
+                    ])
+                    ->visible(fn (string $operation): bool => $operation === 'create')
+                    ->columns(1),
             ]);
     }
 
@@ -217,15 +230,17 @@ class TaskResource extends WeddingScopedResource
 
             Forms\Components\TextInput::make('estimated_value')
                 ->label('Valor Estimado')
-                ->numeric()
-                ->minValue(0)
-                ->prefix('R$'),
+                ->prefix('R$')
+                ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
+                ->formatStateUsing(fn ($state): ?string => static::formatMoneyForInput($state))
+                ->dehydrateStateUsing(fn ($state): ?string => static::normalizeMoneyForStorage($state)),
 
             Forms\Components\TextInput::make('actual_value')
                 ->label('Valor Real')
-                ->numeric()
-                ->minValue(0)
                 ->prefix('R$')
+                ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
+                ->formatStateUsing(fn ($state): ?string => static::formatMoneyForInput($state))
+                ->dehydrateStateUsing(fn ($state): ?string => static::normalizeMoneyForStorage($state))
                 ->visible(fn (Get $get) => $get('status') === 'completed')
                 ->required(fn (Get $get) => $get('status') === 'completed'),
 
@@ -235,6 +250,189 @@ class TaskResource extends WeddingScopedResource
                 ->displayFormat('d/m/Y')
                 ->visible(fn (Get $get) => $get('status') === 'completed')
                 ->required(fn (Get $get) => $get('status') === 'completed'),
+        ];
+    }
+
+    public static function taskBudgetRepeater(?Closure $resolveWeddingId = null): Forms\Components\Repeater
+    {
+        $resolveWeddingId ??= fn (): ?string => static::resolveCurrentWeddingId();
+
+        return Forms\Components\Repeater::make('budgets')
+            ->label('Orçamentos')
+            ->schema([
+                Forms\Components\Hidden::make('wedding_vendor_id'),
+                Forms\Components\Hidden::make('wedding_vendor_name'),
+                Forms\Components\Hidden::make('status'),
+                Forms\Components\Hidden::make('value'),
+                Forms\Components\Hidden::make('valid_until'),
+                Forms\Components\Hidden::make('notes'),
+            ])
+            ->itemLabel(fn (array $state): string => static::formatBudgetItemLabel($state))
+            ->collapsible()
+            ->collapsed()
+            ->reorderable(false)
+            ->cloneable(false)
+            ->deleteAction(fn (FormAction $action): FormAction => $action->requiresConfirmation())
+            ->addAction(function (FormAction $action) use ($resolveWeddingId): FormAction {
+                return $action
+                    ->label('Cadastrar orçamento')
+                    ->modalHeading('Cadastrar orçamento')
+                    ->modalWidth(MaxWidth::FourExtraLarge)
+                    ->modalSubmitActionLabel('Salvar')
+                    ->extraModalFooterActions(fn (FormAction $action): array => [
+                        $action
+                            ->makeModalSubmitAction('createAnother', arguments: ['another' => true])
+                            ->label('Salvar e criar outro'),
+                    ])
+                    ->form(static::taskBudgetFormFields($resolveWeddingId))
+                    ->action(function (
+                        array $arguments,
+                        array $data,
+                        FormAction $action,
+                        Forms\Components\Repeater $component,
+                        Form $form
+                    ): void {
+                        $state = $component->getState();
+                        $itemData = static::normalizeBudgetDraftData($data);
+
+                        $newUuid = $component->generateUuid();
+
+                        if ($newUuid) {
+                            $state[$newUuid] = $itemData;
+                        } else {
+                            $state[] = $itemData;
+                        }
+
+                        $component->state($state);
+                        $component->callAfterStateUpdated();
+
+                        if ($arguments['another'] ?? false) {
+                            $form->fill();
+                            $action->halt();
+                        }
+                    });
+            })
+            ->extraItemActions([
+                FormAction::make('editBudget')
+                    ->icon('heroicon-o-pencil-square')
+                    ->tooltip('Editar orçamento')
+                    ->modalHeading('Editar orçamento')
+                    ->modalWidth(MaxWidth::FourExtraLarge)
+                    ->modalSubmitActionLabel('Salvar')
+                    ->fillForm(function (array $arguments, Forms\Components\Repeater $component): array {
+                        $itemData = $component->getRawItemState($arguments['item']);
+                        $itemData['value'] = static::formatMoneyForInput($itemData['value'] ?? null);
+
+                        return $itemData;
+                    })
+                    ->form(static::taskBudgetFormFields($resolveWeddingId))
+                    ->action(function (array $arguments, array $data, Forms\Components\Repeater $component): void {
+                        $state = $component->getState();
+                        $state[$arguments['item']] = static::normalizeBudgetDraftData($data);
+
+                        $component->state($state);
+                        $component->callAfterStateUpdated();
+                    }),
+            ])
+            ->defaultItems(0)
+            ->columns(1)
+            ->dehydrated(fn (string $operation): bool => $operation === 'create')
+            ->columnSpanFull();
+    }
+
+    /**
+     * @return array<\Filament\Forms\Components\Component>
+     */
+    private static function taskBudgetFormFields(?Closure $resolveWeddingId = null): array
+    {
+        $resolveWeddingId ??= fn (): ?string => static::resolveCurrentWeddingId();
+
+        return [
+            Forms\Components\Grid::make(2)
+                ->schema([
+                    Forms\Components\Select::make('wedding_vendor_id')
+                        ->label('Fornecedor')
+                        ->options(function () use ($resolveWeddingId): array {
+                            $weddingId = $resolveWeddingId();
+
+                            if (! $weddingId) {
+                                return [];
+                            }
+
+                            return WeddingVendor::query()
+                                ->where('wedding_id', $weddingId)
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all();
+                        })
+                        ->searchable()
+                        ->required()
+                        ->createOptionForm([
+                            Forms\Components\TextInput::make('name')
+                                ->label('Nome')
+                                ->required()
+                                ->maxLength(255),
+                            Forms\Components\TextInput::make('document')
+                                ->label('CPF/CNPJ')
+                                ->required()
+                                ->maxLength(20),
+                            Forms\Components\TextInput::make('phone')
+                                ->label('Telefone')
+                                ->maxLength(30),
+                            Forms\Components\TextInput::make('email')
+                                ->label('Email')
+                                ->email()
+                                ->maxLength(255),
+                            Forms\Components\TextInput::make('website')
+                                ->label('Site')
+                                ->maxLength(255),
+                            Forms\Components\Select::make('category_ids')
+                                ->label('Categorias')
+                                ->options(VendorCategory::query()->orderBy('sort')->pluck('name', 'id'))
+                                ->multiple()
+                                ->required(),
+                        ])
+                        ->createOptionUsing(function (array $data) use ($resolveWeddingId): string {
+                            $weddingId = $resolveWeddingId();
+                            $wedding = $weddingId ? Wedding::find($weddingId) : null;
+
+                            if (! $wedding) {
+                                throw new \RuntimeException('Casamento não encontrado para criação do fornecedor.');
+                            }
+
+                            $vendor = app(WeddingVendorService::class)->createOrUpdateForWedding($wedding, $data);
+
+                            return $vendor->id;
+                        }),
+
+                    Forms\Components\Select::make('status')
+                        ->label('Status')
+                        ->options([
+                            'negotiation' => 'Em negociação',
+                            'approved' => 'Aprovado',
+                            'rejected' => 'Rejeitado',
+                        ])
+                        ->default('negotiation')
+                        ->required(),
+
+                    Forms\Components\TextInput::make('value')
+                        ->label('Valor')
+                        ->prefix('R$')
+                        ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
+                        ->required()
+                        ->dehydrateStateUsing(fn ($state): ?string => static::normalizeMoneyForStorage($state)),
+
+                    Forms\Components\DatePicker::make('valid_until')
+                        ->label('Validade')
+                        ->native(false)
+                        ->displayFormat('d/m/Y')
+                        ->placeholder('dd/mm/aaaa'),
+
+                    Forms\Components\Textarea::make('notes')
+                        ->label('Observações')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                ]),
         ];
     }
 
@@ -292,23 +490,17 @@ class TaskResource extends WeddingScopedResource
 
             Tables\Columns\TextColumn::make('estimated_value')
                 ->label('Estimado')
-                ->money('BRL', true)
+                ->formatStateUsing(fn ($state): ?string => static::formatMoneyForTable($state))
                 ->toggleable(),
 
             Tables\Columns\TextColumn::make('actual_value')
                 ->label('Real')
-                ->money('BRL', true)
+                ->formatStateUsing(fn ($state): ?string => static::formatMoneyForTable($state))
                 ->toggleable(isToggledHiddenByDefault: true),
 
             Tables\Columns\TextColumn::make('assignedUser.name')
                 ->label('Responsável')
                 ->placeholder('Não atribuído'),
-
-            Tables\Columns\TextColumn::make('created_at')
-                ->label('Criado em')
-                ->dateTime('d/m/Y H:i')
-                ->sortable()
-                ->toggleable(isToggledHiddenByDefault: true),
         ];
     }
 
@@ -373,10 +565,14 @@ class TaskResource extends WeddingScopedResource
                 ->form([
                     Forms\Components\TextInput::make('min')
                         ->label('Mínimo')
-                        ->numeric(),
+                        ->prefix('R$')
+                        ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
+                        ->dehydrateStateUsing(fn ($state): ?string => static::normalizeMoneyForStorage($state)),
                     Forms\Components\TextInput::make('max')
                         ->label('Máximo')
-                        ->numeric(),
+                        ->prefix('R$')
+                        ->mask(RawJs::make('$money($input, \',\', \'.\', 2)'))
+                        ->dehydrateStateUsing(fn ($state): ?string => static::normalizeMoneyForStorage($state)),
                 ])
                 ->query(function (Builder $query, array $data): Builder {
                     return $query
@@ -429,5 +625,91 @@ class TaskResource extends WeddingScopedResource
         $wedding = Wedding::find($weddingId);
 
         return $wedding?->getSetting('timezone', $timezone) ?? $timezone;
+    }
+
+    private static function formatMoneyForInput(mixed $state): ?string
+    {
+        if ($state === null || $state === '') {
+            return null;
+        }
+
+        return number_format((float) $state, 2, ',', '.');
+    }
+
+    private static function normalizeMoneyForStorage(mixed $state): ?string
+    {
+        if ($state === null || $state === '') {
+            return null;
+        }
+
+        $value = preg_replace('/[^\d,\.]/', '', (string) $state) ?? '';
+
+        if ($value === '') {
+            return null;
+        }
+
+        $value = str_replace('.', '', $value);
+        $value = str_replace(',', '.', $value);
+
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        return number_format((float) $value, 2, '.', '');
+    }
+
+    private static function normalizeBudgetDraftData(array $data): array
+    {
+        $vendorId = $data['wedding_vendor_id'] ?? null;
+        $vendorName = null;
+
+        if ($vendorId) {
+            $vendorName = WeddingVendor::query()->whereKey($vendorId)->value('name');
+        }
+
+        return [
+            'wedding_vendor_id' => $vendorId,
+            'wedding_vendor_name' => $vendorName,
+            'status' => $data['status'] ?? 'negotiation',
+            'value' => static::normalizeMoneyForStorage($data['value'] ?? null),
+            'valid_until' => $data['valid_until'] ?? null,
+            'notes' => $data['notes'] ?? null,
+        ];
+    }
+
+    private static function formatBudgetItemLabel(array $state): string
+    {
+        $vendorName = trim((string) ($state['wedding_vendor_name'] ?? ''));
+
+        if ($vendorName === '') {
+            $vendorName = 'Fornecedor não informado';
+        }
+
+        $status = static::formatBudgetStatusLabel($state['status'] ?? null);
+        $value = static::formatMoneyForTable($state['value'] ?? null) ?? 'R$ 0,00';
+
+        return "{$vendorName} · {$status} · {$value}";
+    }
+
+    private static function formatBudgetStatusLabel(?string $status): string
+    {
+        return match ($status) {
+            'approved' => 'Aprovado',
+            'rejected' => 'Rejeitado',
+            default => 'Em negociação',
+        };
+    }
+
+    private static function formatMoneyForTable(mixed $state): ?string
+    {
+        if ($state === null || $state === '') {
+            return null;
+        }
+
+        if (!is_numeric($state)) {
+            return (string) $state;
+        }
+
+        return 'R$ ' . number_format((float) $state, 2, ',', '.');
     }
 }
