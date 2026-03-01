@@ -1,7 +1,7 @@
 <div
     @class([
         'dm-topbar-title flex min-w-0 items-center gap-x-4',
-        'flex-1' => $isGiftItemsListPage || $isGiftItemsCreatePage || $isWeddingSettingsPage || $isTransactionsListPage || $isSiteLayoutsListPage || $isSiteTemplatesListPage || $isWeddingPlansListPage,
+        'flex-1' => $isGiftItemsListPage || $isGiftItemsCreatePage || $isWeddingSettingsPage || $isTransactionsListPage || $isSiteLayoutsListPage || $isSiteTemplatesListPage || $isWeddingPlansListPage || $isWeddingPlansCreatePage || $isUsersListPage || $isUsersCreatePage || $isUsersEditPage,
     ])
     x-data
     @navigate.window="$wire.updateTitle()"
@@ -280,6 +280,193 @@
                         Criar Planejamento
                     </x-filament::button>
                 @endif
+            </div>
+        </div>
+    @elseif ($isWeddingPlansCreatePage)
+        <div class="dm-topbar-wedding-plans-create flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $weddingPlansIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Criar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    tag="a"
+                    :href="$weddingPlansIndexUrl"
+                    color="gray"
+                    size="sm"
+                >
+                    Cancelar
+                </x-filament::button>
+
+                <x-filament::button
+                    type="button"
+                    color="gray"
+                    icon="heroicon-o-document-duplicate"
+                    size="sm"
+                    wire:click="createAnotherWeddingPlanFromTopbar"
+                >
+                    Salvar e criar outro
+                </x-filament::button>
+
+                <x-filament::button
+                    type="submit"
+                    form="form"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                >
+                    Criar Planejamento
+                </x-filament::button>
+            </div>
+        </div>
+    @elseif ($isUsersListPage)
+        <div class="dm-topbar-users flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $usersIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Listar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                @if ($canCreateUser)
+                    <x-filament::button
+                        tag="a"
+                        :href="$usersCreateUrl"
+                        color="danger"
+                        icon="heroicon-o-plus"
+                        size="sm"
+                    >
+                        {{ $usersCreateLabel }}
+                    </x-filament::button>
+                @endif
+            </div>
+        </div>
+    @elseif ($isUsersCreatePage)
+        <div class="dm-topbar-users-create flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $usersIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Criar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    tag="a"
+                    :href="$usersIndexUrl"
+                    color="gray"
+                    size="sm"
+                >
+                    Cancelar
+                </x-filament::button>
+
+                <x-filament::button
+                    type="button"
+                    color="gray"
+                    icon="heroicon-o-document-duplicate"
+                    size="sm"
+                    wire:click="createAnotherUserFromTopbar"
+                >
+                    Salvar e criar outro
+                </x-filament::button>
+
+                <x-filament::button
+                    type="submit"
+                    form="form"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                >
+                    Criar Usuário
+                </x-filament::button>
+            </div>
+        </div>
+    @elseif ($isUsersEditPage)
+        <div class="dm-topbar-users-edit flex w-full min-w-0 items-center justify-between gap-3">
+            <nav class="flex min-w-0 items-center gap-2 text-sm">
+                <a
+                    href="{{ $usersIndexUrl }}"
+                    class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
+                >
+                    {{ $title }}
+                </a>
+
+                <x-filament::icon
+                    icon="heroicon-m-chevron-right"
+                    class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                />
+
+                <span class="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Editar
+                </span>
+            </nav>
+
+            <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    tag="a"
+                    :href="$usersIndexUrl"
+                    color="gray"
+                    size="sm"
+                >
+                    Cancelar
+                </x-filament::button>
+
+                <x-filament::button
+                    type="button"
+                    color="danger"
+                    icon="heroicon-o-trash"
+                    size="sm"
+                    x-on:click="if (confirm('Remover usuário deste casamento?')) { $wire.deleteUserFromTopbar() }"
+                >
+                    Remover do Casamento
+                </x-filament::button>
+
+                <x-filament::button
+                    type="submit"
+                    form="form"
+                    color="danger"
+                    icon="heroicon-o-check"
+                    size="sm"
+                >
+                    Salvar Alterações
+                </x-filament::button>
             </div>
         </div>
     @else

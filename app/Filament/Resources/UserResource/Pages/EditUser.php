@@ -3,19 +3,42 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
-use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Livewire\Attributes\On;
 
 class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
 
+    public function getHeading(): string
+    {
+        return '';
+    }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
+
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\DeleteAction::make()
-                ->label('Remover do Casamento'),
-        ];
+        return [];
+    }
+
+    #[On('topbar-user-delete')]
+    public function deleteFromTopbar(): void
+    {
+        abort_unless(static::getResource()::canDelete($this->getRecord()), 403);
+
+        $this->getRecord()->delete();
+
+        Notification::make()
+            ->success()
+            ->title('Usuário removido com sucesso.')
+            ->send();
+
+        $this->redirect($this->getResource()::getUrl('index'));
     }
 
     protected function getRedirectUrl(): string

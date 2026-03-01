@@ -7,6 +7,10 @@ use App\Filament\Resources\GiftItemResource\Pages\CreateGiftItem;
 use App\Filament\Resources\SiteLayoutResource\Pages\ListSiteLayouts;
 use App\Filament\Resources\SiteTemplateResource\Pages\ListSiteTemplates;
 use App\Filament\Resources\TransactionResource\Pages\ListTransactions;
+use App\Filament\Resources\UserResource\Pages\CreateUser;
+use App\Filament\Resources\UserResource\Pages\EditUser;
+use App\Filament\Resources\UserResource\Pages\ListUsers;
+use App\Filament\Resources\WeddingPlanResource\Pages\CreateWeddingPlan;
 use App\Filament\Resources\WeddingPlanResource\Pages\ListWeddingPlans;
 use App\Filament\Pages\WeddingSettings;
 use App\Filament\Pages\Auth\Register;
@@ -84,6 +88,26 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::TOPBAR_AFTER,
                 fn () => view('filament.components.topbar-wedding-plans-actions'),
                 scopes: ListWeddingPlans::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-plan-create-actions'),
+                scopes: CreateWeddingPlan::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-users-actions'),
+                scopes: ListUsers::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-user-create-actions'),
+                scopes: CreateUser::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-user-edit-actions'),
+                scopes: EditUser::class,
             )
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,

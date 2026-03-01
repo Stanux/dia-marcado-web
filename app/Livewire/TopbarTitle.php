@@ -7,9 +7,11 @@ use App\Filament\Resources\GiftItemResource;
 use App\Filament\Resources\SiteLayoutResource;
 use App\Filament\Resources\SiteTemplateResource;
 use App\Filament\Resources\TransactionResource;
+use App\Filament\Resources\UserResource;
 use App\Filament\Resources\WeddingPlanResource;
 use App\Models\GiftRegistryConfig;
 use App\Models\SiteLayout;
+use App\Models\Wedding;
 use App\Services\GiftRegistryModeService;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -26,6 +28,10 @@ class TopbarTitle extends Component
     public bool $isSiteLayoutsListPage = false;
     public bool $isSiteTemplatesListPage = false;
     public bool $isWeddingPlansListPage = false;
+    public bool $isWeddingPlansCreatePage = false;
+    public bool $isUsersListPage = false;
+    public bool $isUsersCreatePage = false;
+    public bool $isUsersEditPage = false;
     public string $giftRegistryMode = GiftRegistryModeService::MODE_QUANTITY;
     public string $giftItemsIndexUrl = '';
     public string $giftItemsCreateUrl = '';
@@ -40,6 +46,10 @@ class TopbarTitle extends Component
     public string $weddingPlansIndexUrl = '';
     public string $weddingPlansCreateUrl = '';
     public bool $canCreateWeddingPlan = false;
+    public string $usersIndexUrl = '';
+    public string $usersCreateUrl = '';
+    public bool $canCreateUser = false;
+    public string $usersCreateLabel = 'Novo Usuário';
 
     public function mount(): void
     {
@@ -57,6 +67,14 @@ class TopbarTitle extends Component
         $this->isSiteLayoutsListPage = $routeName === 'filament.admin.resources.site-layouts.index';
         $this->isSiteTemplatesListPage = $routeName === 'filament.admin.resources.site-templates.index';
         $this->isWeddingPlansListPage = $routeName === 'filament.admin.resources.wedding-plans.index';
+        $this->isWeddingPlansCreatePage = $routeName === 'filament.admin.resources.wedding-plans.create';
+        $this->isUsersListPage = $routeName === 'filament.admin.resources.users.index';
+        $this->isUsersCreatePage = $routeName === 'filament.admin.resources.users.create';
+        $this->isUsersEditPage = $routeName === 'filament.admin.resources.users.edit';
+        $this->usersIndexUrl = '';
+        $this->usersCreateUrl = '';
+        $this->canCreateUser = false;
+        $this->usersCreateLabel = 'Novo Usuário';
 
         if ($this->isGiftItemsListPage) {
             $this->title = (string) GiftItemResource::getPluralModelLabel();
@@ -192,6 +210,89 @@ class TopbarTitle extends Component
             return;
         }
 
+        if ($this->isWeddingPlansCreatePage) {
+            $this->title = (string) WeddingPlanResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = WeddingPlanResource::getUrl('index');
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+
+            return;
+        }
+
+        if ($this->isUsersListPage) {
+            $this->title = (string) UserResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = UserResource::getUrl('index');
+            $this->usersCreateUrl = UserResource::getUrl('create');
+            [$this->canCreateUser, $this->usersCreateLabel] = $this->getUserCreateActionConfig();
+
+            return;
+        }
+
+        if ($this->isUsersCreatePage) {
+            $this->title = (string) UserResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = UserResource::getUrl('index');
+            $this->usersCreateUrl = '';
+
+            return;
+        }
+
+        if ($this->isUsersEditPage) {
+            $this->title = (string) UserResource::getNavigationLabel();
+            $this->giftItemsIndexUrl = '';
+            $this->giftItemsCreateUrl = '';
+            $this->transactionsIndexUrl = '';
+            $this->transactionsExportUrl = '';
+            $this->siteLayoutsIndexUrl = '';
+            $this->siteEditorUrl = '';
+            $this->canCreateSite = false;
+            $this->siteTemplatesIndexUrl = '';
+            $this->siteTemplatesCreateUrl = '';
+            $this->canCreateTemplate = false;
+            $this->weddingPlansIndexUrl = '';
+            $this->weddingPlansCreateUrl = '';
+            $this->canCreateWeddingPlan = false;
+            $this->usersIndexUrl = UserResource::getUrl('index');
+            $this->usersCreateUrl = '';
+
+            return;
+        }
+
         $this->title = $this->getCurrentPageTitle();
         $this->giftItemsIndexUrl = '';
         $this->giftItemsCreateUrl = '';
@@ -206,6 +307,10 @@ class TopbarTitle extends Component
         $this->weddingPlansIndexUrl = '';
         $this->weddingPlansCreateUrl = '';
         $this->canCreateWeddingPlan = false;
+        $this->usersIndexUrl = '';
+        $this->usersCreateUrl = '';
+        $this->canCreateUser = false;
+        $this->usersCreateLabel = 'Novo Usuário';
     }
 
     public function changeGiftRegistryMode(string $mode): void
@@ -250,6 +355,21 @@ class TopbarTitle extends Component
     public function createAnotherGiftFromTopbar(): void
     {
         $this->dispatch('topbar-gift-create-another');
+    }
+
+    public function createAnotherWeddingPlanFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-plan-create-another');
+    }
+
+    public function createAnotherUserFromTopbar(): void
+    {
+        $this->dispatch('topbar-user-create-another');
+    }
+
+    public function deleteUserFromTopbar(): void
+    {
+        $this->dispatch('topbar-user-delete');
     }
 
     protected function getCurrentPageTitle(): string
@@ -317,6 +437,27 @@ class TopbarTitle extends Component
         return ! SiteLayout::query()
             ->where('wedding_id', $weddingId)
             ->exists();
+    }
+
+    protected function getUserCreateActionConfig(): array
+    {
+        $user = auth()->user();
+        $weddingId = $user?->current_wedding_id ?? session('filament_wedding_id');
+        $wedding = $weddingId ? Wedding::find($weddingId) : null;
+
+        if (! $user || ! $wedding) {
+            return [false, 'Novo Usuário'];
+        }
+
+        if ($user->isAdmin() || $user->isCoupleIn($wedding)) {
+            return [true, 'Novo Usuário'];
+        }
+
+        if ($user->isOrganizerIn($wedding) && $user->hasPermissionIn($wedding, 'users')) {
+            return [true, 'Novo Convidado'];
+        }
+
+        return [false, 'Novo Usuário'];
     }
 
     public function render()

@@ -8,10 +8,27 @@ use App\Services\PermissionService;
 use App\Services\UserManagementService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\On;
 
 class CreateUser extends CreateRecord
 {
     protected static string $resource = UserResource::class;
+
+    public function getHeading(): string
+    {
+        return '';
+    }
+
+    #[On('topbar-user-create-another')]
+    public function createAnotherFromTopbar(): void
+    {
+        $this->create(another: true);
+    }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
 
     protected function handleRecordCreation(array $data): Model
     {
