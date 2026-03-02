@@ -16,6 +16,8 @@ use Illuminate\Support\Collection;
 
 class GuestCheckinConsole extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-qr-code';
 
     protected static ?string $navigationLabel = 'Operação Check-in';

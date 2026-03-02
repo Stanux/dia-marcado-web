@@ -13,6 +13,15 @@ use App\Filament\Resources\TransactionResource\Pages\ListTransactions;
 use App\Filament\Resources\UserResource\Pages\CreateUser;
 use App\Filament\Resources\UserResource\Pages\EditUser;
 use App\Filament\Resources\UserResource\Pages\ListUsers;
+use App\Filament\Resources\WeddingEventResource\Pages\CreateWeddingEvent;
+use App\Filament\Resources\WeddingEventResource\Pages\EditWeddingEvent;
+use App\Filament\Resources\WeddingEventResource\Pages\ListWeddingEvents;
+use App\Filament\Resources\WeddingGuestResource\Pages\CreateWeddingGuest;
+use App\Filament\Resources\WeddingGuestResource\Pages\EditWeddingGuest;
+use App\Filament\Resources\WeddingGuestResource\Pages\ListWeddingGuests;
+use App\Filament\Resources\WeddingInviteResource\Pages\CreateWeddingInvite;
+use App\Filament\Resources\WeddingInviteResource\Pages\EditWeddingInvite;
+use App\Filament\Resources\WeddingInviteResource\Pages\ListWeddingInvites;
 use App\Filament\Resources\WeddingPlanResource\Pages\CreateWeddingPlan;
 use App\Filament\Resources\WeddingPlanResource\Pages\EditWeddingPlan;
 use App\Filament\Resources\WeddingPlanResource\Pages\ListWeddingPlans;
@@ -150,6 +159,51 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::TOPBAR_AFTER,
                 fn () => view('filament.components.topbar-wedding-vendor-edit-actions'),
                 scopes: EditWeddingVendor::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-events-actions'),
+                scopes: ListWeddingEvents::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-event-create-actions'),
+                scopes: CreateWeddingEvent::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-event-edit-actions'),
+                scopes: EditWeddingEvent::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-guests-actions'),
+                scopes: ListWeddingGuests::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-guest-create-actions'),
+                scopes: CreateWeddingGuest::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-guest-edit-actions'),
+                scopes: EditWeddingGuest::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-invites-actions'),
+                scopes: ListWeddingInvites::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-invite-create-actions'),
+                scopes: CreateWeddingInvite::class,
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.components.topbar-wedding-invite-edit-actions'),
+                scopes: EditWeddingInvite::class,
             )
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,

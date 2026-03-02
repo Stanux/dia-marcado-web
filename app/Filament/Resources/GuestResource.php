@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class GuestResource extends WeddingScopedResource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = Guest::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';

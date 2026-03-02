@@ -13,6 +13,8 @@ use Filament\Tables\Table;
 
 class GuestEventResource extends WeddingScopedResource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = GuestEvent::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';

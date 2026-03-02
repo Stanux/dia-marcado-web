@@ -17,6 +17,8 @@ use Filament\Tables\Table;
 
 class GuestHouseholdResource extends WeddingScopedResource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = GuestHousehold::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';

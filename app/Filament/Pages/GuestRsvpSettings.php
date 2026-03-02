@@ -22,6 +22,8 @@ class GuestRsvpSettings extends Page implements HasForms
 {
     use InteractsWithForms;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-lock-closed';
 
     protected static string $view = 'filament.pages.guest-rsvp-settings';

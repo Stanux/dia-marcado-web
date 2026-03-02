@@ -30,7 +30,7 @@ class WeddingVendorResource extends WeddingScopedResource
 
     protected static ?string $pluralModelLabel = 'Fornecedores';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 10;
 
     public static function form(Form $form): Form
     {

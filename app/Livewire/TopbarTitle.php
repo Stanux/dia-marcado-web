@@ -10,12 +10,18 @@ use App\Filament\Resources\SiteTemplateResource;
 use App\Filament\Resources\TaskResource;
 use App\Filament\Resources\TransactionResource;
 use App\Filament\Resources\UserResource;
+use App\Filament\Resources\WeddingEventResource;
 use App\Filament\Resources\WeddingPlanResource;
+use App\Filament\Resources\WeddingGuestResource;
+use App\Filament\Resources\WeddingInviteResource;
 use App\Filament\Resources\WeddingVendorResource;
 use App\Models\GiftItem;
 use App\Models\GiftRegistryConfig;
 use App\Models\SiteLayout;
 use App\Models\Task;
+use App\Models\WeddingEvent;
+use App\Models\WeddingGuest;
+use App\Models\WeddingInvite;
 use App\Models\Wedding;
 use App\Models\WeddingPlan;
 use App\Models\WeddingVendor;
@@ -46,6 +52,15 @@ class TopbarTitle extends Component
     public bool $isWeddingVendorsListPage = false;
     public bool $isWeddingVendorsCreatePage = false;
     public bool $isWeddingVendorsEditPage = false;
+    public bool $isWeddingEventsListPage = false;
+    public bool $isWeddingEventsCreatePage = false;
+    public bool $isWeddingEventsEditPage = false;
+    public bool $isWeddingGuestsListPage = false;
+    public bool $isWeddingGuestsCreatePage = false;
+    public bool $isWeddingGuestsEditPage = false;
+    public bool $isWeddingInvitesListPage = false;
+    public bool $isWeddingInvitesCreatePage = false;
+    public bool $isWeddingInvitesEditPage = false;
     public string $giftRegistryMode = GiftRegistryModeService::MODE_QUANTITY;
     public string $giftItemsIndexUrl = '';
     public string $giftItemsCreateUrl = '';
@@ -77,6 +92,18 @@ class TopbarTitle extends Component
     public string $weddingVendorsCreateUrl = '';
     public bool $canCreateWeddingVendor = false;
     public bool $canDeleteWeddingVendor = false;
+    public string $weddingEventsIndexUrl = '';
+    public string $weddingEventsCreateUrl = '';
+    public bool $canCreateWeddingEvent = false;
+    public bool $canDeleteWeddingEvent = false;
+    public string $weddingGuestsIndexUrl = '';
+    public string $weddingGuestsCreateUrl = '';
+    public bool $canCreateWeddingGuest = false;
+    public bool $canDeleteWeddingGuest = false;
+    public string $weddingInvitesIndexUrl = '';
+    public string $weddingInvitesCreateUrl = '';
+    public bool $canCreateWeddingInvite = false;
+    public bool $canDeleteWeddingInvite = false;
 
     public function mount(): void
     {
@@ -105,6 +132,15 @@ class TopbarTitle extends Component
         $this->isWeddingVendorsListPage = $routeName === 'filament.admin.resources.wedding-vendors.index';
         $this->isWeddingVendorsCreatePage = $routeName === 'filament.admin.resources.wedding-vendors.create';
         $this->isWeddingVendorsEditPage = $routeName === 'filament.admin.resources.wedding-vendors.edit';
+        $this->isWeddingEventsListPage = $routeName === 'filament.admin.resources.events.index';
+        $this->isWeddingEventsCreatePage = $routeName === 'filament.admin.resources.events.create';
+        $this->isWeddingEventsEditPage = $routeName === 'filament.admin.resources.events.edit';
+        $this->isWeddingGuestsListPage = $routeName === 'filament.admin.resources.guests-v2.index';
+        $this->isWeddingGuestsCreatePage = $routeName === 'filament.admin.resources.guests-v2.create';
+        $this->isWeddingGuestsEditPage = $routeName === 'filament.admin.resources.guests-v2.edit';
+        $this->isWeddingInvitesListPage = $routeName === 'filament.admin.resources.invites-v2.index';
+        $this->isWeddingInvitesCreatePage = $routeName === 'filament.admin.resources.invites-v2.create';
+        $this->isWeddingInvitesEditPage = $routeName === 'filament.admin.resources.invites-v2.edit';
         $this->isWeddingPlanTimelineView = false;
         $this->weddingPlanDashboardUrl = '';
         $this->weddingPlanCreateTaskUrl = '';
@@ -121,6 +157,18 @@ class TopbarTitle extends Component
         $this->weddingVendorsCreateUrl = '';
         $this->canCreateWeddingVendor = false;
         $this->canDeleteWeddingVendor = false;
+        $this->weddingEventsIndexUrl = '';
+        $this->weddingEventsCreateUrl = '';
+        $this->canCreateWeddingEvent = false;
+        $this->canDeleteWeddingEvent = false;
+        $this->weddingGuestsIndexUrl = '';
+        $this->weddingGuestsCreateUrl = '';
+        $this->canCreateWeddingGuest = false;
+        $this->canDeleteWeddingGuest = false;
+        $this->weddingInvitesIndexUrl = '';
+        $this->weddingInvitesCreateUrl = '';
+        $this->canCreateWeddingInvite = false;
+        $this->canDeleteWeddingInvite = false;
         $this->canDeleteGiftItem = false;
 
         if ($this->isGiftItemsListPage) {
@@ -556,6 +604,93 @@ class TopbarTitle extends Component
             return;
         }
 
+        if ($this->isWeddingEventsListPage) {
+            $this->title = (string) WeddingEventResource::getNavigationLabel();
+            $this->weddingEventsIndexUrl = WeddingEventResource::getUrl('index');
+            $this->weddingEventsCreateUrl = WeddingEventResource::getUrl('create');
+            $this->canCreateWeddingEvent = WeddingEventResource::canCreate();
+
+            return;
+        }
+
+        if ($this->isWeddingEventsCreatePage) {
+            $this->title = (string) WeddingEventResource::getNavigationLabel();
+            $this->weddingEventsIndexUrl = WeddingEventResource::getUrl('index');
+
+            return;
+        }
+
+        if ($this->isWeddingEventsEditPage) {
+            $this->title = (string) WeddingEventResource::getNavigationLabel();
+            $this->weddingEventsIndexUrl = WeddingEventResource::getUrl('index');
+
+            $routeRecord = request()->route('record');
+            $event = $routeRecord instanceof WeddingEvent
+                ? $routeRecord
+                : WeddingEvent::withoutGlobalScopes()->find($routeRecord);
+            $this->canDeleteWeddingEvent = $event ? WeddingEventResource::canDelete($event) : false;
+
+            return;
+        }
+
+        if ($this->isWeddingGuestsListPage) {
+            $this->title = (string) WeddingGuestResource::getNavigationLabel();
+            $this->weddingGuestsIndexUrl = WeddingGuestResource::getUrl('index');
+            $this->weddingGuestsCreateUrl = WeddingGuestResource::getUrl('create');
+            $this->canCreateWeddingGuest = WeddingGuestResource::canCreate();
+
+            return;
+        }
+
+        if ($this->isWeddingGuestsCreatePage) {
+            $this->title = (string) WeddingGuestResource::getNavigationLabel();
+            $this->weddingGuestsIndexUrl = WeddingGuestResource::getUrl('index');
+
+            return;
+        }
+
+        if ($this->isWeddingGuestsEditPage) {
+            $this->title = (string) WeddingGuestResource::getNavigationLabel();
+            $this->weddingGuestsIndexUrl = WeddingGuestResource::getUrl('index');
+
+            $routeRecord = request()->route('record');
+            $guest = $routeRecord instanceof WeddingGuest
+                ? $routeRecord
+                : WeddingGuest::withoutGlobalScopes()->find($routeRecord);
+            $this->canDeleteWeddingGuest = $guest ? WeddingGuestResource::canDelete($guest) : false;
+
+            return;
+        }
+
+        if ($this->isWeddingInvitesListPage) {
+            $this->title = (string) WeddingInviteResource::getNavigationLabel();
+            $this->weddingInvitesIndexUrl = WeddingInviteResource::getUrl('index');
+            $this->weddingInvitesCreateUrl = WeddingInviteResource::getUrl('create');
+            $this->canCreateWeddingInvite = WeddingInviteResource::canCreate();
+
+            return;
+        }
+
+        if ($this->isWeddingInvitesCreatePage) {
+            $this->title = (string) WeddingInviteResource::getNavigationLabel();
+            $this->weddingInvitesIndexUrl = WeddingInviteResource::getUrl('index');
+
+            return;
+        }
+
+        if ($this->isWeddingInvitesEditPage) {
+            $this->title = (string) WeddingInviteResource::getNavigationLabel();
+            $this->weddingInvitesIndexUrl = WeddingInviteResource::getUrl('index');
+
+            $routeRecord = request()->route('record');
+            $invite = $routeRecord instanceof WeddingInvite
+                ? $routeRecord
+                : WeddingInvite::withoutGlobalScopes()->find($routeRecord);
+            $this->canDeleteWeddingInvite = $invite ? WeddingInviteResource::canDelete($invite) : false;
+
+            return;
+        }
+
         $this->title = $this->getCurrentPageTitle();
         $this->giftItemsIndexUrl = '';
         $this->giftItemsCreateUrl = '';
@@ -578,6 +713,18 @@ class TopbarTitle extends Component
         $this->weddingVendorsCreateUrl = '';
         $this->canCreateWeddingVendor = false;
         $this->canDeleteWeddingVendor = false;
+        $this->weddingEventsIndexUrl = '';
+        $this->weddingEventsCreateUrl = '';
+        $this->canCreateWeddingEvent = false;
+        $this->canDeleteWeddingEvent = false;
+        $this->weddingGuestsIndexUrl = '';
+        $this->weddingGuestsCreateUrl = '';
+        $this->canCreateWeddingGuest = false;
+        $this->canDeleteWeddingGuest = false;
+        $this->weddingInvitesIndexUrl = '';
+        $this->weddingInvitesCreateUrl = '';
+        $this->canCreateWeddingInvite = false;
+        $this->canDeleteWeddingInvite = false;
         $this->canDeleteGiftItem = false;
     }
 
@@ -717,6 +864,36 @@ class TopbarTitle extends Component
     public function deleteWeddingVendorFromTopbar(): void
     {
         $this->dispatch('topbar-wedding-vendor-delete');
+    }
+
+    public function createAnotherWeddingEventFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-event-create-another');
+    }
+
+    public function deleteWeddingEventFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-event-delete');
+    }
+
+    public function createAnotherWeddingGuestFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-guest-create-another');
+    }
+
+    public function deleteWeddingGuestFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-guest-delete');
+    }
+
+    public function createAnotherWeddingInviteFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-invite-create-another');
+    }
+
+    public function deleteWeddingInviteFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-invite-delete');
     }
 
     protected function getCurrentPageTitle(): string

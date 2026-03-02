@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GuestOperationsDashboard extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-chart-pie';
 
     protected static ?string $navigationLabel = 'Dashboard RSVP';

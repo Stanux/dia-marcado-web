@@ -1,0 +1,202 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\WeddingGuestResource\Pages;
+use App\Models\WeddingGuest;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Tables;
+use Filament\Tables\Table;
+
+class WeddingGuestResource extends WeddingScopedResource
+{
+    protected static ?string $model = WeddingGuest::class;
+
+    protected static ?string $navigationIcon = 'heroicon-o-user-group';
+
+    protected static ?string $navigationLabel = 'Convidados';
+
+    protected static ?string $navigationGroup = 'CASAMENTO';
+
+    protected static ?string $module = 'guests';
+
+    protected static ?string $modelLabel = 'Convidado';
+
+    protected static ?string $pluralModelLabel = 'Convidados';
+
+    protected static ?int $navigationSort = 8;
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Section::make('Dados do Convidado')
+                    ->schema([
+                        Forms\Components\TextInput::make('name')
+                            ->label('Nome')
+                            ->required()
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('nickname')
+                            ->label('Apelido')
+                            ->maxLength(100),
+
+                        Forms\Components\TextInput::make('email')
+                            ->label('E-mail')
+                            ->email()
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('phone')
+                            ->label('Telefone')
+                            ->placeholder('(00) 00000-0000')
+                            ->mask('(99) 99999-9999')
+                            ->maxLength(15),
+
+                        Forms\Components\Select::make('primary_contact_id')
+                            ->label('Contato Principal')
+                            ->options(fn (?WeddingGuest $record): array => WeddingGuest::query()
+                                ->primaryContacts()
+                                ->when($record, fn ($query) => $query->whereKeyNot($record->getKey()))
+                                ->orderBy('name')
+                                ->pluck('name', 'id')
+                                ->all())
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
+                            ->nullable()
+                            ->helperText('Se vazio, este registro também é um contato principal.'),
+
+                        Forms\Components\TextInput::make('relationship')
+                            ->label('Grau de Parentesco')
+                            ->maxLength(120),
+
+                        Forms\Components\Select::make('side')
+                            ->label('Lado')
+                            ->options([
+                                'bride' => 'Noiva',
+                                'groom' => 'Noivo',
+                                'both' => 'Ambos',
+                            ])
+                            ->default('both')
+                            ->required()
+                            ->native(false),
+
+                        Forms\Components\Select::make('status')
+                            ->label('Status')
+                            ->options([
+                                'pending' => 'Pendente',
+                                'confirmed' => 'Confirmado',
+                                'declined' => 'Recusado',
+                            ])
+                            ->default('pending')
+                            ->required()
+                            ->native(false),
+
+                        Forms\Components\Toggle::make('is_child')
+                            ->label('Criança')
+                            ->inline(false)
+                            ->default(false),
+
+                        Forms\Components\Toggle::make('is_active')
+                            ->label('Ativo')
+                            ->inline(false)
+                            ->default(true),
+                    ])
+                    ->columns(4),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Nome')
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('primaryContact.name')
+                    ->label('Contato Principal')
+                    ->placeholder('Contato principal')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'pending' => 'Pendente',
+                        'confirmed' => 'Confirmado',
+                        'declined' => 'Recusado',
+                        default => $state,
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'confirmed' => 'success',
+                        'declined' => 'danger',
+                        default => 'gray',
+                    }),
+
+                Tables\Columns\TextColumn::make('side')
+                    ->label('Lado')
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'bride' => 'Noiva',
+                        'groom' => 'Noivo',
+                        default => 'Ambos',
+                    }),
+
+                Tables\Columns\IconColumn::make('is_child')
+                    ->label('Criança')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('email')
+                    ->label('E-mail')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('phone')
+                    ->label('Telefone')
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Status')
+                    ->options([
+                        'pending' => 'Pendente',
+                        'confirmed' => 'Confirmado',
+                        'declined' => 'Recusado',
+                    ]),
+
+                Tables\Filters\SelectFilter::make('side')
+                    ->label('Lado')
+                    ->options([
+                        'bride' => 'Noiva',
+                        'groom' => 'Noivo',
+                        'both' => 'Ambos',
+                    ]),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make()->iconButton(),
+                Tables\Actions\DeleteAction::make()->iconButton(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ])
+            ->defaultSort('name');
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListWeddingGuests::route('/'),
+            'create' => Pages\CreateWeddingGuest::route('/create'),
+            'edit' => Pages\EditWeddingGuest::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getSlug(): string
+    {
+        return 'guests-v2';
+    }
+}
