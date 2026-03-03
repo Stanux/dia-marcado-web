@@ -21,7 +21,7 @@ class MediaGallery extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-photo';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $navigationLabel = 'Galeria de Mídias';
 

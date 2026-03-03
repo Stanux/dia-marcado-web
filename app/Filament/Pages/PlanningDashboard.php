@@ -17,7 +17,7 @@ class PlanningDashboard extends Page
 
     protected static ?string $navigationLabel = 'Dashboard Planejamento';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $title = 'Dashboard do Planejamento';
 

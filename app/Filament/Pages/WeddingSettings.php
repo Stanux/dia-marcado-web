@@ -44,7 +44,7 @@ class WeddingSettings extends Page implements HasForms
 
     protected static ?string $slug = 'wedding-settings';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?int $navigationSort = 2;
 

@@ -27,7 +27,7 @@ class AlbumResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-folder';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $navigationLabel = 'Álbuns';
 

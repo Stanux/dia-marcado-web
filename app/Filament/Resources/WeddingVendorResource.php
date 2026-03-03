@@ -22,7 +22,7 @@ class WeddingVendorResource extends WeddingScopedResource
 
     protected static ?string $navigationLabel = 'Fornecedores';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $module = 'tasks';
 
@@ -30,7 +30,7 @@ class WeddingVendorResource extends WeddingScopedResource
 
     protected static ?string $pluralModelLabel = 'Fornecedores';
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 11;
 
     public static function form(Form $form): Form
     {

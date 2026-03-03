@@ -22,7 +22,7 @@ class WeddingPlanResource extends WeddingScopedResource
 
     protected static ?string $navigationLabel = 'Planejamentos';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $module = 'tasks';
 
@@ -30,7 +30,7 @@ class WeddingPlanResource extends WeddingScopedResource
 
     protected static ?string $pluralModelLabel = 'Planejamentos';
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 10;
 
     public static function form(Form $form): Form
     {

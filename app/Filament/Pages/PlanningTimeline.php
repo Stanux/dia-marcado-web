@@ -17,7 +17,7 @@ class PlanningTimeline extends Page
 
     protected static ?string $navigationLabel = 'Timeline do Planejamento';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $title = 'Timeline do Planejamento';
 

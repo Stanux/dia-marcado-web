@@ -18,7 +18,7 @@ class WeddingEventResource extends WeddingScopedResource
 
     protected static ?string $navigationLabel = 'Eventos';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $module = 'guests';
 

@@ -27,7 +27,7 @@ class GiftItemResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-gift';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $navigationLabel = 'Lista de presentes';
 

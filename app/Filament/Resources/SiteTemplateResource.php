@@ -27,7 +27,7 @@ class SiteTemplateResource extends Resource
 
     protected static ?string $navigationLabel = 'Templates';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $modelLabel = 'Template';
 
@@ -342,6 +342,11 @@ class SiteTemplateResource extends Resource
         $weddingId = $user?->current_wedding_id ?? session('filament_wedding_id');
         
         return $record->wedding_id === $weddingId || $user?->isAdmin();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function templateEditorUrl(SiteTemplate $template): string

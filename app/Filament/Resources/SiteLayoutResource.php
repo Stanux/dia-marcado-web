@@ -26,7 +26,7 @@ class SiteLayoutResource extends WeddingScopedResource
 
     protected static ?string $navigationIcon = 'heroicon-o-globe-alt';
 
-    protected static ?string $navigationGroup = 'CASAMENTO';
+    protected static ?string $navigationGroup = null;
 
     protected static ?string $navigationLabel = 'Editor do Site';
 
