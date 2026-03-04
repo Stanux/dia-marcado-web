@@ -47,7 +47,10 @@ class EnsureWeddingContextForInertia
             $wedding = Wedding::find($weddingId);
             
             if ($wedding && $user->hasAccessTo($wedding)) {
-                $user->current_wedding_id = $weddingId;
+                session(['filament_wedding_id' => $weddingId]);
+                if ($user->current_wedding_id !== $weddingId) {
+                    $user->forceFill(['current_wedding_id' => $weddingId])->saveQuietly();
+                }
             } else {
                 session()->forget('filament_wedding_id');
                 return redirect()->route('filament.admin.pages.dashboard');

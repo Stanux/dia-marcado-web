@@ -14,10 +14,12 @@ use Tests\TestCase;
 /**
  * Feature: user-onboarding, Property 1: Controle de Acesso Baseado em Status de Onboarding
  * 
- * For any non-admin user:
- * - If the user has NOT completed onboarding, any attempt to access system pages 
- *   (except the onboarding page) SHALL result in a redirect to the onboarding page.
- * - If the user HAS completed onboarding, they SHALL have access to the dashboard.
+ * For users with role couple:
+ * - If onboarding is NOT complete, access to protected pages should redirect to onboarding.
+ * - If onboarding is complete, access to dashboard should be allowed.
+ *
+ * For organizer/guest:
+ * - Onboarding flow is not applicable.
  * - Admin users are exempt from onboarding requirements.
  * 
  * Validates: Requirements 1.1, 1.2, 1.4
@@ -80,14 +82,14 @@ class OnboardingAccessControlPropertyTest extends TestCase
     /**
      * Property test: Users who haven't completed onboarding are redirected
      * 
-     * For any non-admin user who has not completed onboarding,
+     * For any couple user who has not completed onboarding,
      * accessing any non-onboarding route should redirect to onboarding.
      */
     #[\PHPUnit\Framework\Attributes\Test]
     public function users_without_completed_onboarding_are_redirected(): void
     {
         for ($i = 0; $i < 100; $i++) {
-            $user = User::factory()->onboardingPending()->create();
+            $user = User::factory()->couple()->onboardingPending()->create();
             
             $request = $this->createRequest($user, 'filament.admin.pages.dashboard');
             
@@ -111,14 +113,14 @@ class OnboardingAccessControlPropertyTest extends TestCase
     /**
      * Property test: Users who completed onboarding can access dashboard
      * 
-     * For any non-admin user who has completed onboarding,
+     * For any couple user who has completed onboarding,
      * accessing the dashboard should be allowed.
      */
     #[\PHPUnit\Framework\Attributes\Test]
     public function users_with_completed_onboarding_can_access_dashboard(): void
     {
         for ($i = 0; $i < 100; $i++) {
-            $user = User::factory()->onboardingCompleted()->create();
+            $user = User::factory()->couple()->onboardingCompleted()->create();
             
             $request = $this->createRequest($user, 'filament.admin.pages.dashboard');
             
@@ -182,14 +184,14 @@ class OnboardingAccessControlPropertyTest extends TestCase
     /**
      * Property test: Users without completed onboarding can access onboarding page
      * 
-     * For any non-admin user who has not completed onboarding,
+     * For any couple user who has not completed onboarding,
      * they should be able to access the onboarding page.
      */
     #[\PHPUnit\Framework\Attributes\Test]
     public function users_without_onboarding_can_access_onboarding_page(): void
     {
         for ($i = 0; $i < 100; $i++) {
-            $user = User::factory()->onboardingPending()->create();
+            $user = User::factory()->couple()->onboardingPending()->create();
             
             $request = $this->createRequest($user, 'filament.admin.pages.onboarding');
             
@@ -213,14 +215,14 @@ class OnboardingAccessControlPropertyTest extends TestCase
     /**
      * Property test: Users with completed onboarding are redirected away from onboarding page
      * 
-     * For any non-admin user who has completed onboarding,
+     * For any couple user who has completed onboarding,
      * accessing the onboarding page should redirect to dashboard.
      */
     #[\PHPUnit\Framework\Attributes\Test]
     public function users_with_completed_onboarding_are_redirected_from_onboarding_page(): void
     {
         for ($i = 0; $i < 100; $i++) {
-            $user = User::factory()->onboardingCompleted()->create();
+            $user = User::factory()->couple()->onboardingCompleted()->create();
             
             $request = $this->createRequest($user, 'filament.admin.pages.onboarding');
             
@@ -232,6 +234,66 @@ class OnboardingAccessControlPropertyTest extends TestCase
                 $response->isRedirect(),
                 "User with completed onboarding should be redirected from onboarding page (iteration $i)"
             );
+        }
+    }
+
+    /**
+     * Organizer/guest users do not use onboarding and should access dashboard.
+     */
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function non_couple_users_can_access_dashboard_even_with_pending_onboarding(): void
+    {
+        foreach (['organizer', 'guest'] as $role) {
+            for ($i = 0; $i < 50; $i++) {
+                $user = User::factory()
+                    ->state(['role' => $role])
+                    ->onboardingPending()
+                    ->create();
+
+                $request = $this->createRequest($user, 'filament.admin.pages.dashboard');
+
+                $response = $this->middleware->handle($request, function () {
+                    return new Response('OK');
+                });
+
+                $this->assertFalse(
+                    $response->isRedirect(),
+                    "{$role} should not be redirected to onboarding (iteration $i)"
+                );
+            }
+        }
+    }
+
+    /**
+     * Organizer/guest users should be redirected away from onboarding page.
+     */
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function non_couple_users_are_redirected_from_onboarding_page(): void
+    {
+        foreach (['organizer', 'guest'] as $role) {
+            for ($i = 0; $i < 50; $i++) {
+                $user = User::factory()
+                    ->state(['role' => $role])
+                    ->onboardingPending()
+                    ->create();
+
+                $request = $this->createRequest($user, 'filament.admin.pages.onboarding');
+
+                $response = $this->middleware->handle($request, function () {
+                    return new Response('OK');
+                });
+
+                $this->assertTrue(
+                    $response->isRedirect(),
+                    "{$role} should be redirected from onboarding page (iteration $i)"
+                );
+
+                $this->assertStringContainsString(
+                    route('filament.admin.pages.dashboard'),
+                    $response->headers->get('Location') ?? '',
+                    "{$role} redirect should point to dashboard (iteration $i)"
+                );
+            }
         }
     }
 }

@@ -81,6 +81,31 @@ class GoogleAuthControllerTest extends TestCase
         $response->assertRedirect(route('filament.admin.pages.dashboard'));
     }
 
+    public function test_callback_existing_organizer_pending_onboarding_redirects_dashboard(): void
+    {
+        $this->enableGoogleOAuth();
+
+        $organizer = User::factory()
+            ->organizer()
+            ->onboardingPending()
+            ->create([
+                'email' => 'organizador.existente@example.com',
+            ]);
+
+        Socialite::shouldReceive('driver->user')
+            ->once()
+            ->andReturn($this->mockGoogleUser([
+                'id' => 'google-existing-organizer',
+                'email' => 'organizador.existente@example.com',
+                'name' => 'Organizador Existente',
+            ]));
+
+        $response = $this->get(route('auth.google.callback'));
+
+        $this->assertAuthenticatedAs($organizer);
+        $response->assertRedirect(route('filament.admin.pages.dashboard'));
+    }
+
     public function test_callback_accepts_pending_invite_when_email_matches(): void
     {
         $this->enableGoogleOAuth();

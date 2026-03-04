@@ -22,7 +22,7 @@ class WeddingSelector extends Widget
 
     public function mount(): void
     {
-        $this->selectedWeddingId = session('filament_wedding_id') 
+        $this->selectedWeddingId = session('filament_wedding_id')
             ?? auth()->user()?->current_wedding_id;
     }
 
@@ -30,37 +30,46 @@ class WeddingSelector extends Widget
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 
         if ($user->isAdmin()) {
-            return Wedding::all()->pluck('title', 'id')->toArray();
+            return Wedding::query()
+                ->orderBy('title')
+                ->pluck('title', 'id')
+                ->toArray();
         }
 
-        return $user->weddings()->pluck('title', 'weddings.id')->toArray();
+        return $user->weddings()
+            ->orderBy('title')
+            ->pluck('title', 'weddings.id')
+            ->toArray();
     }
 
     public function selectWedding(string $weddingId): void
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             return;
         }
 
         // Verify user has access to this wedding
-        if (!$user->isAdmin()) {
+        if (! $user->isAdmin()) {
             $hasAccess = $user->weddings()->where('wedding_id', $weddingId)->exists();
-            
-            if (!$hasAccess) {
+
+            if (! $hasAccess) {
                 return;
             }
         }
 
         // Update session and user context
         session(['filament_wedding_id' => $weddingId]);
-        $user->current_wedding_id = $weddingId;
+
+        if ($user->current_wedding_id !== $weddingId) {
+            $user->forceFill(['current_wedding_id' => $weddingId])->saveQuietly();
+        }
 
         $this->selectedWeddingId = $weddingId;
 
@@ -70,7 +79,7 @@ class WeddingSelector extends Widget
 
     public function getCurrentWedding(): ?Wedding
     {
-        if (!$this->selectedWeddingId) {
+        if (! $this->selectedWeddingId) {
             return null;
         }
 
@@ -81,11 +90,14 @@ class WeddingSelector extends Widget
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
-        // Show for all authenticated users
-        return true;
+        if ($user->isAdmin()) {
+            return Wedding::query()->count() > 1;
+        }
+
+        return $user->weddings()->count() > 1;
     }
 }

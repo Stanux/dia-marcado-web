@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Tests\TestCase;
@@ -96,6 +97,97 @@ class UserManagementTest extends TestCase
     }
 
     /**
+     * Test: Organizer existente pode ser vinculado em múltiplos casamentos.
+     * @test
+     */
+    public function existing_organizer_can_be_linked_to_another_wedding(): void
+    {
+        $weddingA = Wedding::create(['title' => 'Wedding A']);
+        $weddingB = Wedding::create(['title' => 'Wedding B']);
+
+        $coupleB = User::factory()->create(['role' => 'couple']);
+        $coupleB->weddings()->attach($weddingB->id, ['role' => 'couple', 'permissions' => []]);
+
+        $existingOrganizer = User::factory()
+            ->organizer()
+            ->onboardingPending()
+            ->create([
+                'email' => 'organizer.multiple@example.com',
+                'password' => Hash::make('old-secret'),
+            ]);
+
+        $existingOrganizer->weddings()->attach($weddingA->id, [
+            'role' => 'organizer',
+            'permissions' => ['event_data'],
+        ]);
+
+        $linkedOrganizer = $this->userManagementService->createOrganizer(
+            $coupleB,
+            $weddingB,
+            [
+                'name' => 'Nome Ignorado',
+                'email' => 'organizer.multiple@example.com',
+                'password' => 'new-secret',
+            ],
+            ['event_data', 'site_editor']
+        );
+
+        $this->assertSame($existingOrganizer->id, $linkedOrganizer->id);
+        $this->assertDatabaseCount('users', 2);
+
+        $pivotInWeddingB = $linkedOrganizer->weddings()
+            ->where('wedding_id', $weddingB->id)
+            ->first()
+            ?->pivot;
+
+        $this->assertNotNull($pivotInWeddingB);
+        $this->assertSame('organizer', $pivotInWeddingB->role);
+        $this->assertSame(['event_data', 'site_editor'], $pivotInWeddingB->permissions);
+
+        $linkedOrganizer->refresh();
+
+        $this->assertTrue($linkedOrganizer->hasCompletedOnboarding());
+        $this->assertTrue(Hash::check('old-secret', $linkedOrganizer->password));
+        $this->assertFalse(Hash::check('new-secret', $linkedOrganizer->password));
+
+        $this->assertTrue(
+            $linkedOrganizer->weddings()->where('wedding_id', $weddingA->id)->exists()
+        );
+    }
+
+    /**
+     * Test: Organizer já vinculado ao casamento não pode ser recriado.
+     * @test
+     */
+    public function existing_organizer_linked_to_same_wedding_is_rejected(): void
+    {
+        $wedding = Wedding::create(['title' => 'Wedding']);
+        $couple = User::factory()->create(['role' => 'couple']);
+        $couple->weddings()->attach($wedding->id, ['role' => 'couple', 'permissions' => []]);
+
+        $existingOrganizer = User::factory()
+            ->organizer()
+            ->create(['email' => 'organizer.same@example.com']);
+
+        $existingOrganizer->weddings()->attach($wedding->id, [
+            'role' => 'organizer',
+            'permissions' => ['event_data'],
+        ]);
+
+        $this->expectException(ValidationException::class);
+
+        $this->userManagementService->createOrganizer(
+            $couple,
+            $wedding,
+            [
+                'name' => 'Organizer',
+                'email' => 'organizer.same@example.com',
+            ],
+            ['site_editor']
+        );
+    }
+
+    /**
      * Property 6: Removal preserves user record
      * @test
      */
@@ -136,6 +228,74 @@ class UserManagementTest extends TestCase
             $couple->delete();
             $wedding->delete();
         }
+    }
+
+    /**
+     * Test: Ao remover do casamento atual, contexto do usuário deve apontar para outro casamento disponível.
+     * @test
+     */
+    public function removal_from_current_wedding_moves_user_context_to_another_wedding(): void
+    {
+        $weddingA = Wedding::create(['title' => 'Wedding A']);
+        $weddingB = Wedding::create(['title' => 'Wedding B']);
+
+        $organizer = User::factory()
+            ->organizer()
+            ->create([
+                'current_wedding_id' => $weddingA->id,
+            ]);
+
+        $organizer->weddings()->attach($weddingA->id, [
+            'role' => 'organizer',
+            'permissions' => ['users'],
+        ]);
+        $organizer->weddings()->attach($weddingB->id, [
+            'role' => 'organizer',
+            'permissions' => ['users'],
+        ]);
+
+        $this->userManagementService->removeFromWedding($organizer, $weddingA);
+
+        $organizer->refresh();
+
+        $this->assertDatabaseHas('users', ['id' => $organizer->id]);
+        $this->assertFalse(
+            $organizer->weddings()->where('wedding_id', $weddingA->id)->exists()
+        );
+        $this->assertTrue(
+            $organizer->weddings()->where('wedding_id', $weddingB->id)->exists()
+        );
+        $this->assertSame($weddingB->id, $organizer->current_wedding_id);
+    }
+
+    /**
+     * Test: Ao remover do último casamento, contexto atual deve ser limpo.
+     * @test
+     */
+    public function removal_from_last_wedding_clears_user_context(): void
+    {
+        $wedding = Wedding::create(['title' => 'Wedding']);
+
+        $organizer = User::factory()
+            ->organizer()
+            ->create([
+                'current_wedding_id' => $wedding->id,
+            ]);
+
+        $organizer->weddings()->attach($wedding->id, [
+            'role' => 'organizer',
+            'permissions' => ['users'],
+        ]);
+
+        $this->userManagementService->removeFromWedding($organizer, $wedding);
+
+        $organizer->refresh();
+
+        $this->assertDatabaseHas('users', ['id' => $organizer->id]);
+        $this->assertFalse(
+            $organizer->weddings()->where('wedding_id', $wedding->id)->exists()
+        );
+        $this->assertNull($organizer->current_wedding_id);
     }
 
     /**

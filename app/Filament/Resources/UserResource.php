@@ -7,14 +7,18 @@ use App\Models\User;
 use App\Models\Wedding;
 use App\Services\PermissionManagementService;
 use App\Services\PermissionService;
+use App\Services\UserManagementService;
+use Closure;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 /**
  * Filament Resource for managing Users within a wedding context.
@@ -51,14 +55,37 @@ class UserResource extends Resource
                             ->email()
                             ->required()
                             ->maxLength(255)
-                            ->unique(ignoreRecord: true),
+                            ->live(debounce: 500)
+                            ->afterStateUpdated(function (Get $get, Set $set): void {
+                                if (static::shouldLinkExistingOrganizer($get('email'), $get('pivot_role'))) {
+                                    $set('password', null);
+                                }
+                            })
+                            ->rule(function (Get $get, ?User $record, string $operation) {
+                                return function (string $attribute, mixed $value, Closure $fail) use ($get, $record, $operation): void {
+                                    $existingUser = static::findUserByEmail(is_string($value) ? $value : null);
 
-                        Forms\Components\TextInput::make('password')
-                            ->label('Senha')
-                            ->password()
-                            ->dehydrated(fn ($state) => filled($state))
-                            ->required(fn (string $operation): bool => $operation === 'create')
-                            ->maxLength(255),
+                                    if (! $existingUser) {
+                                        return;
+                                    }
+
+                                    if ($operation === 'edit' && $record && $existingUser->is($record)) {
+                                        return;
+                                    }
+
+                                    if (
+                                        $operation === 'create'
+                                        && static::shouldLinkExistingOrganizer(
+                                            is_string($value) ? $value : null,
+                                            $get('pivot_role')
+                                        )
+                                    ) {
+                                        return;
+                                    }
+
+                                    $fail('Este email já está em uso.');
+                                };
+                            }),
 
                         Forms\Components\Select::make('pivot_role')
                             ->label('Tipo')
@@ -68,6 +95,48 @@ class UserResource extends Resource
                             ->afterStateUpdated(function (?string $state, Set $set): void {
                                 $set('permissions', static::getDefaultPermissionsForRole($state));
                             }),
+
+                        Forms\Components\TextInput::make('password')
+                            ->label('Senha')
+                            ->password()
+                            ->disabled(function (Get $get, string $operation): bool {
+                                return $operation === 'create'
+                                    && static::shouldLinkExistingOrganizer($get('email'), $get('pivot_role'));
+                            })
+                            ->dehydrated(function ($state, Get $get, string $operation): bool {
+                                if ($operation !== 'create') {
+                                    return filled($state);
+                                }
+
+                                return ! static::shouldLinkExistingOrganizer(
+                                    $get('email'),
+                                    $get('pivot_role')
+                                ) && filled($state);
+                            })
+                            ->required(function (Get $get, string $operation): bool {
+                                if ($operation !== 'create') {
+                                    return false;
+                                }
+
+                                return ! static::shouldLinkExistingOrganizer(
+                                    $get('email'),
+                                    $get('pivot_role')
+                                );
+                            })
+                            ->helperText(function (Get $get, string $operation): ?string {
+                                if (
+                                    $operation === 'create'
+                                    && static::shouldLinkExistingOrganizer(
+                                        $get('email'),
+                                        $get('pivot_role')
+                                    )
+                                ) {
+                                    return 'Conta já existe na plataforma, portanto não é necessário definir uma senha. O organizador será vinculado a este casamento.';
+                                }
+
+                                return null;
+                            })
+                            ->maxLength(255),
                     ])
                     ->columns(2),
 
@@ -159,16 +228,50 @@ class UserResource extends Resource
                         return $wedding?->pivot?->role === 'organizer';
                     })
                     ->url(fn (User $record): string => route('filament.admin.resources.users.permissions', $record)),
-                Tables\Actions\DeleteAction::make()
+                Tables\Actions\Action::make('detach_from_wedding')
                     ->label('Remover')
+                    ->icon('heroicon-o-trash')
                     ->iconButton()
                     ->tooltip('Remover usuário deste casamento')
+                    ->requiresConfirmation()
                     ->modalHeading('Remover usuário do casamento')
-                    ->modalDescription('O usuário será removido deste casamento, mas sua conta continuará existindo.'),
+                    ->modalDescription('O usuário será apenas desvinculado deste casamento. A conta continuará existindo no sistema.')
+                    ->action(function (User $record): void {
+                        abort_unless(static::canDelete($record), 403);
+
+                        static::detachUserFromCurrentWedding($record);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Usuário removido deste casamento.')
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('detach_selected_from_wedding')
+                        ->label('Remover selecionados do casamento')
+                        ->icon('heroicon-o-user-minus')
+                        ->requiresConfirmation()
+                        ->action(function ($records): void {
+                            $detachedCount = 0;
+
+                            foreach ($records as $record) {
+                                if (! $record instanceof User) {
+                                    continue;
+                                }
+
+                                abort_unless(static::canDelete($record), 403);
+                                static::detachUserFromCurrentWedding($record);
+                                $detachedCount++;
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title("{$detachedCount} usuário(s) removido(s) deste casamento.")
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
@@ -192,7 +295,9 @@ class UserResource extends Resource
             }]);
 
         // Organizer can only see guests
-        if ($user && $user->isOrganizerIn($user->currentWedding)) {
+        $currentWedding = Wedding::find($weddingId);
+
+        if ($user && $currentWedding && $user->isOrganizerIn($currentWedding)) {
             $query->whereHas('weddings', function ($q) use ($weddingId) {
                 $q->where('wedding_id', $weddingId)
                   ->where('wedding_user.role', 'guest');
@@ -304,5 +409,40 @@ class UserResource extends Resource
         }
 
         return Wedding::find($weddingId);
+    }
+
+    public static function detachUserFromCurrentWedding(User $record): void
+    {
+        $wedding = static::getCurrentWeddingFromContext();
+
+        if (! $wedding instanceof Wedding) {
+            abort(422, 'Contexto de casamento não encontrado para remover usuário.');
+        }
+
+        app(UserManagementService::class)->removeFromWedding($record, $wedding);
+    }
+
+    public static function shouldLinkExistingOrganizer(?string $email, ?string $pivotRole): bool
+    {
+        if ($pivotRole !== 'organizer') {
+            return false;
+        }
+
+        $existingUser = static::findUserByEmail($email);
+
+        return $existingUser?->role === 'organizer';
+    }
+
+    private static function findUserByEmail(?string $email): ?User
+    {
+        $normalizedEmail = Str::lower(trim((string) $email));
+
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        return User::query()
+            ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+            ->first();
     }
 }

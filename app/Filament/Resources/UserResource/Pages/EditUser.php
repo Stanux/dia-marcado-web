@@ -33,11 +33,11 @@ class EditUser extends EditRecord
     {
         abort_unless(static::getResource()::canDelete($this->getRecord()), 403);
 
-        $this->getRecord()->delete();
+        UserResource::detachUserFromCurrentWedding($this->getRecord());
 
         Notification::make()
             ->success()
-            ->title('Usuário removido com sucesso.')
+            ->title('Usuário removido deste casamento com sucesso.')
             ->send();
 
         $this->redirect($this->getResource()::getUrl('index'));

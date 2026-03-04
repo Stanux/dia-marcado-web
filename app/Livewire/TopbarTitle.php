@@ -61,6 +61,8 @@ class TopbarTitle extends Component
     public bool $isWeddingInvitesListPage = false;
     public bool $isWeddingInvitesCreatePage = false;
     public bool $isWeddingInvitesEditPage = false;
+    public bool $showOrganizerWeddingContext = false;
+    public string $organizerWeddingContext = '';
     public string $giftRegistryMode = GiftRegistryModeService::MODE_QUANTITY;
     public string $giftItemsIndexUrl = '';
     public string $giftItemsCreateUrl = '';
@@ -114,6 +116,7 @@ class TopbarTitle extends Component
     public function updateTitle(): void
     {
         $routeName = request()->route()?->getName() ?? '';
+        [$this->showOrganizerWeddingContext, $this->organizerWeddingContext] = $this->resolveOrganizerWeddingContext();
         $this->isGiftItemsListPage = $routeName === 'filament.admin.resources.gift-items.index';
         $this->isGiftItemsCreatePage = $routeName === 'filament.admin.resources.gift-items.create';
         $this->isGiftItemsEditPage = $routeName === 'filament.admin.resources.gift-items.edit';
@@ -982,6 +985,31 @@ class TopbarTitle extends Component
         }
 
         return [false, 'Novo Usuário'];
+    }
+
+    protected function resolveOrganizerWeddingContext(): array
+    {
+        $user = auth()->user();
+
+        if (! $user || $user->role !== 'organizer') {
+            return [false, ''];
+        }
+
+        $weddingId = session('filament_wedding_id') ?? $user->current_wedding_id;
+
+        if (! $weddingId) {
+            return [true, 'Casamento não selecionado'];
+        }
+
+        $wedding = $user->weddings()
+            ->where('weddings.id', $weddingId)
+            ->first();
+
+        if (! $wedding) {
+            return [true, 'Casamento não encontrado'];
+        }
+
+        return [true, $wedding->title];
     }
 
     public function render()

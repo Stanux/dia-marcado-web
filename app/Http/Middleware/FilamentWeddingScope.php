@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Models\Wedding;
 use App\Services\PermissionService;
 use Closure;
@@ -42,11 +43,17 @@ class FilamentWeddingScope
 
         // Allow access to create-first-wedding page without wedding context
         if ($request->routeIs('filament.admin.pages.criar-casamento')) {
+            if (!$this->shouldUseOnboarding($user)) {
+                return redirect()->route('filament.admin.pages.dashboard');
+            }
             return $next($request);
         }
 
         // Allow access to onboarding page without wedding context
         if ($request->routeIs('filament.admin.pages.onboarding')) {
+            if (!$this->shouldUseOnboarding($user)) {
+                return redirect()->route('filament.admin.pages.dashboard');
+            }
             return $next($request);
         }
 
@@ -81,8 +88,7 @@ class FilamentWeddingScope
             }
 
             // Set current wedding context on user for WeddingScope
-            $user->current_wedding_id = $weddingId;
-            session(['filament_wedding_id' => $weddingId]);
+            $this->setCurrentWeddingContext($user, (string) $weddingId);
         } else {
             return $this->handleNoWeddingAccess($request, $user);
         }
@@ -93,30 +99,41 @@ class FilamentWeddingScope
     /**
      * Handle case when user has no wedding access.
      */
-    protected function handleNoWeddingAccess(Request $request, $user): Response
+    protected function handleNoWeddingAccess(Request $request, User $user): Response
     {
         // Check if user has any weddings
         $firstWedding = $user->weddings()->first();
 
         if ($firstWedding) {
-            $user->current_wedding_id = $firstWedding->id;
-            session(['filament_wedding_id' => $firstWedding->id]);
+            $this->setCurrentWeddingContext($user, (string) $firstWedding->id);
             return redirect()->back();
         }
 
-        // User has no weddings
-        // If user hasn't completed onboarding, redirect to onboarding
-        if (!$user->hasCompletedOnboarding()) {
+        // User has no weddings.
+        // Couple users can complete onboarding / create their first wedding.
+        if ($this->shouldUseOnboarding($user) && !$user->hasCompletedOnboarding()) {
             return redirect()->route('filament.admin.pages.onboarding');
         }
 
-        // User completed onboarding but has no weddings - redirect to create first wedding page
-        // Only for couple users who can create weddings
-        if ($user->role === 'couple') {
+        if ($this->shouldUseOnboarding($user)) {
             return redirect()->route('filament.admin.pages.criar-casamento');
         }
 
         // Non-couple users without weddings cannot proceed
         abort(403, 'Você não tem acesso a nenhum casamento. Entre em contato com um administrador.');
+    }
+
+    protected function shouldUseOnboarding(User $user): bool
+    {
+        return $user->role === 'couple';
+    }
+
+    protected function setCurrentWeddingContext(User $user, string $weddingId): void
+    {
+        session(['filament_wedding_id' => $weddingId]);
+
+        if ($user->current_wedding_id !== $weddingId) {
+            $user->forceFill(['current_wedding_id' => $weddingId])->saveQuietly();
+        }
     }
 }

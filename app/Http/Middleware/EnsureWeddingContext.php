@@ -68,7 +68,9 @@ class EnsureWeddingContext
         }
 
         // Set current wedding context on user
-        $user->current_wedding_id = $weddingId;
+        if ($user->current_wedding_id !== $weddingId) {
+            $user->forceFill(['current_wedding_id' => $weddingId])->saveQuietly();
+        }
 
         return $next($request);
     }

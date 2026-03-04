@@ -13,7 +13,7 @@ class WeddingScope implements Scope
      * 
      * Filters queries by wedding_id based on user's access:
      * - Admin users can see all records (no filter applied)
-     * - Other users see only records from weddings they belong to
+     * - Other users see only records from the currently selected wedding context
      */
     public function apply(Builder $builder, Model $model): void
     {
@@ -35,16 +35,23 @@ class WeddingScope implements Scope
             return;
         }
 
-        // Get wedding IDs the user has access to
-        $weddingIds = $user->weddings()->pluck('weddings.id')->toArray();
+        $currentWeddingId = session('filament_wedding_id') ?? $user->current_wedding_id;
 
-        if (empty($weddingIds)) {
-            // User has no weddings - show nothing
+        // No explicit context: keep restrictive behavior to avoid cross-wedding leakage.
+        if (! $currentWeddingId) {
             $builder->whereRaw('1 = 0');
             return;
         }
 
-        // Filter by user's wedding IDs
-        $builder->whereIn($model->getTable() . '.wedding_id', $weddingIds);
+        $hasAccess = $user->weddings()
+            ->where('weddings.id', $currentWeddingId)
+            ->exists();
+
+        if (! $hasAccess) {
+            $builder->whereRaw('1 = 0');
+            return;
+        }
+
+        $builder->where($model->getTable() . '.wedding_id', $currentWeddingId);
     }
 }

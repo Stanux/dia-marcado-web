@@ -9,6 +9,7 @@
     @if ($isGiftItemsListPage)
         <div class="dm-topbar-gifts flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $giftItemsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -71,6 +72,7 @@
     @elseif ($isGiftItemsCreatePage)
         <div class="dm-topbar-gifts-create flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $giftItemsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -122,6 +124,7 @@
     @elseif ($isGiftItemsEditPage)
         <div class="dm-topbar-gifts-edit flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $giftItemsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -185,6 +188,7 @@
     @elseif ($isWeddingSettingsPage)
         <div class="dm-topbar-wedding-settings flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <span class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400">
                     {{ $title }}
                 </span>
@@ -214,6 +218,7 @@
     @elseif ($isTransactionsListPage)
         <div class="dm-topbar-transactions flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $transactionsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -246,6 +251,7 @@
     @elseif ($isSiteLayoutsListPage)
         <div class="dm-topbar-site-layouts flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $siteLayoutsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -280,6 +286,7 @@
     @elseif ($isSiteTemplatesListPage)
         <div class="dm-topbar-site-templates flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $siteTemplatesIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -314,6 +321,7 @@
     @elseif ($isWeddingPlansListPage)
         <div class="dm-topbar-wedding-plans flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingPlansIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -348,6 +356,7 @@
     @elseif ($isWeddingPlansCreatePage)
         <div class="dm-topbar-wedding-plans-create flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingPlansIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -380,6 +389,7 @@
     @elseif ($isWeddingPlansEditPage)
         <div class="dm-topbar-wedding-plans-edit flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingPlansIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -455,6 +465,7 @@
     @elseif ($isTaskCreatePage)
         <div class="dm-topbar-task-create flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $taskCreateReturnUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -506,6 +517,7 @@
     @elseif ($isTaskEditPage)
         <div class="dm-topbar-task-edit flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $taskCreateReturnUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -559,6 +571,7 @@
     @elseif ($isUsersListPage)
         <div class="dm-topbar-users flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $usersIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -593,6 +606,7 @@
     @elseif ($isUsersCreatePage)
         <div class="dm-topbar-users-create flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $usersIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -644,6 +658,7 @@
     @elseif ($isUsersEditPage)
         <div class="dm-topbar-users-edit flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $usersIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -695,6 +710,7 @@
     @elseif ($isWeddingVendorsListPage)
         <div class="dm-topbar-wedding-vendors flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingVendorsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -729,6 +745,7 @@
     @elseif ($isWeddingVendorsCreatePage)
         <div class="dm-topbar-wedding-vendors-create flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingVendorsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -780,6 +797,7 @@
     @elseif ($isWeddingVendorsEditPage)
         <div class="dm-topbar-wedding-vendors-edit flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingVendorsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -833,6 +851,7 @@
     @elseif ($isWeddingEventsListPage)
         <div class="dm-topbar-wedding-events flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingEventsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -867,6 +886,7 @@
     @elseif ($isWeddingEventsCreatePage)
         <div class="dm-topbar-wedding-events-create flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingEventsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -918,6 +938,7 @@
     @elseif ($isWeddingEventsEditPage)
         <div class="dm-topbar-wedding-events-edit flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingEventsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -971,6 +992,7 @@
     @elseif ($isWeddingGuestsListPage)
         <div class="dm-topbar-wedding-guests flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingGuestsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -1005,6 +1027,7 @@
     @elseif ($isWeddingGuestsCreatePage)
         <div class="dm-topbar-wedding-guests-create flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingGuestsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -1056,6 +1079,7 @@
     @elseif ($isWeddingGuestsEditPage)
         <div class="dm-topbar-wedding-guests-edit flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingGuestsIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -1109,6 +1133,7 @@
     @elseif ($isWeddingInvitesListPage)
         <div class="dm-topbar-wedding-invites flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingInvitesIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -1143,6 +1168,7 @@
     @elseif ($isWeddingInvitesCreatePage)
         <div class="dm-topbar-wedding-invites-create flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingInvitesIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"
@@ -1194,6 +1220,7 @@
     @elseif ($isWeddingInvitesEditPage)
         <div class="dm-topbar-wedding-invites-edit flex w-full min-w-0 items-center justify-between gap-3">
             <nav class="flex min-w-0 items-center gap-2 text-sm">
+                @include('livewire.partials.organizer-wedding-breadcrumb')
                 <a
                     href="{{ $weddingInvitesIndexUrl }}"
                     class="truncate text-sm font-semibold text-primary-600 dark:text-primary-400"

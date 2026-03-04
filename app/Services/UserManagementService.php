@@ -73,6 +73,19 @@ class UserManagementService
     ): User {
         $this->ensureCanCreateOrganizer($creator, $wedding);
         $this->validateUserData($data, ['name', 'email']);
+
+        $existingUser = $this->findUserByEmail($data['email']);
+
+        if ($existingUser) {
+            $this->attachExistingOrganizerToWedding(
+                $existingUser,
+                $wedding,
+                $permissions
+            );
+
+            return $existingUser->refresh();
+        }
+
         $this->ensureEmailIsUnique($data['email']);
 
         $user = User::create([
@@ -81,6 +94,8 @@ class UserManagementService
             'password' => Hash::make($data['password'] ?? Str::random(16)),
             'role' => 'organizer',
             'created_by' => $creator->id,
+            'current_wedding_id' => $wedding->id,
+            'onboarding_completed' => true,
         ]);
 
         $wedding->users()->attach($user->id, [
@@ -119,6 +134,8 @@ class UserManagementService
             'password' => Hash::make($password),
             'role' => 'guest',
             'created_by' => $creator->id,
+            'current_wedding_id' => $wedding->id,
+            'onboarding_completed' => true,
         ]);
 
         $wedding->users()->attach($user->id, [
@@ -168,6 +185,20 @@ class UserManagementService
     public function removeFromWedding(User $user, Wedding $wedding): void
     {
         $wedding->users()->detach($user->id);
+
+        $user->refresh();
+
+        if ($user->current_wedding_id !== $wedding->id) {
+            return;
+        }
+
+        $nextWeddingId = $user->weddings()
+            ->pluck('weddings.id')
+            ->first();
+
+        $user->forceFill([
+            'current_wedding_id' => $nextWeddingId ?: null,
+        ])->saveQuietly();
     }
 
     /**
@@ -200,10 +231,64 @@ class UserManagementService
      */
     private function ensureEmailIsUnique(string $email): void
     {
-        if (User::where('email', $email)->exists()) {
+        if ($this->findUserByEmail($email)) {
             throw ValidationException::withMessages([
                 'email' => ['Este email já está em uso.'],
             ]);
+        }
+    }
+
+    private function findUserByEmail(string $email): ?User
+    {
+        $normalizedEmail = Str::lower(trim($email));
+
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        return User::query()
+            ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+            ->first();
+    }
+
+    private function attachExistingOrganizerToWedding(
+        User $existingUser,
+        Wedding $wedding,
+        array $permissions
+    ): void {
+        if ($existingUser->role !== 'organizer') {
+            throw ValidationException::withMessages([
+                'email' => ['Este e-mail já pertence a um usuário com outro tipo.'],
+            ]);
+        }
+
+        $alreadyLinked = $existingUser->weddings()
+            ->where('wedding_id', $wedding->id)
+            ->exists();
+
+        if ($alreadyLinked) {
+            throw ValidationException::withMessages([
+                'email' => ['Este organizador já está vinculado a este casamento.'],
+            ]);
+        }
+
+        $existingUser->weddings()->attach($wedding->id, [
+            'role' => 'organizer',
+            'permissions' => $permissions,
+        ]);
+
+        $updates = [];
+
+        if (!$existingUser->current_wedding_id) {
+            $updates['current_wedding_id'] = $wedding->id;
+        }
+
+        if (!$existingUser->hasCompletedOnboarding()) {
+            $updates['onboarding_completed'] = true;
+        }
+
+        if (!empty($updates)) {
+            $existingUser->forceFill($updates)->save();
         }
     }
 

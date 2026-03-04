@@ -162,7 +162,7 @@ class GoogleAuthController extends Controller
                 ->with('success', 'Convite aceito com sucesso.');
         }
 
-        if ($createdNow || ! $user->hasCompletedOnboarding()) {
+        if ($user->role === 'couple' && ($createdNow || ! $user->hasCompletedOnboarding())) {
             return redirect()->route('filament.admin.pages.onboarding');
         }
 

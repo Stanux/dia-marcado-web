@@ -55,6 +55,10 @@ class CreateUser extends CreateRecord
         }
 
         if ($pivotRole === 'organizer') {
+            if (UserResource::shouldLinkExistingOrganizer($data['email'] ?? null, $pivotRole)) {
+                unset($data['password']);
+            }
+
             return $userManagementService->createOrganizer($creator, $wedding, $data, $permissions);
         }
 

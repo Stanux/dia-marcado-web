@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -46,6 +47,15 @@ class EnsureOnboardingComplete
 
         // Admin users are exempt from onboarding
         if ($user->isAdmin()) {
+            return $next($request);
+        }
+
+        // Organizer/guest users never go through onboarding flow.
+        if (!$this->shouldUseOnboarding($user)) {
+            if ($this->isOnboardingRoute($request)) {
+                return redirect()->route('filament.admin.pages.dashboard');
+            }
+
             return $next($request);
         }
 
@@ -102,5 +112,13 @@ class EnsureOnboardingComplete
         }
 
         return false;
+    }
+
+    /**
+     * Determine if the user should follow onboarding flow.
+     */
+    protected function shouldUseOnboarding(User $user): bool
+    {
+        return $user->role === 'couple';
     }
 }

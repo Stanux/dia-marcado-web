@@ -35,8 +35,13 @@ class CreateFirstWedding extends Page implements HasForms
     {
         $user = auth()->user();
 
+        if (!$user || $user->role !== 'couple') {
+            redirect()->route('filament.admin.pages.dashboard');
+            return;
+        }
+
         // If user already has weddings, redirect to dashboard
-        if ($user && $user->weddings()->exists()) {
+        if ($user->weddings()->exists()) {
             redirect()->route('filament.admin.pages.dashboard');
             return;
         }
@@ -68,6 +73,10 @@ class CreateFirstWedding extends Page implements HasForms
         $data = $this->form->getState();
         $user = auth()->user();
 
+        if (!$user || $user->role !== 'couple') {
+            abort(403);
+        }
+
         $weddingService = app(WeddingService::class);
         $wedding = $weddingService->createWedding($user, $data);
 
@@ -92,7 +101,6 @@ class CreateFirstWedding extends Page implements HasForms
             return false;
         }
 
-        // Only show this page if user has no weddings
-        return !$user->weddings()->exists();
+        return $user->role === 'couple' && !$user->weddings()->exists();
     }
 }

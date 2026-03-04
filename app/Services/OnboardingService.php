@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Wedding;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Service for handling the onboarding process.
@@ -25,6 +26,12 @@ class OnboardingService implements OnboardingServiceInterface
      */
     public function complete(User $user, array $data): Wedding
     {
+        if ($user->role !== 'couple' && !$user->isAdmin()) {
+            throw new AccessDeniedHttpException(
+                'Somente usuários do tipo Noivo(a) podem concluir o onboarding.'
+            );
+        }
+
         return DB::transaction(function () use ($user, $data) {
             $creatorName = $this->resolveCreatorName($user, $data);
 

@@ -54,8 +54,18 @@ class Onboarding extends Page implements HasForms
     {
         $user = auth()->user();
 
+        if (!$user) {
+            redirect()->route('filament.admin.auth.login');
+            return;
+        }
+
+        if (!$this->shouldUseOnboarding($user)) {
+            redirect()->route('filament.admin.pages.dashboard');
+            return;
+        }
+
         // If user has completed onboarding, redirect to dashboard
-        if ($user && $user->hasCompletedOnboarding()) {
+        if ($user->hasCompletedOnboarding()) {
             redirect()->route('filament.admin.pages.dashboard');
             return;
         }
@@ -330,6 +340,10 @@ class Onboarding extends Page implements HasForms
         $data = $this->form->getState();
         $user = auth()->user();
 
+        if (!$user || !$this->shouldUseOnboarding($user)) {
+            abort(403);
+        }
+
         // Prevent duplicate submission - check if user already completed onboarding
         $user->refresh();
         if ($user->hasCompletedOnboarding()) {
@@ -374,9 +388,11 @@ class Onboarding extends Page implements HasForms
             return false;
         }
 
-        // Admin users don't need onboarding - but allow access if they navigate directly
-        // Regular users can access if they haven't completed onboarding
-        // Users who completed onboarding will be redirected by mount() method
-        return true;
+        return $user->role === 'couple';
+    }
+
+    private function shouldUseOnboarding($user): bool
+    {
+        return $user->role === 'couple';
     }
 }
