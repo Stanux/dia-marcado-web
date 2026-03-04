@@ -24,7 +24,7 @@ class WeddingVendorResource extends WeddingScopedResource
 
     protected static ?string $navigationGroup = null;
 
-    protected static ?string $module = 'tasks';
+    protected static ?string $module = 'vendors';
 
     protected static ?string $modelLabel = 'Fornecedor';
 

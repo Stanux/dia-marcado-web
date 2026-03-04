@@ -63,8 +63,8 @@ class TopbarGiftActions extends Component
     public function getGiftModeLabelProperty(): string
     {
         return $this->giftRegistryMode === GiftRegistryModeService::MODE_QUOTA
-            ? 'Configuração: Quota'
-            : 'Configuração: Quantidade';
+            ? 'Modo: Quota'
+            : 'Modo: Quantidade';
     }
 
     protected function getCurrentRegistryMode(): string
@@ -86,4 +86,3 @@ class TopbarGiftActions extends Component
         return view('livewire.topbar-gift-actions');
     }
 }
-

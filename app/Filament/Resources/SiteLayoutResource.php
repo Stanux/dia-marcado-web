@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
  * 
  * Extends WeddingScopedResource to automatically:
  * - Filter sites by the current wedding context
- * - Verify user has 'sites' module permission
+ * - Verify user has 'site_editor' module permission
  * - Inject wedding_id when creating new sites
  * 
  * @Requirements: 1.2
@@ -30,7 +30,7 @@ class SiteLayoutResource extends WeddingScopedResource
 
     protected static ?string $navigationLabel = 'Editor do Site';
 
-    protected static ?string $module = 'sites';
+    protected static ?string $module = 'site_editor';
 
     protected static ?string $modelLabel = 'Site';
 

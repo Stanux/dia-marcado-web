@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PermissionService;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -214,10 +215,14 @@ class User extends Authenticatable
 
         if (is_string($permissions)) {
             $decoded = json_decode($permissions, true);
-            return is_array($decoded) ? $decoded : [];
+            return is_array($decoded)
+                ? PermissionService::normalizePermissions($decoded)
+                : [];
         }
 
-        return is_array($permissions) ? $permissions : [];
+        return is_array($permissions)
+            ? PermissionService::normalizePermissions($permissions)
+            : [];
     }
 
     /**
@@ -225,15 +230,6 @@ class User extends Authenticatable
      */
     public function hasPermissionIn(Wedding $wedding, string $module): bool
     {
-        if ($this->isAdmin()) {
-            return true;
-        }
-
-        if ($this->isCoupleIn($wedding)) {
-            return true;
-        }
-
-        $permissions = $this->permissionsIn($wedding);
-        return in_array($module, $permissions);
+        return app(PermissionService::class)->canAccess($this, $module, $wedding);
     }
 }

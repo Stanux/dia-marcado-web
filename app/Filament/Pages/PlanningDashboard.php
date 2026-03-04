@@ -190,6 +190,6 @@ class PlanningDashboard extends Page
 
         $wedding = Wedding::find($weddingId);
 
-        return $wedding && app(PermissionService::class)->canAccess($user, 'tasks', $wedding);
+        return $wedding && app(PermissionService::class)->canAccess($user, 'plans', $wedding);
     }
 }

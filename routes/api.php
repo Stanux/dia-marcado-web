@@ -52,7 +52,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         });
 
         // Tasks module
-        Route::middleware(['permission:tasks'])->group(function () {
+        Route::middleware(['permission:plans'])->group(function () {
             Route::get('/tasks', function (Request $request) {
                 return Task::all();
             });
@@ -118,21 +118,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
         });
 
         // Finance module
-        Route::middleware(['permission:finance'])->prefix('finance')->group(function () {
+        Route::middleware(['permission:receipts'])->prefix('finance')->group(function () {
             Route::get('/', function () {
                 return response()->json(['message' => 'Finance endpoint']);
             });
         });
 
         // Reports module
-        Route::middleware(['permission:reports'])->prefix('reports')->group(function () {
+        Route::middleware(['permission:event_data'])->prefix('reports')->group(function () {
             Route::get('/', function () {
                 return response()->json(['message' => 'Reports endpoint']);
             });
         });
 
         // Sites module
-        Route::middleware(['permission:sites'])->prefix('sites')->group(function () {
+        Route::middleware(['permission:site_editor'])->prefix('sites')->group(function () {
             Route::get('/', [SiteLayoutController::class, 'index']);
             Route::post('/', [SiteLayoutController::class, 'store']);
 

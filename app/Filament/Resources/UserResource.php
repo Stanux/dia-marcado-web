@@ -4,9 +4,13 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Models\Wedding;
 use App\Services\PermissionManagementService;
+use App\Services\PermissionService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Resources\Resource;
@@ -58,31 +62,12 @@ class UserResource extends Resource
 
                         Forms\Components\Select::make('pivot_role')
                             ->label('Tipo')
-                            ->options(function () {
-                                $user = auth()->user();
-                                $weddingId = $user?->current_wedding_id ?? session('filament_wedding_id');
-                                $wedding = $weddingId ? \App\Models\Wedding::find($weddingId) : null;
-
-                                // Admin and Couple can create couple, organizer and guest
-                                if ($user->isAdmin() || ($wedding && $user->isCoupleIn($wedding))) {
-                                    return [
-                                        'couple' => 'Noivo(a)',
-                                        'organizer' => 'Organizador',
-                                        'guest' => 'Convidado',
-                                    ];
-                                }
-
-                                // Organizer with permission can only create guests
-                                if ($wedding && $user->isOrganizerIn($wedding) && $user->hasPermissionIn($wedding, 'users')) {
-                                    return [
-                                        'guest' => 'Convidado',
-                                    ];
-                                }
-
-                                return [];
-                            })
+                            ->options(fn (): array => static::getPivotRoleOptionsForCurrentUser())
                             ->required()
-                            ->visible(fn (string $operation): bool => $operation === 'create'),
+                            ->live()
+                            ->afterStateUpdated(function (?string $state, Set $set): void {
+                                $set('permissions', static::getDefaultPermissionsForRole($state));
+                            }),
                     ])
                     ->columns(2),
 
@@ -92,9 +77,12 @@ class UserResource extends Resource
                             ->label('Módulos com Acesso')
                             ->options(PermissionManagementService::AVAILABLE_MODULES)
                             ->columns(2)
-                            ->visible(fn ($get) => $get('pivot_role') === 'organizer'),
-                    ])
-                    ->visible(fn (string $operation): bool => $operation === 'create'),
+                            ->disabled(fn (Get $get): bool => $get('pivot_role') === 'guest')
+                            ->disableOptionWhen(
+                                fn (string $value, Get $get): bool => $get('pivot_role') === 'guest'
+                                    || ($get('pivot_role') === 'couple' && $value === 'users')
+                            ),
+                    ]),
             ]);
     }
 
@@ -251,5 +239,70 @@ class UserResource extends Resource
         }
 
         return $user->hasPermissionIn($wedding, 'users');
+    }
+
+    public static function getPivotRoleOptionsForCurrentUser(): array
+    {
+        $user = auth()->user();
+        $wedding = static::getCurrentWeddingFromContext();
+
+        if (!$user) {
+            return [];
+        }
+
+        // Admin and Couple can create/manage couple, organizer and guest
+        if ($user->isAdmin() || ($wedding && $user->isCoupleIn($wedding))) {
+            return [
+                'couple' => 'Noivo(a)',
+                'organizer' => 'Organizador',
+                'guest' => 'Convidado',
+            ];
+        }
+
+        // Organizer with permission can only create/manage guests
+        if ($wedding && $user->isOrganizerIn($wedding) && $user->hasPermissionIn($wedding, 'users')) {
+            return [
+                'guest' => 'Convidado',
+            ];
+        }
+
+        return [];
+    }
+
+    public static function getDefaultPermissionsForRole(?string $role): array
+    {
+        return match ($role) {
+            'couple' => array_keys(PermissionManagementService::AVAILABLE_MODULES),
+            'guest' => ['app'],
+            default => [],
+        };
+    }
+
+    public static function sanitizePermissionsForRole(?string $role, array $permissions): array
+    {
+        $validModules = array_keys(PermissionManagementService::AVAILABLE_MODULES);
+        $normalizedPermissions = PermissionService::normalizePermissions($permissions);
+        $filteredPermissions = array_values(array_filter(
+            $normalizedPermissions,
+            fn ($permission): bool => in_array($permission, $validModules, true)
+        ));
+
+        return match ($role) {
+            'couple' => static::getDefaultPermissionsForRole('couple'),
+            'guest' => static::getDefaultPermissionsForRole('guest'),
+            default => $filteredPermissions,
+        };
+    }
+
+    public static function getCurrentWeddingFromContext(): ?Wedding
+    {
+        $user = auth()->user();
+        $weddingId = $user?->current_wedding_id ?? session('filament_wedding_id');
+
+        if (!$weddingId) {
+            return null;
+        }
+
+        return Wedding::find($weddingId);
     }
 }

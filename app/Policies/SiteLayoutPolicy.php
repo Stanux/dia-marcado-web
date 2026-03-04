@@ -13,7 +13,7 @@ use Illuminate\Auth\Access\HandlesAuthorization;
  * Controls access based on user roles:
  * - Admin: Full access to all sites
  * - Couple: Full access to their wedding's site
- * - Organizer with 'sites' permission: Can view and edit, but not publish
+ * - Organizer with 'site_editor' permission: Can view and edit, but not publish
  * - Guest: No access
  */
 class SiteLayoutPolicy
@@ -26,7 +26,7 @@ class SiteLayoutPolicy
      * Access granted to:
      * - Admin users
      * - Couple members in the current wedding
-     * - Organizers with 'sites' permission in the current wedding
+     * - Organizers with 'site_editor' permission in the current wedding
      */
     public function viewAny(User $user): bool
     {
@@ -46,8 +46,8 @@ class SiteLayoutPolicy
             return true;
         }
 
-        // Organizer with 'sites' permission can view
-        if ($user->isOrganizerIn($wedding) && $user->hasPermissionIn($wedding, 'sites')) {
+        // Organizer with 'site_editor' permission can view
+        if ($user->isOrganizerIn($wedding) && $user->hasPermissionIn($wedding, 'site_editor')) {
             return true;
         }
 
@@ -61,7 +61,7 @@ class SiteLayoutPolicy
      * Access granted to:
      * - Admin users
      * - Couple members in the site's wedding
-     * - Organizers with 'sites' permission in the site's wedding
+     * - Organizers with 'site_editor' permission in the site's wedding
      */
     public function view(User $user, SiteLayout $site): bool
     {
@@ -81,8 +81,8 @@ class SiteLayoutPolicy
             return true;
         }
 
-        // Organizer with 'sites' permission can view
-        if ($user->isOrganizerIn($wedding) && $user->hasPermissionIn($wedding, 'sites')) {
+        // Organizer with 'site_editor' permission can view
+        if ($user->isOrganizerIn($wedding) && $user->hasPermissionIn($wedding, 'site_editor')) {
             return true;
         }
 
@@ -136,7 +136,7 @@ class SiteLayoutPolicy
      * - Admin users
      * - Couple members in the site's wedding
      * 
-     * Organizers cannot publish even with 'sites' permission.
+     * Organizers cannot publish even with 'site_editor' permission.
      */
     public function publish(User $user, SiteLayout $site): bool
     {
@@ -156,7 +156,7 @@ class SiteLayoutPolicy
             return true;
         }
 
-        // Organizers cannot publish (even with 'sites' permission)
+        // Organizers cannot publish (even with 'site_editor' permission)
         // Guest and others cannot publish
         return false;
     }

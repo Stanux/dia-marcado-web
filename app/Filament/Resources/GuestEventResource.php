@@ -29,7 +29,7 @@ class GuestEventResource extends WeddingScopedResource
 
     protected static ?int $navigationSort = 3;
 
-    protected static ?string $module = 'guests';
+    protected static ?string $module = 'events';
 
     public static function form(Form $form): Form
     {

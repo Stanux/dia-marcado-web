@@ -11,13 +11,27 @@ class PermissionService
      * Available modules in the system
      */
     public const MODULES = [
-        'sites' => 'Criação de Sites',
-        'tasks' => 'Gestão de Tarefas',
+        'event_data' => 'Dados do Evento',
+        'gift_list' => 'Lista de presentes',
+        'receipts' => 'Recebimentos',
+        'site_editor' => 'Editor do Site',
+        'events' => 'Eventos',
         'guests' => 'Convidados',
-        'finance' => 'Financeiro',
-        'reports' => 'Relatórios',
-        'app' => 'APP',
+        'invites' => 'Convites',
+        'plans' => 'Planejamentos',
+        'vendors' => 'Fornecedores',
         'users' => 'Gestão de Usuários',
+        'app' => 'APP',
+    ];
+
+    /**
+     * Legacy module keys mapped to canonical keys.
+     */
+    public const MODULE_ALIASES = [
+        'sites' => 'site_editor',
+        'tasks' => 'plans',
+        'finance' => 'receipts',
+        'reports' => 'event_data',
     ];
 
     /**
@@ -36,12 +50,58 @@ class PermissionService
     public const GUEST_MODULES = ['app'];
 
     /**
+     * Normalize module key to canonical key.
+     */
+    public static function normalizeModule(string $module): ?string
+    {
+        $normalized = strtolower(trim($module));
+
+        if (array_key_exists($normalized, self::MODULE_ALIASES)) {
+            $normalized = self::MODULE_ALIASES[$normalized];
+        }
+
+        if (!array_key_exists($normalized, self::MODULES)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Normalize and deduplicate permission list.
+     *
+     * @param array<int, string> $permissions
+     * @return array<int, string>
+     */
+    public static function normalizePermissions(array $permissions): array
+    {
+        $normalized = [];
+
+        foreach ($permissions as $permission) {
+            if (!is_string($permission)) {
+                continue;
+            }
+
+            $canonical = self::normalizeModule($permission);
+            if (!$canonical) {
+                continue;
+            }
+
+            $normalized[$canonical] = $canonical;
+        }
+
+        return array_values($normalized);
+    }
+
+    /**
      * Check if a user can access a specific module
      */
     public function canAccess(User $user, string $module, ?Wedding $wedding = null): bool
     {
+        $module = self::normalizeModule($module) ?? '';
+
         // Validate module exists
-        if (!array_key_exists($module, self::MODULES)) {
+        if ($module === '') {
             return false;
         }
 
@@ -54,7 +114,7 @@ class PermissionService
         if (!$wedding) {
             // Guest without wedding context can only access guest modules
             if ($user->role === 'guest') {
-                return in_array($module, self::GUEST_MODULES);
+                return in_array($module, self::GUEST_MODULES, true);
             }
             return false;
         }
@@ -69,7 +129,7 @@ class PermissionService
             // User has no relationship with this wedding
             // Fall back to global role for guests
             if ($user->role === 'guest') {
-                return in_array($module, self::GUEST_MODULES);
+                return in_array($module, self::GUEST_MODULES, true);
             }
             return false;
         }
@@ -86,12 +146,13 @@ class PermissionService
             if (is_string($permissions)) {
                 $permissions = json_decode($permissions, true) ?? [];
             }
-            return in_array($module, $permissions);
+            $normalizedPermissions = self::normalizePermissions(is_array($permissions) ? $permissions : []);
+            return in_array($module, $normalizedPermissions, true);
         }
 
         // Guest in wedding context - only app module
         if ($pivot->role === 'guest') {
-            return in_array($module, self::GUEST_MODULES);
+            return in_array($module, self::GUEST_MODULES, true);
         }
 
         return false;
@@ -128,7 +189,12 @@ class PermissionService
         }
 
         if ($pivot->role === 'organizer') {
-            return $pivot->permissions ?? [];
+            $permissions = $pivot->permissions ?? [];
+            if (is_string($permissions)) {
+                $permissions = json_decode($permissions, true) ?? [];
+            }
+
+            return self::normalizePermissions(is_array($permissions) ? $permissions : []);
         }
 
         if ($pivot->role === 'guest') {

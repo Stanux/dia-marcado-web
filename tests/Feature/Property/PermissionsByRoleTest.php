@@ -216,7 +216,7 @@ class PermissionsByRoleTest extends TestCase
             'permissions' => ['tasks', 'guests'],
         ]);
         $this->assertEquals(
-            ['tasks', 'guests'],
+            ['plans', 'guests'],
             $this->permissionService->getAccessibleModules($organizer, $wedding)
         );
 

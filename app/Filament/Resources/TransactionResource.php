@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\TransactionResource\Pages;
 use App\Models\Transaction;
+use App\Services\PermissionService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -440,14 +441,13 @@ class TransactionResource extends Resource
             return true;
         }
 
-        // Others need wedding context and couple/organizer role
+        // Others need wedding context and menu permission.
         $wedding = $user->currentWedding;
         if (!$wedding) {
             return false;
         }
 
-        $role = $user->roleIn($wedding);
-        return in_array($role, ['couple', 'organizer']);
+        return app(PermissionService::class)->canAccess($user, 'receipts', $wedding);
     }
 
     public static function shouldRegisterNavigation(): bool

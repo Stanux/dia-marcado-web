@@ -9,13 +9,17 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 class PermissionManagementService
 {
     public const AVAILABLE_MODULES = [
-        'sites' => 'Criação de Sites',
-        'tasks' => 'Gestão de Tarefas',
+        'event_data' => 'Dados do Evento',
+        'gift_list' => 'Lista de presentes',
+        'receipts' => 'Recebimentos',
+        'site_editor' => 'Editor do Site',
+        'events' => 'Eventos',
         'guests' => 'Convidados',
-        'finance' => 'Financeiro',
-        'reports' => 'Relatórios',
+        'invites' => 'Convites',
+        'plans' => 'Planejamentos',
+        'vendors' => 'Fornecedores',
+        'users' => 'Usuários',
         'app' => 'APP',
-        'users' => 'Gestão de Usuários',
     ];
 
     /**
@@ -40,7 +44,7 @@ class PermissionManagementService
         $this->validatePermissions($permissions);
 
         $wedding->users()->updateExistingPivot($organizer->id, [
-            'permissions' => $permissions,
+            'permissions' => $this->normalizeAvailablePermissions($permissions),
         ]);
     }
 
@@ -62,7 +66,9 @@ class PermissionManagementService
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'permissions' => $user->pivot->permissions ?? [],
+                'permissions' => $this->normalizeAvailablePermissions(
+                    is_array($user->pivot->permissions ?? null) ? $user->pivot->permissions : []
+                ),
             ])
             ->toArray();
     }
@@ -119,11 +125,29 @@ class PermissionManagementService
     {
         $validModules = array_keys(self::AVAILABLE_MODULES);
         foreach ($permissions as $permission) {
-            if (!in_array($permission, $validModules)) {
+            $normalized = is_string($permission) ? PermissionService::normalizeModule($permission) : null;
+            if (!$normalized || !in_array($normalized, $validModules, true)) {
                 throw new \InvalidArgumentException(
                     "Módulo inválido: {$permission}"
                 );
             }
         }
+    }
+
+    /**
+     * Normalize permissions and keep only modules that can be assigned from UI.
+     *
+     * @param array<int, string> $permissions
+     * @return array<int, string>
+     */
+    private function normalizeAvailablePermissions(array $permissions): array
+    {
+        $validModules = array_keys(self::AVAILABLE_MODULES);
+        $normalized = PermissionService::normalizePermissions($permissions);
+
+        return array_values(array_filter(
+            $normalized,
+            fn (string $permission): bool => in_array($permission, $validModules, true)
+        ));
     }
 }

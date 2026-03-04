@@ -24,7 +24,7 @@ class WeddingPlanResource extends WeddingScopedResource
 
     protected static ?string $navigationGroup = null;
 
-    protected static ?string $module = 'tasks';
+    protected static ?string $module = 'plans';
 
     protected static ?string $modelLabel = 'Planejamento';
 

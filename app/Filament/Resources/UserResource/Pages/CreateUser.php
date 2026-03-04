@@ -39,12 +39,14 @@ class CreateUser extends CreateRecord
         $userManagementService = new UserManagementService(new PermissionService());
 
         $pivotRole = $data['pivot_role'] ?? 'guest';
-        $permissions = $data['permissions'] ?? [];
+        $permissions = is_array($data['permissions'] ?? null) ? $data['permissions'] : [];
 
         // Validate that only valid roles can be created
         if (!in_array($pivotRole, ['couple', 'organizer', 'guest'])) {
             $pivotRole = 'guest';
         }
+
+        $permissions = UserResource::sanitizePermissionsForRole($pivotRole, $permissions);
 
         unset($data['pivot_role'], $data['permissions']);
 

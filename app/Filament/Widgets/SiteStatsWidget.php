@@ -131,7 +131,7 @@ class SiteStatsWidget extends BaseWidget
             return true;
         }
 
-        // Check if user has sites permission
+        // Check if user has site editor permission
         $weddingId = $user->current_wedding_id ?? session('filament_wedding_id');
         if (!$weddingId) {
             return false;
@@ -142,6 +142,6 @@ class SiteStatsWidget extends BaseWidget
             return false;
         }
 
-        return $user->hasPermissionIn($wedding, 'sites');
+        return $user->hasPermissionIn($wedding, 'site_editor');
     }
 }

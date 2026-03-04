@@ -29,7 +29,7 @@ use Illuminate\Database\Eloquent\Model;
  * 
  * Extends WeddingScopedResource to automatically:
  * - Filter tasks by the current wedding context
- * - Verify user has 'tasks' module permission
+ * - Verify user has 'plans' module permission
  * - Inject wedding_id when creating new tasks
  */
 class TaskResource extends WeddingScopedResource
@@ -44,7 +44,7 @@ class TaskResource extends WeddingScopedResource
 
     protected static ?string $navigationGroup = null;
 
-    protected static ?string $module = 'tasks';
+    protected static ?string $module = 'plans';
 
     protected static ?string $modelLabel = 'Tarefa';
 

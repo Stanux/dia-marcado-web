@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Resources\UserResource;
 use App\Contracts\WeddingSettingsServiceInterface;
 use App\Models\Wedding;
+use App\Services\PermissionService;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -398,11 +399,13 @@ class WeddingSettings extends Page implements HasForms
             return false;
         }
 
-        // Check if user has "couple" role in the wedding
-        return $user->weddings()
-            ->where('wedding_id', $weddingId)
-            ->wherePivot('role', 'couple')
-            ->exists();
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        $wedding = Wedding::find($weddingId);
+
+        return $wedding && app(PermissionService::class)->canAccess($user, 'event_data', $wedding);
     }
 
     private function normalizeWeddingTimeForForm(mixed $value): ?string

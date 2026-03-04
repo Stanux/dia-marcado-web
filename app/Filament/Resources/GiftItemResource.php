@@ -7,6 +7,7 @@ use App\Forms\Components\MediaGalleryPicker;
 use App\Models\GiftItem;
 use App\Models\GiftRegistryConfig;
 use App\Services\GiftRegistryModeService;
+use App\Services\PermissionService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -262,14 +263,13 @@ class GiftItemResource extends Resource
             return true;
         }
 
-        // Others need wedding context and couple/organizer role
+        // Others need wedding context and menu permission.
         $wedding = $user->currentWedding;
         if (!$wedding) {
             return false;
         }
 
-        $role = $user->roleIn($wedding);
-        return in_array($role, ['couple', 'organizer']);
+        return app(PermissionService::class)->canAccess($user, 'gift_list', $wedding);
     }
 
     public static function shouldRegisterNavigation(): bool

@@ -22,7 +22,7 @@ class WeddingInviteResource extends WeddingScopedResource
 
     protected static ?string $navigationGroup = null;
 
-    protected static ?string $module = 'guests';
+    protected static ?string $module = 'invites';
 
     protected static ?string $modelLabel = 'Convite';
 

@@ -17,7 +17,7 @@ class PlanExportController extends Controller
             abort(403);
         }
 
-        if (!$user->isAdmin() && !$permissionService->canAccess($user, 'tasks', $plan->wedding)) {
+        if (!$user->isAdmin() && !$permissionService->canAccess($user, 'plans', $plan->wedding)) {
             abort(403);
         }
 

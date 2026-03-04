@@ -4,6 +4,7 @@ namespace Tests\Feature\Property;
 
 use App\Models\User;
 use App\Models\Wedding;
+use App\Services\PermissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -191,9 +192,10 @@ class AuthorizationErrorsTest extends TestCase
             ]);
 
             $response->assertStatus(403);
+            $normalizedModule = PermissionService::normalizeModule($module) ?? $module;
             $response->assertJson([
                 'error' => 'Forbidden',
-                'message' => "Access to module '{$module}' is not allowed",
+                'message' => "Access to module '{$normalizedModule}' is not allowed",
             ]);
 
             // Cleanup
@@ -238,9 +240,10 @@ class AuthorizationErrorsTest extends TestCase
             ]);
 
             $response->assertStatus(403);
+            $normalizedModule = PermissionService::normalizeModule($module) ?? $module;
             $response->assertJson([
                 'error' => 'Forbidden',
-                'message' => "Access to module '{$module}' is not allowed",
+                'message' => "Access to module '{$normalizedModule}' is not allowed",
             ]);
 
             // Cleanup
