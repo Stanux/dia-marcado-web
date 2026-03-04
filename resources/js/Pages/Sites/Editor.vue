@@ -8,7 +8,7 @@
  * @Requirements: 1.2, 3.1
  */
 import { Head, usePage } from '@inertiajs/vue3';
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent, nextTick } from 'vue';
 import axios from 'axios';
 import SectionSidebar from '@/Components/Site/SectionSidebar.vue';
 import SectionEditor from '@/Components/Site/SectionEditor.vue';
@@ -149,6 +149,7 @@ const SECTION_DEFINITIONS = {
 const FIXED_SECTION_KEYS = ['header', 'footer'];
 const DEFAULT_MOVABLE_SECTION_ORDER = ['hero', 'saveTheDate', 'giftRegistry', 'rsvp', 'photoGallery'];
 const BLOCKED_EDITOR_SECTION_KEYS = new Set(['meta', 'theme']);
+const SECTION_QUERY_PARAM = 'section';
 
 const sanitizeMovableSectionOrder = (rawOrder, availableSectionKeys) => {
     const availableMovableKeys = availableSectionKeys.filter((key) => !FIXED_SECTION_KEYS.includes(key));
@@ -270,13 +271,52 @@ const enabledSections = computed(() => {
 });
 
 // Handle section selection
-const selectSection = (sectionKey) => {
+const resolveSectionKey = (sectionKey) => {
     if (BLOCKED_EDITOR_SECTION_KEYS.has(sectionKey)) {
-        sectionKey = orderedSectionKeys.value[0] || 'header';
+        return orderedSectionKeys.value[0] || 'header';
     }
 
     const sectionExists = sectionKey === 'settings' || Boolean(draftContent.value?.sections?.[sectionKey]);
-    activeSection.value = sectionExists ? sectionKey : (orderedSectionKeys.value[0] || 'header');
+    return sectionExists ? sectionKey : (orderedSectionKeys.value[0] || 'header');
+};
+
+const getSectionFromUrl = () => {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get(SECTION_QUERY_PARAM);
+
+    if (!section) {
+        return null;
+    }
+
+    const normalized = section.trim();
+    return normalized !== '' ? normalized : null;
+};
+
+const syncSectionToUrl = (sectionKey) => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const url = new URL(window.location.href);
+    const currentSection = url.searchParams.get(SECTION_QUERY_PARAM);
+    if (currentSection === sectionKey) {
+        return;
+    }
+
+    url.searchParams.set(SECTION_QUERY_PARAM, sectionKey);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+};
+
+const selectSection = (sectionKey, { syncUrl = true } = {}) => {
+    activeSection.value = resolveSectionKey(sectionKey);
+
+    if (syncUrl) {
+        syncSectionToUrl(activeSection.value);
+    }
 
     if (isMobileViewport.value) {
         showMobileSidebar.value = false;
@@ -919,17 +959,46 @@ const handleKeydown = (e) => {
     }
 };
 
+const handlePopState = () => {
+    const sectionFromUrl = getSectionFromUrl();
+    if (!sectionFromUrl) {
+        return;
+    }
+
+    selectSection(sectionFromUrl, { syncUrl: false });
+};
+
+watch(
+    orderedSectionKeys,
+    () => {
+        const resolvedActiveSection = resolveSectionKey(activeSection.value);
+        if (resolvedActiveSection !== activeSection.value) {
+            activeSection.value = resolvedActiveSection;
+        }
+
+        syncSectionToUrl(activeSection.value);
+    }
+);
+
 onMounted(() => {
+    const sectionFromUrl = getSectionFromUrl();
+    if (sectionFromUrl) {
+        selectSection(sectionFromUrl, { syncUrl: false });
+    }
+
+    syncSectionToUrl(activeSection.value);
     updateViewportState();
     window.addEventListener('resize', updateViewportState);
     window.addEventListener('keydown', handleKeydown);
     window.addEventListener('message', handleTemplateAppliedMessage);
+    window.addEventListener('popstate', handlePopState);
 });
 
 onUnmounted(() => {
     window.removeEventListener('resize', updateViewportState);
     window.removeEventListener('keydown', handleKeydown);
     window.removeEventListener('message', handleTemplateAppliedMessage);
+    window.removeEventListener('popstate', handlePopState);
 });
 </script>
 
