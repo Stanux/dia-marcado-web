@@ -8,6 +8,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class WeddingGuestResource extends WeddingScopedResource
 {
@@ -119,6 +120,9 @@ class WeddingGuestResource extends WeddingScopedResource
                 Tables\Columns\TextColumn::make('primaryContact.name')
                     ->label('Contato Principal')
                     ->placeholder('Contato principal')
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return static::applySortByPrimaryContactThenName($query, $direction);
+                    })
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('status')
@@ -183,7 +187,7 @@ class WeddingGuestResource extends WeddingScopedResource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('name');
+            ->defaultSort(fn (Builder $query, string $direction): Builder => static::applySortByPrimaryContactThenName($query, $direction));
     }
 
     public static function getPages(): array
@@ -198,5 +202,27 @@ class WeddingGuestResource extends WeddingScopedResource
     public static function getSlug(): string
     {
         return 'guests-v2';
+    }
+
+    private static function applySortByPrimaryContactThenName(Builder $query, string $direction): Builder
+    {
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+        $joins = $query->getQuery()->joins ?? [];
+        $alreadyJoined = collect($joins)
+            ->contains(fn ($join): bool => (string) ($join->table ?? '') === 'wedding_guests as primary_contacts');
+
+        if (!$alreadyJoined) {
+            $query->leftJoin(
+                'wedding_guests as primary_contacts',
+                'primary_contacts.id',
+                '=',
+                'wedding_guests.primary_contact_id'
+            );
+        }
+
+        return $query
+            ->orderByRaw('COALESCE(primary_contacts.name, wedding_guests.name) ' . $direction)
+            ->orderBy('wedding_guests.name', $direction)
+            ->select('wedding_guests.*');
     }
 }

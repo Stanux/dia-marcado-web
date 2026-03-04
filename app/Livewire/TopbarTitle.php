@@ -889,6 +889,11 @@ class TopbarTitle extends Component
         $this->dispatch('topbar-wedding-guest-delete');
     }
 
+    public function openWeddingGuestImportFromTopbar(): void
+    {
+        $this->dispatch('topbar-wedding-guest-open-import');
+    }
+
     public function createAnotherWeddingInviteFromTopbar(): void
     {
         $this->dispatch('topbar-wedding-invite-create-another');

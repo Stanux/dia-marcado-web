@@ -1011,6 +1011,16 @@
             </nav>
 
             <div class="hidden shrink-0 items-center gap-2 md:flex">
+                <x-filament::button
+                    type="button"
+                    color="gray"
+                    icon="heroicon-o-arrow-up-tray"
+                    size="sm"
+                    wire:click="openWeddingGuestImportFromTopbar"
+                >
+                    Importar Arquivo
+                </x-filament::button>
+
                 @if ($canCreateWeddingGuest)
                     <x-filament::button
                         tag="a"

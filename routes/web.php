@@ -8,6 +8,7 @@ use App\Http\Controllers\MediaController;
 use App\Http\Controllers\Planning\PlanExportController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\TemplateEditorController;
+use App\Http\Controllers\WeddingGuestImportTemplateController;
 use App\Filament\Resources\TransactionResource;
 use App\Models\PartnerInvite;
 use App\Models\SiteLayout;
@@ -109,6 +110,9 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
         return TransactionResource::exportToCsv($records);
     })->name('admin.transactions.export-all');
+
+    Route::get('/guests-v2/import/template', WeddingGuestImportTemplateController::class)
+        ->name('admin.guests-v2.import-template');
 });
 
 // Site Editor routes (Inertia-based)
