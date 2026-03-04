@@ -56,6 +56,7 @@ const FooterEditor = defineAsyncComponent(() => import('./Editors/FooterEditor.v
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
 const showPassword = ref(false);
+const areSettingsFieldsLocked = ref(true);
 
 const emitChange = () => {
     emit('change', {
@@ -167,12 +168,18 @@ const confirmThemePresetApply = () => {
     showThemePresetConfirmDialog.value = false;
 };
 
+const unlockSettingsFields = () => {
+    areSettingsFieldsLocked.value = false;
+};
+
 watch(
     () => props.sectionType,
     (sectionType) => {
         if (sectionType !== 'theme') {
             showThemePresetConfirmDialog.value = false;
         }
+
+        areSettingsFieldsLocked.value = sectionType === 'settings';
     },
 );
 
@@ -537,6 +544,22 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                     <div class="premium-editor-shell">
                         <div class="space-y-4">
                             <h3>CONFIGURAÇÕES DO SITE</h3>
+
+                            <div
+                                class="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden opacity-0 pointer-events-none"
+                                aria-hidden="true"
+                            >
+                                <input
+                                    type="text"
+                                    autocomplete="username"
+                                    tabindex="-1"
+                                />
+                                <input
+                                    type="password"
+                                    autocomplete="current-password"
+                                    tabindex="-1"
+                                />
+                            </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">URL do Site</label>
@@ -559,10 +582,21 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Domínio Personalizado</label>
                                 <input
-                                    type="text"
+                                    type="url"
                                     inputmode="url"
                                     :value="localContent.custom_domain"
                                     @input="updateField('custom_domain', $event.target.value)"
+                                    @focus="unlockSettingsFields"
+                                    @mousedown="unlockSettingsFields"
+                                    @touchstart.passive="unlockSettingsFields"
+                                    autocomplete="off"
+                                    autocapitalize="none"
+                                    autocorrect="off"
+                                    spellcheck="false"
+                                    :readonly="areSettingsFieldsLocked"
+                                    name="site-domain-field"
+                                    data-lpignore="true"
+                                    data-1p-ignore="true"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                                     placeholder="https://meusite.com.br"
                                 />
@@ -576,6 +610,17 @@ const hasCustomEditor = computed(() => !!currentEditor.value);
                                         :type="showPassword ? 'text' : 'password'"
                                         :value="localContent.access_token"
                                         @input="updateField('access_token', $event.target.value)"
+                                        @focus="unlockSettingsFields"
+                                        @mousedown="unlockSettingsFields"
+                                        @touchstart.passive="unlockSettingsFields"
+                                        autocomplete="new-password"
+                                        autocapitalize="none"
+                                        autocorrect="off"
+                                        spellcheck="false"
+                                        :readonly="areSettingsFieldsLocked"
+                                        name="site-password-field"
+                                        data-lpignore="true"
+                                        data-1p-ignore="true"
                                         class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                                         placeholder="Deixe em branco para site público"
                                     />

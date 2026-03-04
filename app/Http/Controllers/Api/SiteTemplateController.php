@@ -271,6 +271,12 @@ class SiteTemplateController extends Controller
      */
     private function formatSiteResponse(SiteLayout $site): array
     {
+        $draftContent = is_array($site->draft_content) ? $site->draft_content : [];
+        if (isset($draftContent['settings']) && is_array($draftContent['settings'])) {
+            unset($draftContent['settings']['access_token']);
+            unset($draftContent['settings']['custom_domain']);
+        }
+
         return [
             'id' => $site->id,
             'wedding_id' => $site->wedding_id,
@@ -281,7 +287,7 @@ class SiteTemplateController extends Controller
             'is_draft' => $site->isDraft(),
             'published_at' => $site->published_at?->toIso8601String(),
             'public_url' => $site->getPublicUrl(),
-            'draft_content' => $site->draft_content,
+            'draft_content' => $draftContent,
             'created_at' => $site->created_at->toIso8601String(),
             'updated_at' => $site->updated_at->toIso8601String(),
         ];

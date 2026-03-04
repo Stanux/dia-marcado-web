@@ -82,6 +82,11 @@ class SiteBuilderService implements SiteBuilderServiceInterface
         $sanitizedContent = $this->sanitizer->sanitizeArray($content);
         $normalizedContent = SiteContentSchema::normalize($sanitizedContent);
 
+        if (isset($normalizedContent['settings']) && is_array($normalizedContent['settings'])) {
+            unset($normalizedContent['settings']['access_token']);
+            unset($normalizedContent['settings']['custom_domain']);
+        }
+
         return DB::transaction(function () use ($site, $normalizedContent, $user, $createVersion, $summary) {
             // Extract and save gift registry config if present
             if (isset($normalizedContent['sections']['giftRegistry']['config'])) {

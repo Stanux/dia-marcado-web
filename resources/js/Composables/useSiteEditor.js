@@ -50,6 +50,31 @@ function deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
 
+const sanitizeDraftSettings = (settings) => {
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+        return settings;
+    }
+
+    const sanitizedSettings = { ...settings };
+    delete sanitizedSettings.access_token;
+    delete sanitizedSettings.custom_domain;
+
+    return sanitizedSettings;
+};
+
+const sanitizeDraftContent = (content = {}) => {
+    const normalizedContent = ensureThemeDefaults(content || {});
+
+    if (!normalizedContent.settings || typeof normalizedContent.settings !== 'object' || Array.isArray(normalizedContent.settings)) {
+        return normalizedContent;
+    }
+
+    return {
+        ...normalizedContent,
+        settings: sanitizeDraftSettings(normalizedContent.settings),
+    };
+};
+
 const DEFAULT_THEME_SETTINGS = {
     primaryColor: '#e11d48',
     secondaryColor: '#be123c',
@@ -180,7 +205,7 @@ const syncThemeBackgroundBindings = (draft, previousTheme, nextTheme) => {
 export default function useSiteEditor(initialSite) {
     // Reactive state
     const site = ref(deepClone(initialSite));
-    const draftContent = ref(ensureThemeDefaults(initialSite.draft_content || {}));
+    const draftContent = ref(sanitizeDraftContent(initialSite.draft_content || {}));
     const originalContent = ref(deepClone(draftContent.value));
     
     // Status flags
@@ -215,7 +240,7 @@ export default function useSiteEditor(initialSite) {
             ...nextSiteData,
         });
 
-        const nextDraftContent = ensureThemeDefaults(nextSiteData.draft_content || {});
+        const nextDraftContent = sanitizeDraftContent(nextSiteData.draft_content || {});
         draftContent.value = nextDraftContent;
         originalContent.value = deepClone(nextDraftContent);
         isDirty.value = false;
@@ -323,6 +348,14 @@ export default function useSiteEditor(initialSite) {
     const persistDraft = async ({ createVersion, summary = null }) => {
         const requestMutationToken = localMutationToken.value;
         const payloadContent = deepClone(draftContent.value);
+        if (
+            payloadContent.settings
+            && typeof payloadContent.settings === 'object'
+            && !Array.isArray(payloadContent.settings)
+        ) {
+            delete payloadContent.settings.access_token;
+            delete payloadContent.settings.custom_domain;
+        }
         const payload = {
             content: payloadContent,
             create_version: createVersion,

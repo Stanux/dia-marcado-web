@@ -179,6 +179,17 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         $siteData = $siteLayout->toArray();
         $siteData['draft_content'] = $siteLayout->draft_content;
         $siteData['published_content'] = $siteLayout->published_content;
+        $siteData['has_password'] = $siteLayout->access_token !== null;
+        unset($siteData['access_token']);
+
+        if (
+            is_array($siteData['draft_content'])
+            && isset($siteData['draft_content']['settings'])
+            && is_array($siteData['draft_content']['settings'])
+        ) {
+            unset($siteData['draft_content']['settings']['access_token']);
+            unset($siteData['draft_content']['settings']['custom_domain']);
+        }
         
         // Load wedding data for placeholders
         $wedding = $siteLayout->wedding;
@@ -295,8 +306,12 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
             return redirect()->route('filament.admin.resources.site-layouts.index');
         }
         
+        $siteData = $siteLayout->toArray();
+        $siteData['has_password'] = $siteLayout->access_token !== null;
+        unset($siteData['access_token']);
+
         return Inertia::render('Sites/Templates', [
-            'site' => $siteLayout,
+            'site' => $siteData,
             'weddingId' => $weddingId,
         ]);
     })->name('sites.templates');

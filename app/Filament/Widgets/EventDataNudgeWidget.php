@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\SiteLayout;
 use App\Models\Wedding;
+use App\Services\PermissionService;
 use Filament\Widgets\Widget;
 
 class EventDataNudgeWidget extends Widget
@@ -36,12 +37,14 @@ class EventDataNudgeWidget extends Widget
         $settings = is_array($wedding->settings ?? null) ? $wedding->settings : [];
         $weddingTime = $this->normalizeWeddingTime($settings['wedding_time'] ?? null);
         $items = [];
+        $canAccessEventData = $this->canAccessEventData();
+        $canAccessUsers = $this->canAccessUsers();
 
-        if ($wedding->wedding_date === null) {
+        if ($canAccessEventData && $wedding->wedding_date === null) {
             $items[] = 'Definir a data do evento.';
         }
 
-        if ($weddingTime === null) {
+        if ($canAccessEventData && $weddingTime === null) {
             $items[] = 'Definir o horário do evento.';
         }
 
@@ -50,7 +53,7 @@ class EventDataNudgeWidget extends Widget
             ->when($currentUser, fn ($query) => $query->where('user_id', '!=', $currentUser->id))
             ->exists();
 
-        if (!$partnerLinked) {
+        if ($canAccessUsers && !$partnerLinked) {
             $items[] = 'Adicionar a conta do(a) parceiro(a) na tela de Usuários.';
         }
 
@@ -88,6 +91,41 @@ class EventDataNudgeWidget extends Widget
     public function getUsersCreateUrl(): string
     {
         return route('filament.admin.resources.users.create');
+    }
+
+    public function canAccessEventData(): bool
+    {
+        return $this->canAccessModule('event_data');
+    }
+
+    public function canAccessSiteEditor(): bool
+    {
+        return $this->canAccessModule('site_editor');
+    }
+
+    public function canAccessUsers(): bool
+    {
+        return $this->canAccessModule('users');
+    }
+
+    private function canAccessModule(string $module): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        $wedding = $this->getCurrentWedding();
+        if (! $wedding) {
+            return false;
+        }
+
+        return app(PermissionService::class)->canAccess($user, $module, $wedding);
     }
 
     private function normalizeWeddingTime(mixed $value): ?string

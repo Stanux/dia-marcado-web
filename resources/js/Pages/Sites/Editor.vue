@@ -246,7 +246,7 @@ const currentSectionContent = computed(() => {
         return {
             slug: site.value?.slug || '',
             custom_domain: site.value?.custom_domain || '',
-            access_token: site.value?.access_token || '',
+            access_token: '',
             has_password: site.value?.has_password || false,
             is_published: site.value?.is_published || false,
             published_at: site.value?.published_at || null,

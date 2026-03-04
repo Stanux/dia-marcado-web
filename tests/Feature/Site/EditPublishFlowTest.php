@@ -209,6 +209,44 @@ class EditPublishFlowTest extends TestCase
     /**
      * @test
      */
+    public function api_update_draft_strips_access_token_from_settings_payload(): void
+    {
+        // Arrange
+        $wedding = Wedding::factory()->create();
+        $couple = User::factory()->create();
+        $wedding->users()->attach($couple->id, ['role' => 'couple']);
+        $couple->current_wedding_id = $wedding->id;
+        $couple->save();
+
+        $site = $this->siteBuilderService->create($wedding);
+
+        Sanctum::actingAs($couple);
+
+        $newContent = $site->draft_content;
+        $newContent['settings'] = [
+            'custom_domain' => 'https://casamento.exemplo',
+            'access_token' => 'senha-em-cache',
+        ];
+
+        // Act
+        $response = $this->putJson("/api/sites/{$site->id}/draft", [
+            'content' => $newContent,
+            'summary' => 'Updated via API',
+        ], [
+            'X-Wedding-ID' => $wedding->id,
+        ]);
+
+        // Assert
+        $response->assertStatus(200);
+        $response->assertJsonMissingPath('data.draft_content.settings.access_token');
+
+        $site->refresh();
+        $this->assertArrayNotHasKey('access_token', $site->draft_content['settings'] ?? []);
+    }
+
+    /**
+     * @test
+     */
     public function api_publish_endpoint_works(): void
     {
         // Arrange

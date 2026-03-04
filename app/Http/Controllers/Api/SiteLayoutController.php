@@ -397,9 +397,10 @@ class SiteLayoutController extends Controller
         ];
 
         if ($includeContent) {
-            $data['draft_content'] = is_array($site->draft_content)
+            $draftContent = is_array($site->draft_content)
                 ? SiteContentSchema::normalize($site->draft_content)
                 : SiteContentSchema::getDefaultContent();
+            $data['draft_content'] = $this->sanitizeEditorDraftContent($draftContent);
 
             $data['published_content'] = is_array($site->published_content)
                 ? SiteContentSchema::normalize($site->published_content)
@@ -407,5 +408,18 @@ class SiteLayoutController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Remove sensitive editor-only fields from draft payloads.
+     */
+    private function sanitizeEditorDraftContent(array $draftContent): array
+    {
+        if (isset($draftContent['settings']) && is_array($draftContent['settings'])) {
+            unset($draftContent['settings']['access_token']);
+            unset($draftContent['settings']['custom_domain']);
+        }
+
+        return $draftContent;
     }
 }

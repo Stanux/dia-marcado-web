@@ -2,9 +2,12 @@
     @php
         $pendingItems = $this->getPendingItems();
         $showNudge = $pendingItems !== [];
-        $settingsUrl = $this->getWeddingSettingsUrl();
-        $previewUrl = $this->getPreviewEditorUrl();
-        $usersCreateUrl = $this->getUsersCreateUrl();
+        $canAccessEventData = $this->canAccessEventData();
+        $canAccessSiteEditor = $this->canAccessSiteEditor();
+        $canAccessUsers = $this->canAccessUsers();
+        $settingsUrl = $canAccessEventData ? $this->getWeddingSettingsUrl() : null;
+        $previewUrl = $canAccessSiteEditor ? $this->getPreviewEditorUrl() : null;
+        $usersCreateUrl = $canAccessUsers ? $this->getUsersCreateUrl() : null;
     @endphp
 
     @if($showNudge)
@@ -28,12 +31,14 @@
                 </ul>
 
                 <div class="mt-4 flex flex-wrap items-center gap-2">
-                    <a
-                        href="{{ $settingsUrl }}"
-                        class="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-500"
-                    >
-                        Ir para Dados do Evento
-                    </a>
+                    @if($settingsUrl)
+                        <a
+                            href="{{ $settingsUrl }}"
+                            class="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-500"
+                        >
+                            Ir para Dados do Evento
+                        </a>
+                    @endif
 
                     @if($previewUrl)
                         <a
@@ -44,12 +49,14 @@
                         </a>
                     @endif
 
-                    <a
-                        href="{{ $usersCreateUrl }}"
-                        class="inline-flex items-center rounded-md border border-amber-400 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-500 dark:text-amber-200 dark:hover:bg-amber-900/30"
-                    >
-                        Ir para Usuários
-                    </a>
+                    @if($usersCreateUrl)
+                        <a
+                            href="{{ $usersCreateUrl }}"
+                            class="inline-flex items-center rounded-md border border-amber-400 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-500 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                        >
+                            Ir para Usuários
+                        </a>
+                    @endif
                 </div>
             </div>
         </x-filament::section>
