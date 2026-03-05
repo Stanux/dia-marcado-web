@@ -116,6 +116,13 @@ class WeddingEventResource extends WeddingScopedResource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
+                Tables\Actions\Action::make('dashboard')
+                    ->label('Dashboard')
+                    ->icon('heroicon-o-chart-bar')
+                    ->color('info')
+                    ->iconButton()
+                    ->tooltip('Abrir dashboard do evento')
+                    ->url(fn (WeddingEvent $record): string => static::getUrl('dashboard', ['record' => $record])),
                 Tables\Actions\EditAction::make()->iconButton(),
                 Tables\Actions\DeleteAction::make()->iconButton(),
             ])
@@ -133,6 +140,7 @@ class WeddingEventResource extends WeddingScopedResource
             'index' => Pages\ListWeddingEvents::route('/'),
             'create' => Pages\CreateWeddingEvent::route('/create'),
             'edit' => Pages\EditWeddingEvent::route('/{record}/edit'),
+            'dashboard' => Pages\EventDashboard::route('/{record}/dashboard'),
         ];
     }
 
