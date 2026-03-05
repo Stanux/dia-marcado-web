@@ -23,6 +23,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    sectionOrder: {
+        type: Array,
+        default: () => [],
+    },
     viewportMode: {
         type: String,
         default: 'auto',
@@ -47,6 +51,11 @@ const LEGACY_ANCHOR_ALIASES = {
     convidados: 'guests-v2',
     galeria: 'photo-gallery',
 };
+
+const SECTION_KEYS_BY_ANCHOR = Object.entries(SECTION_ANCHORS_BY_KEY).reduce((accumulator, [sectionKey, anchor]) => {
+    accumulator[anchor] = sectionKey;
+    return accumulator;
+}, {});
 
 const normalizeTarget = (rawTarget) => {
     if (typeof rawTarget !== 'string') {
@@ -85,6 +94,23 @@ const resolveTarget = (item = {}) => {
     return '';
 };
 
+const resolveNavigationSectionKey = (item = {}, target = '') => {
+    const rawSectionKey = typeof item.sectionKey === 'string' ? item.sectionKey.trim() : '';
+
+    if (rawSectionKey) {
+        return rawSectionKey === 'rsvp' ? 'guestsV2' : rawSectionKey;
+    }
+
+    if (!target.startsWith('#')) {
+        return '';
+    }
+
+    const anchor = target.slice(1);
+    const normalizedAnchor = LEGACY_ANCHOR_ALIASES[anchor] || anchor;
+
+    return SECTION_KEYS_BY_ANCHOR[normalizedAnchor] || '';
+};
+
 const resolveType = (item = {}, target = '') => {
     const explicitType = typeof item.type === 'string' ? item.type.trim().toLowerCase() : '';
     if (explicitType === 'anchor' || explicitType === 'url') {
@@ -101,32 +127,49 @@ const resolveType = (item = {}, target = '') => {
 // Computed properties
 const logo = computed(() => props.content.logo || { type: 'image', url: '', alt: '' });
 const navigation = computed(() => {
-    // Filter navigation items to only show enabled sections
-    const items = props.content.navigation || [];
+    const items = Array.isArray(props.content.navigation) ? props.content.navigation : [];
     if (!items.length) return [];
-    
-    return items
-        .filter(item => {
-            // Always show if showInMenu is false (hidden items)
-            if (!item.showInMenu) return false;
 
-            // Check if target section is enabled
+    const resolveOrderIndex = (sectionKey) => {
+        if (!sectionKey) {
+            return Number.MAX_SAFE_INTEGER;
+        }
+
+        const index = props.sectionOrder.indexOf(sectionKey);
+        return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+    };
+
+    return items
+        .map((item, sourceIndex) => {
+            const target = resolveTarget(item);
+            const sectionKey = resolveNavigationSectionKey(item, target);
+
+            return {
+                ...item,
+                target,
+                type: resolveType(item, target),
+                sectionKey,
+                _sourceIndex: sourceIndex,
+                _orderIndex: resolveOrderIndex(sectionKey),
+            };
+        })
+        .filter(item => item.showInMenu)
+        .filter(item => {
             if (item.sectionKey && props.enabledSections) {
                 return props.enabledSections[item.sectionKey] === true;
             }
 
             return true;
         })
-        .map(item => {
-            const target = resolveTarget(item);
+        .filter(item => item.target)
+        .sort((left, right) => {
+            if (left._orderIndex !== right._orderIndex) {
+                return left._orderIndex - right._orderIndex;
+            }
 
-            return {
-                ...item,
-                target,
-                type: resolveType(item, target),
-            };
+            return left._sourceIndex - right._sourceIndex;
         })
-        .filter(item => item.target);
+        .map(({ _sourceIndex, _orderIndex, ...item }) => item);
 });
 const actionButton = computed(() => {
     const button = props.content.actionButton || { label: '', target: '', style: 'primary' };

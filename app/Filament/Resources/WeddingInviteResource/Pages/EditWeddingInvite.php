@@ -4,9 +4,12 @@ namespace App\Filament\Resources\WeddingInviteResource\Pages;
 
 use App\Filament\Resources\WeddingInviteResource;
 use App\Models\WeddingEvent;
+use App\Models\WeddingEventRsvp;
+use App\Models\WeddingGuest;
 use App\Models\WeddingInvite;
 use Filament\Actions;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +18,9 @@ use Livewire\Attributes\On;
 class EditWeddingInvite extends EditRecord
 {
     protected static string $resource = WeddingInviteResource::class;
+
+    /** @var array<string, string> */
+    public array $guestRsvpStatusDrafts = [];
 
     public function getHeading(): string
     {
@@ -29,6 +35,46 @@ class EditWeddingInvite extends EditRecord
     protected function getHeaderActions(): array
     {
         return [];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getGuestRsvpStatusDrafts(): array
+    {
+        return $this->guestRsvpStatusDrafts;
+    }
+
+    public function getCurrentInviteId(): ?string
+    {
+        return $this->record?->getKey() ? (string) $this->record->getKey() : null;
+    }
+
+    public function setGuestRsvpStatusDraft(string $guestId, string $status): void
+    {
+        if (!in_array($status, [
+            WeddingEventRsvp::STATUS_PENDING,
+            WeddingEventRsvp::STATUS_CONFIRMED,
+            WeddingEventRsvp::STATUS_DECLINED,
+        ], true)) {
+            return;
+        }
+
+        if (!$this->isGuestInCurrentInviteScope($guestId)) {
+            Notification::make()
+                ->title('Convidado fora do escopo deste convite.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->guestRsvpStatusDrafts[(string) $guestId] = $status;
+    }
+
+    protected function afterSave(): void
+    {
+        $this->persistGuestStatusDrafts();
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
@@ -108,5 +154,109 @@ class EditWeddingInvite extends EditRecord
                 'expires_at' => 'A expiração não pode ser maior que a data do evento.',
             ]);
         }
+    }
+
+    private function persistGuestStatusDrafts(): void
+    {
+        if ($this->guestRsvpStatusDrafts === []) {
+            return;
+        }
+
+        $scopedGuestIds = $this->resolveInviteScopedGuestIds();
+
+        if ($scopedGuestIds === []) {
+            return;
+        }
+
+        $currentStatuses = WeddingEventRsvp::withoutGlobalScopes()
+            ->where('wedding_id', $this->record->wedding_id)
+            ->where('event_id', $this->record->event_id)
+            ->whereIn('guest_id', $scopedGuestIds)
+            ->pluck('status', 'guest_id')
+            ->map(fn ($status): string => in_array($status, [
+                WeddingEventRsvp::STATUS_PENDING,
+                WeddingEventRsvp::STATUS_CONFIRMED,
+                WeddingEventRsvp::STATUS_DECLINED,
+            ], true) ? (string) $status : WeddingEventRsvp::STATUS_PENDING)
+            ->all();
+
+        foreach ($this->guestRsvpStatusDrafts as $guestId => $status) {
+            $guestId = (string) $guestId;
+            $status = (string) $status;
+
+            if (
+                !in_array($guestId, $scopedGuestIds, true)
+                || !in_array($status, [
+                    WeddingEventRsvp::STATUS_PENDING,
+                    WeddingEventRsvp::STATUS_CONFIRMED,
+                    WeddingEventRsvp::STATUS_DECLINED,
+                ], true)
+            ) {
+                continue;
+            }
+
+            $currentStatus = $currentStatuses[$guestId] ?? WeddingEventRsvp::STATUS_PENDING;
+
+            if ($status === $currentStatus) {
+                continue;
+            }
+
+            WeddingEventRsvp::withoutGlobalScopes()->updateOrCreate(
+                [
+                    'event_id' => $this->record->event_id,
+                    'guest_id' => $guestId,
+                ],
+                [
+                    'wedding_id' => $this->record->wedding_id,
+                    'invite_id' => $this->record->id,
+                    'status' => $status,
+                    'responded_at' => $status === WeddingEventRsvp::STATUS_PENDING ? null : now(),
+                    'response_channel' => 'admin_panel',
+                ],
+            );
+        }
+
+        $this->guestRsvpStatusDrafts = [];
+        $this->record->refresh();
+    }
+
+    private function isGuestInCurrentInviteScope(string $guestId): bool
+    {
+        return in_array($guestId, $this->resolveInviteScopedGuestIds(), true);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveInviteScopedGuestIds(): array
+    {
+        if ((string) $this->record->invite_type === 'global') {
+            return WeddingEventRsvp::withoutGlobalScopes()
+                ->where('wedding_id', $this->record->wedding_id)
+                ->where('event_id', $this->record->event_id)
+                ->where('invite_id', $this->record->id)
+                ->pluck('guest_id')
+                ->filter()
+                ->map(fn ($id): string => (string) $id)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        if (blank($this->record->primary_contact_id)) {
+            return [];
+        }
+
+        return WeddingGuest::withoutGlobalScopes()
+            ->where('wedding_id', $this->record->wedding_id)
+            ->where(function ($query): void {
+                $query->whereKey($this->record->primary_contact_id)
+                    ->orWhere('primary_contact_id', $this->record->primary_contact_id);
+            })
+            ->pluck('id')
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 }

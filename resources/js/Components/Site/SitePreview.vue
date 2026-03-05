@@ -146,6 +146,7 @@ const renderedSections = computed(() => {
                     props: {
                         ...baseProps,
                         enabledSections: enabledSections.value,
+                        sectionOrder: orderedSectionKeys.value,
                         viewportMode: props.mode,
                     },
                 };

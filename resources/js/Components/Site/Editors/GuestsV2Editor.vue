@@ -2,12 +2,11 @@
 /**
  * GuestsV2Editor Component
  *
- * Initial editor for the new guests section.
- * The legacy RSVP section remains hidden/disabled and this section becomes
- * the new entry point for future Guests V2 rules.
+ * Editor for guests V2 section visual settings.
  */
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useColorField } from '@/Composables/useColorField';
+import TypographyControl from '@/Components/Site/TypographyControl.vue';
 
 const props = defineProps({
     content: {
@@ -26,7 +25,22 @@ const DEFAULTS = {
     },
     title: 'Convidados',
     description: 'Utilize o convite recebido para confirmar presença e manter seus dados atualizados.',
-    helperText: 'Este formulário utiliza as regras do módulo de convidados V2.',
+    titleTypography: {
+        fontFamily: 'Playfair Display',
+        fontColor: '#d87a8d',
+        fontSize: 36,
+        fontWeight: 700,
+        fontItalic: false,
+        fontUnderline: false,
+    },
+    descriptionTypography: {
+        fontFamily: 'Playfair Display',
+        fontColor: '#4b5563',
+        fontSize: 18,
+        fontWeight: 400,
+        fontItalic: false,
+        fontUnderline: false,
+    },
     style: {
         backgroundColor: '#f5f5f5',
         layout: 'card',
@@ -46,7 +60,9 @@ watch(
     { deep: true }
 );
 
-const guestsBackgroundColorHex = computedBackgroundColor();
+const guestsBackgroundColorHex = computed(() => normalizeHexColor(localContent.value?.style?.backgroundColor, DEFAULTS.style.backgroundColor));
+const titleTypography = computed(() => localContent.value?.titleTypography || DEFAULTS.titleTypography);
+const descriptionTypography = computed(() => localContent.value?.descriptionTypography || DEFAULTS.descriptionTypography);
 
 function cloneDeep(value) {
     return JSON.parse(JSON.stringify(value || {}));
@@ -81,10 +97,6 @@ function ensureStructure() {
         localContent.value.description = DEFAULTS.description;
     }
 
-    if (localContent.value.helperText === undefined) {
-        localContent.value.helperText = DEFAULTS.helperText;
-    }
-
     if (localContent.value.style.backgroundColor === undefined) {
         localContent.value.style.backgroundColor = DEFAULTS.style.backgroundColor;
     }
@@ -100,10 +112,24 @@ function ensureStructure() {
     if (localContent.value.style.showCard === undefined) {
         localContent.value.style.showCard = DEFAULTS.style.showCard;
     }
-}
 
-function computedBackgroundColor() {
-    return () => normalizeHexColor(localContent.value?.style?.backgroundColor, DEFAULTS.style.backgroundColor);
+    if (!localContent.value.titleTypography || typeof localContent.value.titleTypography !== 'object') {
+        localContent.value.titleTypography = {};
+    }
+
+    if (!localContent.value.descriptionTypography || typeof localContent.value.descriptionTypography !== 'object') {
+        localContent.value.descriptionTypography = {};
+    }
+
+    localContent.value.titleTypography = {
+        ...DEFAULTS.titleTypography,
+        ...localContent.value.titleTypography,
+    };
+
+    localContent.value.descriptionTypography = {
+        ...DEFAULTS.descriptionTypography,
+        ...localContent.value.descriptionTypography,
+    };
 }
 
 function emitChange() {
@@ -115,8 +141,12 @@ function updateField(field, value) {
     emitChange();
 }
 
-function updateNavigation(field, value) {
-    localContent.value.navigation[field] = value;
+function updateTypography(typographyKey, field, value) {
+    if (!localContent.value[typographyKey] || typeof localContent.value[typographyKey] !== 'object') {
+        localContent.value[typographyKey] = {};
+    }
+
+    localContent.value[typographyKey][field] = value;
     emitChange();
 }
 
@@ -134,14 +164,6 @@ ensureStructure();
 
 <template>
     <div class="space-y-6 h-full overflow-y-auto">
-        <div class="p-4 rounded-lg border border-emerald-200 bg-emerald-50">
-            <h4 class="text-sm font-semibold text-emerald-900">Nova seção de convidados (V2)</h4>
-            <p class="mt-1 text-sm text-emerald-800">
-                Esta seção foi criada do zero para substituir a versão antiga.
-                A seção legada permanece oculta e desabilitada.
-            </p>
-        </div>
-
         <div class="space-y-4">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Conteúdo</h3>
 
@@ -154,6 +176,25 @@ ensureStructure();
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                     placeholder="Convidados"
                 />
+
+                <div class="mt-3">
+                    <TypographyControl
+                        :font-family="titleTypography.fontFamily"
+                        :font-color="titleTypography.fontColor"
+                        :font-size="titleTypography.fontSize"
+                        :font-weight="titleTypography.fontWeight"
+                        :font-italic="titleTypography.fontItalic"
+                        :font-underline="titleTypography.fontUnderline"
+                        :preview-background-color="guestsBackgroundColorHex"
+                        label="Tipografia do Título"
+                        @update:font-family="updateTypography('titleTypography', 'fontFamily', $event)"
+                        @update:font-color="updateTypography('titleTypography', 'fontColor', $event)"
+                        @update:font-size="updateTypography('titleTypography', 'fontSize', $event)"
+                        @update:font-weight="updateTypography('titleTypography', 'fontWeight', $event)"
+                        @update:font-italic="updateTypography('titleTypography', 'fontItalic', $event)"
+                        @update:font-underline="updateTypography('titleTypography', 'fontUnderline', $event)"
+                    />
+                </div>
             </div>
 
             <div>
@@ -165,43 +206,25 @@ ensureStructure();
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                     placeholder="Descreva como os convidados devem confirmar."
                 ></textarea>
+                <div class="mt-3">
+                    <TypographyControl
+                        :font-family="descriptionTypography.fontFamily"
+                        :font-color="descriptionTypography.fontColor"
+                        :font-size="descriptionTypography.fontSize"
+                        :font-weight="descriptionTypography.fontWeight"
+                        :font-italic="descriptionTypography.fontItalic"
+                        :font-underline="descriptionTypography.fontUnderline"
+                        :preview-background-color="guestsBackgroundColorHex"
+                        label="Tipografia da Descrição"
+                        @update:font-family="updateTypography('descriptionTypography', 'fontFamily', $event)"
+                        @update:font-color="updateTypography('descriptionTypography', 'fontColor', $event)"
+                        @update:font-size="updateTypography('descriptionTypography', 'fontSize', $event)"
+                        @update:font-weight="updateTypography('descriptionTypography', 'fontWeight', $event)"
+                        @update:font-italic="updateTypography('descriptionTypography', 'fontItalic', $event)"
+                        @update:font-underline="updateTypography('descriptionTypography', 'fontUnderline', $event)"
+                    />
+                </div>
             </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Texto de apoio</label>
-                <input
-                    type="text"
-                    :value="localContent.helperText"
-                    @input="updateField('helperText', $event.target.value)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    placeholder="Este formulário utiliza as regras do módulo de convidados V2."
-                />
-            </div>
-        </div>
-
-        <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Navegação</h3>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Rótulo no menu</label>
-                <input
-                    type="text"
-                    :value="localContent.navigation.label"
-                    @input="updateNavigation('label', $event.target.value)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    placeholder="Convidados"
-                />
-            </div>
-
-            <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
-                <input
-                    type="checkbox"
-                    class="mt-1 h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
-                    :checked="localContent.navigation.showInMenu"
-                    @change="updateNavigation('showInMenu', $event.target.checked)"
-                />
-                <span class="text-sm text-gray-700">Exibir esta seção no menu do cabeçalho</span>
-            </label>
         </div>
 
         <div class="space-y-4 pt-6 border-t border-gray-200">
@@ -249,7 +272,7 @@ ensureStructure();
                 <div class="flex items-center space-x-2">
                     <input
                         type="color"
-                        :value="guestsBackgroundColorHex()"
+                        :value="guestsBackgroundColorHex"
                         @input="updateStyle('backgroundColor', $event.target.value)"
                         @change="updateStyle('backgroundColor', $event.target.value)"
                         class="h-10 w-14 border border-gray-300 rounded cursor-pointer"

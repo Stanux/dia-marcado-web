@@ -1038,6 +1038,24 @@ onUnmounted(() => {
                 <div class="w-full lg:w-auto lg:ml-auto">
                     <div class="flex flex-col gap-2 lg:items-end">
                         <div class="flex flex-wrap items-center justify-end gap-2">
+                            <!-- Status indicators -->
+                            <div class="flex items-center gap-2 text-xs sm:text-sm">
+                                <span v-if="isDirty" class="text-amber-600 flex items-center">
+                                    <span class="w-2 h-2 bg-amber-500 rounded-full mr-1"></span>
+                                    Alterações não salvas
+                                </span>
+                                <span v-else-if="lastSaved" class="text-gray-500">
+                                    Salvo às {{ formattedLastSaved }}
+                                </span>
+                                <span v-if="isSaving" class="text-blue-600 flex items-center">
+                                    <svg class="animate-spin w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Salvando...
+                                </span>
+                            </div>
+
                             <!-- Templates Button -->
                             <button
                                 v-if="canUseTemplateCatalog"
@@ -1127,24 +1145,6 @@ onUnmounted(() => {
                                 </svg>
                                 <span class="hidden sm:inline">Ver Site</span>
                             </a>
-                        </div>
-
-                        <!-- Status indicators -->
-                        <div class="flex flex-wrap items-center justify-end gap-2 text-xs sm:text-sm">
-                            <span v-if="isDirty" class="text-amber-600 flex items-center">
-                                <span class="w-2 h-2 bg-amber-500 rounded-full mr-1"></span>
-                                Alterações não salvas
-                            </span>
-                            <span v-else-if="lastSaved" class="text-gray-500">
-                                Salvo às {{ formattedLastSaved }}
-                            </span>
-                            <span v-if="isSaving" class="text-blue-600 flex items-center">
-                                <svg class="animate-spin w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Salvando...
-                            </span>
                         </div>
                     </div>
                 </div>

@@ -125,13 +125,6 @@ class WeddingInviteResource extends WeddingScopedResource
                             ->default(true)
                             ->columnSpan(1),
 
-                        Forms\Components\TextInput::make('confirmation_code')
-                            ->label('Código de Confirmação')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->visible(fn (string $operation): bool => $operation === 'edit')
-                            ->helperText('Gerado automaticamente para todos os convites.')
-                            ->columnSpan(2),
                     ])
                     ->columns(4),
 
@@ -139,12 +132,22 @@ class WeddingInviteResource extends WeddingScopedResource
                     ->schema([
                         Forms\Components\Placeholder::make('guest_statuses')
                             ->label('')
-                            ->content(fn (Forms\Get $get): HtmlString => static::buildGuestStatusListHtml(
-                                eventId: $get('event_id'),
-                                inviteType: $get('invite_type'),
-                                primaryContactId: $get('primary_contact_id'),
-                                inviteId: static::resolveCurrentInviteId(),
-                            )),
+                            ->content(function (Forms\Get $get, Component $livewire): HtmlString {
+                                $draftStatuses = method_exists($livewire, 'getGuestRsvpStatusDrafts')
+                                    ? $livewire->getGuestRsvpStatusDrafts()
+                                    : [];
+                                $inviteId = method_exists($livewire, 'getCurrentInviteId')
+                                    ? $livewire->getCurrentInviteId()
+                                    : static::resolveCurrentInviteId();
+
+                                return static::buildGuestStatusListHtml(
+                                    eventId: $get('event_id'),
+                                    inviteType: $get('invite_type'),
+                                    primaryContactId: $get('primary_contact_id'),
+                                    inviteId: $inviteId,
+                                    draftStatuses: is_array($draftStatuses) ? $draftStatuses : [],
+                                );
+                            }),
                     ]),
             ]);
     }
@@ -304,7 +307,8 @@ class WeddingInviteResource extends WeddingScopedResource
         ?string $eventId,
         ?string $inviteType,
         ?string $primaryContactId,
-        ?string $inviteId
+        ?string $inviteId,
+        array $draftStatuses = []
     ): HtmlString {
         if (blank($eventId)) {
             return new HtmlString('<p class="text-sm text-gray-500">Selecione o evento para visualizar os convidados e status.</p>');
@@ -328,27 +332,24 @@ class WeddingInviteResource extends WeddingScopedResource
 
             $rows = $rsvps
                 ->unique('guest_id')
-                ->map(function (WeddingEventRsvp $rsvp): string {
-                    $status = (string) ($rsvp->status ?? 'pending');
-
-                    $statusLabel = match ($status) {
-                        'confirmed' => 'Confirmado',
-                        'declined' => 'Recusado',
-                        default => 'Pendente',
-                    };
-
-                    $statusClasses = match ($status) {
-                        'confirmed' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-                        'declined' => 'bg-rose-50 text-rose-700 ring-rose-600/20',
-                        default => 'bg-gray-50 text-gray-700 ring-gray-600/20',
-                    };
+                ->map(function (WeddingEventRsvp $rsvp) use ($inviteId, $draftStatuses): string {
+                    $guestId = $rsvp->guest ? (string) $rsvp->guest_id : null;
+                    $persistedStatus = (string) ($rsvp->status ?? WeddingEventRsvp::STATUS_PENDING);
+                    $status = static::resolveDraftStatus(
+                        guestId: $guestId,
+                        persistedStatus: $persistedStatus,
+                        draftStatuses: $draftStatuses,
+                    );
+                    $statusButtons = static::buildStatusToggleGroupHtml(
+                        guestId: $guestId,
+                        status: $status,
+                        enabled: filled($inviteId),
+                    );
 
                     return '<tr class="border-t border-gray-100">'
                         . '<td class="px-4 py-2 text-sm text-gray-900">' . e((string) ($rsvp->guest?->name ?? 'Convidado removido')) . '</td>'
                         . '<td class="px-4 py-2 text-sm">'
-                        . '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ' . $statusClasses . '">'
-                        . e($statusLabel)
-                        . '</span>'
+                        . $statusButtons
                         . '</td>'
                         . '</tr>';
                 })
@@ -394,27 +395,24 @@ class WeddingInviteResource extends WeddingScopedResource
             ->get(['guest_id', 'status'])
             ->keyBy('guest_id');
 
-        $rows = $guests->map(function (WeddingGuest $guest) use ($rsvps): string {
-            $status = (string) ($rsvps->get($guest->id)?->status ?? 'pending');
-
-            $statusLabel = match ($status) {
-                'confirmed' => 'Confirmado',
-                'declined' => 'Recusado',
-                default => 'Pendente',
-            };
-
-            $statusClasses = match ($status) {
-                'confirmed' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-                'declined' => 'bg-rose-50 text-rose-700 ring-rose-600/20',
-                default => 'bg-gray-50 text-gray-700 ring-gray-600/20',
-            };
+        $rows = $guests->map(function (WeddingGuest $guest) use ($rsvps, $inviteId, $draftStatuses): string {
+            $guestId = (string) $guest->id;
+            $persistedStatus = (string) ($rsvps->get($guest->id)?->status ?? WeddingEventRsvp::STATUS_PENDING);
+            $status = static::resolveDraftStatus(
+                guestId: $guestId,
+                persistedStatus: $persistedStatus,
+                draftStatuses: $draftStatuses,
+            );
+            $statusButtons = static::buildStatusToggleGroupHtml(
+                guestId: $guestId,
+                status: $status,
+                enabled: filled($inviteId),
+            );
 
             return '<tr class="border-t border-gray-100">'
                 . '<td class="px-4 py-2 text-sm text-gray-900">' . e((string) $guest->name) . '</td>'
                 . '<td class="px-4 py-2 text-sm">'
-                . '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ' . $statusClasses . '">'
-                . e($statusLabel)
-                . '</span>'
+                . $statusButtons
                 . '</td>'
                 . '</tr>';
         })->implode('');
@@ -434,6 +432,80 @@ class WeddingInviteResource extends WeddingScopedResource
             . '</div>';
 
         return new HtmlString($table);
+    }
+
+    protected static function resolveDraftStatus(?string $guestId, string $persistedStatus, array $draftStatuses): string
+    {
+        if (blank($guestId)) {
+            return $persistedStatus;
+        }
+
+        $draftStatus = $draftStatuses[$guestId] ?? null;
+
+        return in_array($draftStatus, [
+            WeddingEventRsvp::STATUS_PENDING,
+            WeddingEventRsvp::STATUS_CONFIRMED,
+            WeddingEventRsvp::STATUS_DECLINED,
+        ], true)
+            ? (string) $draftStatus
+            : $persistedStatus;
+    }
+
+    protected static function buildStatusToggleGroupHtml(?string $guestId, string $status, bool $enabled): string
+    {
+        if (!$enabled || blank($guestId)) {
+            return static::buildReadonlyStatusBadgeHtml($status);
+        }
+
+        $guestIdEscaped = e($guestId);
+        $buttons = [
+            WeddingEventRsvp::STATUS_PENDING => 'Pendente',
+            WeddingEventRsvp::STATUS_CONFIRMED => 'Confirmado',
+            WeddingEventRsvp::STATUS_DECLINED => 'Recusado',
+        ];
+
+        $segments = collect($buttons)->map(function (string $label, string $buttonStatus) use ($guestIdEscaped, $status): string {
+            $isActive = $status === $buttonStatus;
+
+            $activeClasses = match ($buttonStatus) {
+                WeddingEventRsvp::STATUS_CONFIRMED => 'bg-emerald-50 text-emerald-700',
+                WeddingEventRsvp::STATUS_DECLINED => 'bg-rose-50 text-rose-700',
+                default => 'bg-gray-100 text-gray-800',
+            };
+
+            $classes = $isActive
+                ? $activeClasses
+                : 'bg-white text-gray-600 hover:bg-gray-50';
+
+            return '<button'
+                . ' type="button"'
+                . ' wire:click="setGuestRsvpStatusDraft(\'' . $guestIdEscaped . '\', \'' . $buttonStatus . '\')"'
+                . ' class="px-3 py-1 text-xs font-medium border-l border-gray-300 first:border-l-0 transition ' . $classes . '"'
+                . '>'
+                . e($label)
+                . '</button>';
+        })->implode('');
+
+        return '<div class="inline-flex overflow-hidden rounded-md border border-gray-300 bg-white">' . $segments . '</div>';
+    }
+
+    protected static function buildReadonlyStatusBadgeHtml(string $status): string
+    {
+        $statusLabel = match ($status) {
+            WeddingEventRsvp::STATUS_CONFIRMED => 'Confirmado',
+            WeddingEventRsvp::STATUS_DECLINED => 'Recusado',
+            default => 'Pendente',
+        };
+
+        $statusClasses = match ($status) {
+            WeddingEventRsvp::STATUS_CONFIRMED => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+            WeddingEventRsvp::STATUS_DECLINED => 'bg-rose-50 text-rose-700 ring-rose-600/20',
+            default => 'bg-gray-50 text-gray-700 ring-gray-600/20',
+        };
+
+        return '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ' . $statusClasses . '">'
+            . e($statusLabel)
+            . '</span>';
     }
 
     protected static function resolveCurrentInviteId(): ?string

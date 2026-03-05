@@ -378,7 +378,22 @@ class SiteContentSchema
             ],
             'title' => 'Convidados',
             'description' => 'Utilize o convite recebido para confirmar presença e manter seus dados atualizados.',
-            'helperText' => 'Este formulário utiliza as regras do módulo de convidados V2.',
+            'titleTypography' => [
+                'fontFamily' => 'Playfair Display',
+                'fontColor' => '#d87a8d',
+                'fontSize' => 36,
+                'fontWeight' => 700,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'descriptionTypography' => [
+                'fontFamily' => 'Playfair Display',
+                'fontColor' => '#4b5563',
+                'fontSize' => 18,
+                'fontWeight' => 400,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
             'style' => [
                 'backgroundColor' => '#f5f5f5',
                 'layout' => 'card',
@@ -618,8 +633,24 @@ class SiteContentSchema
             $guestsV2['title'] = (string) $legacyRsvp['title'];
         }
 
+        if (
+            isset($legacyRsvp['titleTypography'])
+            && is_array($legacyRsvp['titleTypography'])
+            && (!isset($guestsV2['titleTypography']) || !is_array($guestsV2['titleTypography']))
+        ) {
+            $guestsV2['titleTypography'] = $legacyRsvp['titleTypography'];
+        }
+
+        if (
+            isset($legacyRsvp['subtitleTypography'])
+            && is_array($legacyRsvp['subtitleTypography'])
+            && (!isset($guestsV2['descriptionTypography']) || !is_array($guestsV2['descriptionTypography']))
+        ) {
+            $guestsV2['descriptionTypography'] = $legacyRsvp['subtitleTypography'];
+        }
+
         $legacyStyle = is_array($legacyRsvp['style'] ?? null) ? $legacyRsvp['style'] : [];
-        if ($legacyStyle !== []) {
+        if ($legacyRsvpEnabled && $legacyStyle !== []) {
             if (!isset($guestsV2['style']) || !is_array($guestsV2['style'])) {
                 $guestsV2['style'] = [];
             }

@@ -99,7 +99,7 @@ const textColors = {
         >
             <div
                 v-if="visible"
-                class="fixed top-4 right-4 z-50 max-w-sm w-full pointer-events-auto"
+                class="fixed bottom-4 right-4 z-50 max-w-sm w-full pointer-events-auto"
             >
                 <div
                     class="rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 overflow-hidden"

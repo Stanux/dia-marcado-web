@@ -58,7 +58,263 @@ const layoutClass = computed(() => {
 
 const title = computed(() => props.content?.title || 'Convidados');
 const description = computed(() => props.content?.description || 'Utilize o código do seu convite para continuar.');
-const helperText = computed(() => props.content?.helperText || 'Selecione o evento, informe o código e conclua a confirmação.');
+const titleTypography = computed(() => props.content?.titleTypography || {});
+const descriptionTypography = computed(() => props.content?.descriptionTypography || {});
+const titleStyle = computed(() => ({
+    fontFamily: titleTypography.value.fontFamily || props.theme?.fontFamily || 'Playfair Display',
+    color: titleTypography.value.fontColor || props.theme?.primaryColor || '#d87a8d',
+    fontSize: titleTypography.value.fontSize ? `${titleTypography.value.fontSize}px` : undefined,
+    fontWeight: titleTypography.value.fontWeight || 700,
+    fontStyle: titleTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: titleTypography.value.fontUnderline ? 'underline' : 'none',
+}));
+const descriptionStyle = computed(() => ({
+    fontFamily: descriptionTypography.value.fontFamily || props.theme?.fontFamily || 'Playfair Display',
+    color: descriptionTypography.value.fontColor || '#4b5563',
+    fontSize: descriptionTypography.value.fontSize ? `${descriptionTypography.value.fontSize}px` : undefined,
+    fontWeight: descriptionTypography.value.fontWeight || 400,
+    fontStyle: descriptionTypography.value.fontItalic ? 'italic' : 'normal',
+    textDecoration: descriptionTypography.value.fontUnderline ? 'underline' : 'none',
+}));
+const descriptionTextColor = computed(() => descriptionStyle.value.color || '#4b5563');
+const inviteValidationCardStyle = computed(() => ({
+    borderColor: descriptionTextColor.value,
+}));
+const inviteValidationTitleStyle = computed(() => ({
+    color: descriptionTextColor.value,
+}));
+
+const ALERT_VARIANTS = {
+    error: {
+        normal: {
+            background: '#fef2f2',
+            border: '#fecaca',
+            text: '#991b1b',
+            icon: '#dc2626',
+        },
+        highContrast: {
+            background: '#7f1d1d',
+            border: '#fca5a5',
+            text: '#ffffff',
+            icon: '#fecaca',
+        },
+    },
+    warning: {
+        normal: {
+            background: '#fffbeb',
+            border: '#fde68a',
+            text: '#92400e',
+            icon: '#d97706',
+        },
+        highContrast: {
+            background: '#78350f',
+            border: '#f59e0b',
+            text: '#ffffff',
+            icon: '#fbbf24',
+        },
+    },
+    success: {
+        normal: {
+            background: '#ecfdf5',
+            border: '#a7f3d0',
+            text: '#065f46',
+            icon: '#059669',
+        },
+        highContrast: {
+            background: '#064e3b',
+            border: '#6ee7b7',
+            text: '#ffffff',
+            icon: '#6ee7b7',
+        },
+    },
+    info: {
+        normal: {
+            background: '#eff6ff',
+            border: '#bfdbfe',
+            text: '#1e3a8a',
+            icon: '#2563eb',
+        },
+        highContrast: {
+            background: '#1e3a8a',
+            border: '#93c5fd',
+            text: '#ffffff',
+            icon: '#bfdbfe',
+        },
+    },
+};
+
+const DEFAULT_SECTION_BACKGROUND_RGB = { r: 245, g: 245, b: 245 };
+const MIN_TEXT_CONTRAST = 4.5;
+const MIN_BORDER_CONTRAST = 2;
+const MIN_BACKGROUND_CONTRAST = 1.2;
+
+function clampRgbChannel(value) {
+    const parsed = Number.parseInt(String(value), 10);
+    if (Number.isNaN(parsed)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.min(255, parsed));
+}
+
+function parseHexColor(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(normalized)) {
+        return null;
+    }
+
+    const hex = normalized.length === 4
+        ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+        : normalized;
+
+    return {
+        r: Number.parseInt(hex.slice(1, 3), 16),
+        g: Number.parseInt(hex.slice(3, 5), 16),
+        b: Number.parseInt(hex.slice(5, 7), 16),
+    };
+}
+
+function parseRgbOrRgbaColor(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    const rgbaMatch = normalized.match(
+        /^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*([+-]?\d*\.?\d+)\s*\)$/
+    );
+
+    if (rgbaMatch) {
+        const alpha = Math.max(0, Math.min(1, Number.parseFloat(rgbaMatch[4])));
+        if (!Number.isFinite(alpha)) {
+            return null;
+        }
+
+        const foreground = {
+            r: clampRgbChannel(rgbaMatch[1]),
+            g: clampRgbChannel(rgbaMatch[2]),
+            b: clampRgbChannel(rgbaMatch[3]),
+        };
+
+        // Blend semi-transparent color against white to estimate rendered color.
+        return {
+            r: Math.round((foreground.r * alpha) + (255 * (1 - alpha))),
+            g: Math.round((foreground.g * alpha) + (255 * (1 - alpha))),
+            b: Math.round((foreground.b * alpha) + (255 * (1 - alpha))),
+        };
+    }
+
+    const rgbMatch = normalized.match(
+        /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/
+    );
+
+    if (!rgbMatch) {
+        return null;
+    }
+
+    return {
+        r: clampRgbChannel(rgbMatch[1]),
+        g: clampRgbChannel(rgbMatch[2]),
+        b: clampRgbChannel(rgbMatch[3]),
+    };
+}
+
+function parseCssColor(value, fallback = DEFAULT_SECTION_BACKGROUND_RGB) {
+    const parsedHex = parseHexColor(value);
+    if (parsedHex) {
+        return parsedHex;
+    }
+
+    const parsedRgb = parseRgbOrRgbaColor(value);
+    if (parsedRgb) {
+        return parsedRgb;
+    }
+
+    return fallback;
+}
+
+function toLinearChannel(value) {
+    const normalized = value / 255;
+    if (normalized <= 0.03928) {
+        return normalized / 12.92;
+    }
+
+    return ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function luminance(rgb) {
+    return (0.2126 * toLinearChannel(rgb.r))
+        + (0.7152 * toLinearChannel(rgb.g))
+        + (0.0722 * toLinearChannel(rgb.b));
+}
+
+function contrastRatio(firstRgb, secondRgb) {
+    const l1 = luminance(firstRgb);
+    const l2 = luminance(secondRgb);
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+function resolveAlertPalette(type) {
+    const variants = ALERT_VARIANTS[type] || ALERT_VARIANTS.info;
+    const sectionBackground = parseCssColor(sectionStyles.value.backgroundColor, DEFAULT_SECTION_BACKGROUND_RGB);
+
+    const candidates = [variants.normal, variants.highContrast];
+    let best = candidates[0];
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    candidates.forEach((candidate) => {
+        const background = parseCssColor(candidate.background);
+        const border = parseCssColor(candidate.border);
+        const text = parseCssColor(candidate.text);
+
+        const textContrast = contrastRatio(text, background);
+        const borderContrast = contrastRatio(border, sectionBackground);
+        const backgroundContrast = contrastRatio(background, sectionBackground);
+
+        const passes = textContrast >= MIN_TEXT_CONTRAST
+            && (borderContrast >= MIN_BORDER_CONTRAST || backgroundContrast >= MIN_BACKGROUND_CONTRAST);
+
+        const score = (passes ? 1000 : 0)
+            + (textContrast * 10)
+            + (borderContrast * 2)
+            + backgroundContrast;
+
+        if (score > bestScore) {
+            best = candidate;
+            bestScore = score;
+        }
+    });
+
+    return best;
+}
+
+const inlineAlertPalettes = computed(() => ({
+    error: resolveAlertPalette('error'),
+    warning: resolveAlertPalette('warning'),
+    success: resolveAlertPalette('success'),
+    info: resolveAlertPalette('info'),
+}));
+
+function getInlineAlertPalette(type) {
+    return inlineAlertPalettes.value[type] || inlineAlertPalettes.value.info;
+}
+
+function inlineAlertCardStyle(type) {
+    const palette = getInlineAlertPalette(type);
+
+    return {
+        backgroundColor: palette.background,
+        borderColor: palette.border,
+        color: palette.text,
+    };
+}
+
+function inlineAlertIconStyle(type) {
+    const palette = getInlineAlertPalette(type);
+
+    return {
+        color: palette.icon,
+    };
+}
 
 const events = computed(() => {
     const list = props.wedding?.wedding_events_v2;
@@ -173,10 +429,6 @@ function normalizeCode(value) {
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, '')
         .slice(0, 6);
-}
-
-function eventTypeLabel(type) {
-    return type === 'closed' ? 'Fechado' : 'Aberto';
 }
 
 function modeLabel(mode) {
@@ -480,10 +732,8 @@ async function confirmModalSubmit() {
         <div class="mx-auto px-4 sm:px-6 lg:px-8" :class="containerClass">
             <div :class="showCard ? layoutClass : 'p-0 bg-transparent border-0 shadow-none'">
                 <div class="text-center">
-                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-wedding-600">Convidados</p>
-                    <h2 class="mt-3 text-3xl font-semibold text-gray-900 sm:text-4xl">{{ title }}</h2>
-                    <p class="mt-3 text-base text-gray-600 sm:text-lg">{{ description }}</p>
-                    <p class="mt-4 text-sm text-gray-500">{{ helperText }}</p>
+                    <h2 class="text-3xl font-semibold sm:text-4xl" :style="titleStyle">{{ title }}</h2>
+                    <p class="mt-3 text-base sm:text-lg" :style="descriptionStyle">{{ description }}</p>
                 </div>
 
                 <div v-if="isPreview" class="mt-8 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-600">
@@ -491,12 +741,14 @@ async function confirmModalSubmit() {
                 </div>
 
                 <div v-else class="mt-8 space-y-6">
-                    <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 sm:p-5">
-                        <h3 class="text-sm font-semibold text-gray-900">Validar Convite</h3>
-                        <div class="mt-3 grid gap-3 sm:grid-cols-[1fr_220px_auto]">
+                    <div class="rounded-xl border bg-gray-50 p-4 sm:p-5" :style="inviteValidationCardStyle">
+                        <p class="text-sm font-semibold text-center" :style="inviteValidationTitleStyle">
+                            Para confirmar presença, escolha o evento e informe o código de 6 dígitos.
+                        </p>
+                        <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
                             <select
                                 :value="selectedEventId"
-                                class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-wedding-500 focus:outline-none"
+                                class="w-full max-w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-wedding-500 focus:outline-none sm:w-auto sm:min-w-[280px]"
                                 @change="onEventChange"
                             >
                                 <option value="">Selecione um evento</option>
@@ -505,7 +757,7 @@ async function confirmModalSubmit() {
                                     :key="event.id"
                                     :value="event.id"
                                 >
-                                    {{ event.name }} ({{ eventTypeLabel(event.event_type) }})
+                                    {{ event.name }}
                                 </option>
                             </select>
 
@@ -513,14 +765,14 @@ async function confirmModalSubmit() {
                                 :value="confirmationCode"
                                 type="text"
                                 maxlength="6"
-                                placeholder="Código (6)"
-                                class="rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase tracking-[0.2em] focus:border-wedding-500 focus:outline-none"
+                                placeholder="X X X X X X"
+                                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase tracking-[0.2em] focus:border-wedding-500 focus:outline-none sm:w-[220px]"
                                 @input="onCodeInput"
                             />
 
                             <button
                                 type="button"
-                                class="inline-flex items-center justify-center rounded-lg bg-wedding-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-wedding-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                class="inline-flex w-full items-center justify-center rounded-lg bg-wedding-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-wedding-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                                 :disabled="resolving"
                                 @click="resolveCode"
                             >
@@ -528,15 +780,32 @@ async function confirmModalSubmit() {
                             </button>
                         </div>
 
-                        <p v-if="resolveError" class="mt-3 text-sm text-rose-600">{{ resolveError }}</p>
+                        <div
+                            v-if="resolveError"
+                            class="mt-3 rounded-lg border px-3 py-2 text-sm"
+                            :style="inlineAlertCardStyle('error')"
+                        >
+                            <div class="flex items-start gap-2">
+                                <svg class="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" :style="inlineAlertIconStyle('error')">
+                                    <path fill-rule="evenodd" d="M18 10A8 8 0 114 4.934V4a1 1 0 00-2 0v4a1 1 0 001 1h4a1 1 0 000-2H5.798A6 6 0 1010 4a1 1 0 100-2 8 8 0 018 8zm-8-3a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1zm0 7a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 14z" clip-rule="evenodd" />
+                                </svg>
+                                <p class="leading-5">{{ resolveError }}</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div v-if="isResolved && isOpenMode" class="space-y-4">
                         <div
                             v-if="inviteAlreadySubmitted || !allowOpenAdd"
-                            class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+                            class="rounded-xl border p-4 text-sm"
+                            :style="inlineAlertCardStyle('warning')"
                         >
-                            {{ openBlockedMessage }}
+                            <div class="flex items-start gap-2">
+                                <svg class="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" :style="inlineAlertIconStyle('warning')">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l5.58 9.92c.75 1.334-.213 2.981-1.742 2.981H4.42c-1.53 0-2.492-1.647-1.742-2.98l5.58-9.921zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-6a1 1 0 00-1 1v3a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <p class="leading-5">{{ openBlockedMessage }}</p>
+                            </div>
                         </div>
 
                         <template v-else>
@@ -598,7 +867,18 @@ async function confirmModalSubmit() {
                                 <p class="mt-2 text-xs text-gray-500">
                                     Clique em <strong>Adicionar à lista</strong> para incluir cada convidado.
                                 </p>
-                                <p v-if="localGuestError" class="mt-3 text-sm text-rose-600">{{ localGuestError }}</p>
+                                <div
+                                    v-if="localGuestError"
+                                    class="mt-3 rounded-lg border px-3 py-2 text-sm"
+                                    :style="inlineAlertCardStyle('error')"
+                                >
+                                    <div class="flex items-start gap-2">
+                                        <svg class="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" :style="inlineAlertIconStyle('error')">
+                                            <path fill-rule="evenodd" d="M18 10A8 8 0 114 4.934V4a1 1 0 00-2 0v4a1 1 0 001 1h4a1 1 0 000-2H5.798A6 6 0 1010 4a1 1 0 100-2 8 8 0 018 8zm-8-3a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1zm0 7a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 14z" clip-rule="evenodd" />
+                                        </svg>
+                                        <p class="leading-5">{{ localGuestError }}</p>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="rounded-xl border border-gray-200 bg-white p-4">
@@ -640,9 +920,18 @@ async function confirmModalSubmit() {
                                         </tbody>
                                     </table>
                                 </div>
-                                <p v-if="highlightedOpenRows.length > 0" class="mt-2 text-xs text-rose-600">
-                                    As linhas destacadas em vermelho precisam de ajuste para continuar.
-                                </p>
+                                <div
+                                    v-if="highlightedOpenRows.length > 0"
+                                    class="mt-2 rounded-lg border px-3 py-2 text-xs"
+                                    :style="inlineAlertCardStyle('warning')"
+                                >
+                                    <div class="flex items-start gap-2">
+                                        <svg class="mt-0.5 h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" :style="inlineAlertIconStyle('warning')">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l5.58 9.92c.75 1.334-.213 2.981-1.742 2.981H4.42c-1.53 0-2.492-1.647-1.742-2.98l5.58-9.921zM11 13a1 1 0 10-2 0 1 1 0 002 0zm-1-6a1 1 0 00-1 1v3a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                        </svg>
+                                        <p class="leading-5">As linhas destacadas em vermelho precisam de ajuste para continuar.</p>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="flex justify-end">
@@ -707,10 +996,7 @@ async function confirmModalSubmit() {
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between">
-                            <p class="text-sm text-gray-600">
-                                Alterações pendentes: {{ changedClosedResponses.length }}
-                            </p>
+                        <div class="flex justify-end">
                             <button
                                 type="button"
                                 class="inline-flex items-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -722,8 +1008,30 @@ async function confirmModalSubmit() {
                         </div>
                     </div>
 
-                    <p v-if="submitError" class="text-sm text-rose-600">{{ submitError }}</p>
-                    <p v-if="submitSuccess" class="text-sm text-emerald-700">{{ submitSuccess }}</p>
+                    <div
+                        v-if="submitError"
+                        class="rounded-lg border px-3 py-2 text-sm"
+                        :style="inlineAlertCardStyle('error')"
+                    >
+                        <div class="flex items-start gap-2">
+                            <svg class="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" :style="inlineAlertIconStyle('error')">
+                                <path fill-rule="evenodd" d="M18 10A8 8 0 114 4.934V4a1 1 0 00-2 0v4a1 1 0 001 1h4a1 1 0 000-2H5.798A6 6 0 1010 4a1 1 0 100-2 8 8 0 018 8zm-8-3a1 1 0 00-.993.883L9 8v3a1 1 0 001.993.117L11 11V8a1 1 0 00-1-1zm0 7a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 14z" clip-rule="evenodd" />
+                            </svg>
+                            <p class="leading-5">{{ submitError }}</p>
+                        </div>
+                    </div>
+                    <div
+                        v-if="submitSuccess"
+                        class="rounded-lg border px-3 py-2 text-sm"
+                        :style="inlineAlertCardStyle('success')"
+                    >
+                        <div class="flex items-start gap-2">
+                            <svg class="mt-0.5 h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" :style="inlineAlertIconStyle('success')">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            <p class="leading-5">{{ submitSuccess }}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
