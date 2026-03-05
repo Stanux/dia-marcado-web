@@ -399,6 +399,8 @@ class SiteContentSchema
                 'layout' => 'card',
                 'containerMaxWidth' => 'max-w-6xl',
                 'showCard' => true,
+                'cardBackgroundColor' => '#ffffff',
+                'cardBorderColor' => '#e5e7eb',
             ],
         ];
     }

@@ -33,16 +33,7 @@ const style = computed(() => props.content?.style || {});
 const sectionStyles = computed(() => ({
     backgroundColor: style.value.backgroundColor || props.theme?.surfaceBackgroundColor || '#f5f5f5',
 }));
-const containerClass = computed(() => {
-    const configured = String(style.value.containerMaxWidth || '');
-    const allowedWideContainers = ['max-w-6xl', 'max-w-7xl'];
-
-    if (allowedWideContainers.includes(configured)) {
-        return configured;
-    }
-
-    return 'max-w-6xl';
-});
+const containerClass = 'max-w-6xl';
 const showCard = computed(() => style.value.showCard !== false);
 
 const layoutClass = computed(() => {
@@ -54,6 +45,16 @@ const layoutClass = computed(() => {
         default:
             return 'rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8';
     }
+});
+const cardContainerStyle = computed(() => {
+    if (style.value.layout === 'clean') {
+        return {};
+    }
+
+    return {
+        backgroundColor: style.value.cardBackgroundColor || '#ffffff',
+        borderColor: style.value.cardBorderColor || '#e5e7eb',
+    };
 });
 
 const title = computed(() => props.content?.title || 'Convidados');
@@ -730,7 +731,7 @@ async function confirmModalSubmit() {
 <template>
     <section id="guests-v2" class="py-16 sm:py-20" :style="sectionStyles">
         <div class="mx-auto px-4 sm:px-6 lg:px-8" :class="containerClass">
-            <div :class="showCard ? layoutClass : 'p-0 bg-transparent border-0 shadow-none'">
+            <div :class="showCard ? layoutClass : 'p-0 bg-transparent border-0 shadow-none'" :style="showCard ? cardContainerStyle : undefined">
                 <div class="text-center">
                     <h2 class="text-3xl font-semibold sm:text-4xl" :style="titleStyle">{{ title }}</h2>
                     <p class="mt-3 text-base sm:text-lg" :style="descriptionStyle">{{ description }}</p>

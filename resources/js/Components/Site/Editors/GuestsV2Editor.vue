@@ -44,8 +44,9 @@ const DEFAULTS = {
     style: {
         backgroundColor: '#f5f5f5',
         layout: 'card',
-        containerMaxWidth: 'max-w-6xl',
         showCard: true,
+        cardBackgroundColor: '#ffffff',
+        cardBorderColor: '#e5e7eb',
     },
 };
 
@@ -61,6 +62,8 @@ watch(
 );
 
 const guestsBackgroundColorHex = computed(() => normalizeHexColor(localContent.value?.style?.backgroundColor, DEFAULTS.style.backgroundColor));
+const guestsCardBackgroundColorHex = computed(() => normalizeHexColor(localContent.value?.style?.cardBackgroundColor, DEFAULTS.style.cardBackgroundColor));
+const guestsCardBorderColorHex = computed(() => normalizeHexColor(localContent.value?.style?.cardBorderColor, DEFAULTS.style.cardBorderColor));
 const titleTypography = computed(() => localContent.value?.titleTypography || DEFAULTS.titleTypography);
 const descriptionTypography = computed(() => localContent.value?.descriptionTypography || DEFAULTS.descriptionTypography);
 
@@ -105,12 +108,16 @@ function ensureStructure() {
         localContent.value.style.layout = DEFAULTS.style.layout;
     }
 
-    if (localContent.value.style.containerMaxWidth === undefined) {
-        localContent.value.style.containerMaxWidth = DEFAULTS.style.containerMaxWidth;
-    }
-
     if (localContent.value.style.showCard === undefined) {
         localContent.value.style.showCard = DEFAULTS.style.showCard;
+    }
+
+    if (localContent.value.style.cardBackgroundColor === undefined) {
+        localContent.value.style.cardBackgroundColor = DEFAULTS.style.cardBackgroundColor;
+    }
+
+    if (localContent.value.style.cardBorderColor === undefined) {
+        localContent.value.style.cardBorderColor = DEFAULTS.style.cardBorderColor;
     }
 
     if (!localContent.value.titleTypography || typeof localContent.value.titleTypography !== 'object') {
@@ -157,6 +164,14 @@ function updateStyle(field, value) {
 
 function pickBackgroundColor() {
     pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
+}
+
+function pickCardBackgroundColor() {
+    pickColorFromScreen((hex) => updateStyle('cardBackgroundColor', hex));
+}
+
+function pickCardBorderColor() {
+    pickColorFromScreen((hex) => updateStyle('cardBorderColor', hex));
 }
 
 ensureStructure();
@@ -230,7 +245,7 @@ ensureStructure();
         <div class="space-y-4 pt-6 border-t border-gray-200">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Aparência</h3>
 
-            <div class="grid gap-4 md:grid-cols-2">
+            <div class="grid gap-4 grid-cols-1">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Layout visual</label>
                     <select
@@ -243,18 +258,6 @@ ensureStructure();
                         <option value="compact">Visual compacto</option>
                     </select>
                 </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Largura do conteúdo</label>
-                    <select
-                        :value="localContent.style.containerMaxWidth"
-                        @change="updateStyle('containerMaxWidth', $event.target.value)"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    >
-                        <option value="max-w-6xl">Largura padrão</option>
-                        <option value="max-w-7xl">Largura ampla</option>
-                    </select>
-                </div>
             </div>
 
             <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
@@ -264,8 +267,70 @@ ensureStructure();
                     :checked="localContent.style.showCard"
                     @change="updateStyle('showCard', $event.target.checked)"
                 />
-                <span class="text-sm text-gray-700">Exibir card interno para o conteúdo</span>
+                    <span class="text-sm text-gray-700">Exibir card interno para o conteúdo</span>
             </label>
+
+            <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fundo do card</label>
+                    <div class="flex items-center space-x-2">
+                        <input
+                            type="color"
+                            :value="guestsCardBackgroundColorHex"
+                            @input="updateStyle('cardBackgroundColor', $event.target.value)"
+                            @change="updateStyle('cardBackgroundColor', $event.target.value)"
+                            class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                        />
+                        <button
+                            v-if="isEyeDropperSupported"
+                            type="button"
+                            @click="pickCardBackgroundColor"
+                            class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                            title="Capturar cor da tela"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                            </svg>
+                        </button>
+                        <input
+                            type="text"
+                            :value="localContent.style.cardBackgroundColor || DEFAULTS.style.cardBackgroundColor"
+                            @input="updateStyle('cardBackgroundColor', $event.target.value)"
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Borda do card</label>
+                    <div class="flex items-center space-x-2">
+                        <input
+                            type="color"
+                            :value="guestsCardBorderColorHex"
+                            @input="updateStyle('cardBorderColor', $event.target.value)"
+                            @change="updateStyle('cardBorderColor', $event.target.value)"
+                            class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                        />
+                        <button
+                            v-if="isEyeDropperSupported"
+                            type="button"
+                            @click="pickCardBorderColor"
+                            class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                            title="Capturar cor da tela"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                            </svg>
+                        </button>
+                        <input
+                            type="text"
+                            :value="localContent.style.cardBorderColor || DEFAULTS.style.cardBorderColor"
+                            @input="updateStyle('cardBorderColor', $event.target.value)"
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                        />
+                    </div>
+                </div>
+            </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Cor de fundo</label>
