@@ -141,13 +141,15 @@ const SECTION_DEFINITIONS = {
     hero: { label: 'Destaque', icon: 'image' },
     saveTheDate: { label: 'Save the Date', icon: 'calendar' },
     giftRegistry: { label: 'Lista de Presentes', icon: 'gift' },
-    rsvp: { label: 'Confirme Presença', icon: 'users' },
+    guestsV2: { label: 'Convidados', icon: 'users' },
+    rsvp: { label: 'Confirme Presença (Legado)', icon: 'users' },
     photoGallery: { label: 'Galeria de Fotos', icon: 'images' },
     footer: { label: 'Rodapé', icon: 'footer' },
 };
 
 const FIXED_SECTION_KEYS = ['header', 'footer'];
-const DEFAULT_MOVABLE_SECTION_ORDER = ['hero', 'saveTheDate', 'giftRegistry', 'rsvp', 'photoGallery'];
+const DEFAULT_MOVABLE_SECTION_ORDER = ['hero', 'saveTheDate', 'giftRegistry', 'guestsV2', 'photoGallery'];
+const HIDDEN_LEGACY_SECTION_KEYS = new Set(['rsvp']);
 const BLOCKED_EDITOR_SECTION_KEYS = new Set(['meta', 'theme']);
 const SECTION_QUERY_PARAM = 'section';
 
@@ -184,7 +186,8 @@ const sanitizeMovableSectionOrder = (rawOrder, availableSectionKeys) => {
 
 const orderedSectionKeys = computed(() => {
     const sectionMap = draftContent.value?.sections || {};
-    const availableSectionKeys = Object.keys(sectionMap);
+    const availableSectionKeys = Object.keys(sectionMap)
+        .filter((key) => !HIDDEN_LEGACY_SECTION_KEYS.has(key));
 
     if (availableSectionKeys.length === 0) {
         return [];
@@ -272,7 +275,7 @@ const enabledSections = computed(() => {
 
 // Handle section selection
 const resolveSectionKey = (sectionKey) => {
-    if (BLOCKED_EDITOR_SECTION_KEYS.has(sectionKey)) {
+    if (BLOCKED_EDITOR_SECTION_KEYS.has(sectionKey) || HIDDEN_LEGACY_SECTION_KEYS.has(sectionKey)) {
         return orderedSectionKeys.value[0] || 'header';
     }
 
@@ -336,7 +339,8 @@ const handleSectionReorder = (nextOrder) => {
         return;
     }
 
-    const availableSectionKeys = Object.keys(draftContent.value.sections);
+    const availableSectionKeys = Object.keys(draftContent.value.sections)
+        .filter((key) => !HIDDEN_LEGACY_SECTION_KEYS.has(key));
     const currentOrder = sanitizeMovableSectionOrder(draftContent.value.sectionOrder, availableSectionKeys);
     const normalizedOrder = sanitizeMovableSectionOrder(nextOrder, availableSectionKeys);
 

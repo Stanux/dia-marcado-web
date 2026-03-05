@@ -7,6 +7,7 @@ use App\Contracts\Site\PlaceholderServiceInterface;
 use App\Http\Requests\Site\AuthenticateSiteRequest;
 use App\Models\SiteLayout;
 use App\Models\SiteTemplate;
+use App\Models\WeddingEvent;
 use App\Services\Guests\RsvpSubmissionException;
 use App\Services\Guests\InviteValidationService;
 use App\Services\Site\SiteContentSchema;
@@ -113,6 +114,7 @@ class PublicSiteController extends Controller
         $weddingData = $wedding->toArray();
         $weddingData['wedding_date'] = $wedding->wedding_date?->format('Y-m-d');
         $weddingData['has_wedding_date'] = $wedding->wedding_date !== null;
+        $weddingData['wedding_events_v2'] = $this->resolveWeddingEventsV2((string) $site->wedding_id);
 
         // Use Inertia to render with Vue components (same as preview)
         $response = inertia('Public/Site', [
@@ -141,6 +143,49 @@ class PublicSiteController extends Controller
         }
 
         return $response;
+    }
+
+    public function showGuests(Request $request, string $slug)
+    {
+        $site = SiteLayout::withoutGlobalScopes()
+            ->where('slug', $slug)
+            ->first();
+
+        if ($site === null) {
+            abort(404);
+        }
+
+        $wedding = $site->wedding;
+
+        $wedding->load([
+            'giftRegistryConfig' => fn ($query) => $query->withoutGlobalScopes(),
+            'guestEvents' => fn ($query) => $query->withoutGlobalScopes(),
+        ]);
+
+        $sourceContent = is_array($site->published_content)
+            ? $site->published_content
+            : (is_array($site->draft_content) ? $site->draft_content : []);
+
+        $normalizedContent = SiteContentSchema::normalize($sourceContent);
+        $content = $this->buildGuestsOnlyContent($normalizedContent);
+        $content = $this->placeholderService->replaceInArray($content, $wedding);
+        $content = $this->rewriteLocalUrlsToCurrentHost($content, $request);
+
+        $siteData = $site->makeHidden(['draft_content', 'published_content'])->toArray();
+
+        $weddingData = $wedding->toArray();
+        $weddingData['wedding_date'] = $wedding->wedding_date?->format('Y-m-d');
+        $weddingData['has_wedding_date'] = $wedding->wedding_date !== null;
+        $weddingData['wedding_events_v2'] = $this->resolveWeddingEventsV2((string) $site->wedding_id);
+
+        return inertia('Public/Site', [
+            'site' => $siteData,
+            'content' => $content,
+            'wedding' => $weddingData,
+            'inviteTokenState' => null,
+        ])->withViewData([
+            'pageTitle' => $content['meta']['title'] ?? null,
+        ])->toResponse($request);
     }
 
     /**
@@ -301,6 +346,63 @@ class PublicSiteController extends Controller
         $content['meta']['description'] = 'Confirmação de presença do convite.';
 
         return $content;
+    }
+
+    private function buildGuestsOnlyContent(array $sourceContent): array
+    {
+        $content = SiteContentSchema::getDefaultContent();
+
+        foreach ($content['sections'] as $sectionKey => $section) {
+            $content['sections'][$sectionKey]['enabled'] = false;
+        }
+
+        $sourceGuests = $sourceContent['sections']['guestsV2'] ?? [];
+        if (!is_array($sourceGuests)) {
+            $sourceGuests = [];
+        }
+
+        $content['sections']['guestsV2'] = array_replace_recursive(
+            $content['sections']['guestsV2'],
+            $sourceGuests
+        );
+        $content['sections']['guestsV2']['enabled'] = true;
+
+        if (isset($sourceContent['theme']) && is_array($sourceContent['theme'])) {
+            $content['theme'] = array_replace($content['theme'], $sourceContent['theme']);
+        }
+
+        $content['meta']['title'] = 'Convidados - ' . ($sourceContent['meta']['title'] ?? 'Casamento');
+        $content['meta']['description'] = 'Confirmação de presença por código.';
+
+        return $content;
+    }
+
+    /**
+     * @return array<int, array{
+     *   id: string,
+     *   name: string,
+     *   event_type: string,
+     *   event_date: string|null,
+     *   event_time: string|null
+     * }>
+     */
+    private function resolveWeddingEventsV2(string $weddingId): array
+    {
+        return WeddingEvent::withoutGlobalScopes()
+            ->where('wedding_id', $weddingId)
+            ->where('is_active', true)
+            ->orderBy('event_date')
+            ->orderBy('event_time')
+            ->get(['id', 'name', 'event_type', 'event_date', 'event_time'])
+            ->map(fn (WeddingEvent $event): array => [
+                'id' => (string) $event->id,
+                'name' => (string) $event->name,
+                'event_type' => (string) $event->event_type,
+                'event_date' => $event->event_date?->format('Y-m-d'),
+                'event_time' => $event->event_time ? substr((string) $event->event_time, 0, 8) : null,
+            ])
+            ->values()
+            ->all();
     }
 
     private function shouldUsePublicCaching(bool $publishedSite, SiteLayout $site, ?string $inviteToken, string $inviteTokenState): bool

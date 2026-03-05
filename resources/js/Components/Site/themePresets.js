@@ -152,6 +152,14 @@ export const THEME_PRESETS = [
                     fontUnderline: false,
                 },
             },
+            guestsV2: {
+                style: {
+                    backgroundColor: '#f5f5f5',
+                    layout: 'card',
+                    containerMaxWidth: 'max-w-xl',
+                    showCard: true,
+                },
+            },
             rsvp: {
                 style: {
                     backgroundColor: '#f5f5f5',
@@ -300,6 +308,14 @@ export const THEME_PRESETS = [
                     fontUnderline: false,
                 },
             },
+            guestsV2: {
+                style: {
+                    backgroundColor: '#111827',
+                    layout: 'card',
+                    containerMaxWidth: 'max-w-xl',
+                    showCard: true,
+                },
+            },
             rsvp: {
                 style: {
                     backgroundColor: '#111827',
@@ -446,6 +462,14 @@ export const THEME_PRESETS = [
                     fontWeight: 700,
                     fontItalic: false,
                     fontUnderline: false,
+                },
+            },
+            guestsV2: {
+                style: {
+                    backgroundColor: '#eef5e8',
+                    layout: 'card',
+                    containerMaxWidth: 'max-w-xl',
+                    showCard: true,
                 },
             },
             rsvp: {

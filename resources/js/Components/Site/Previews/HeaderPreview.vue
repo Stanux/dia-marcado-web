@@ -121,7 +121,7 @@ const SECTION_IDS = {
     hero: 'hero',
     saveTheDate: 'save-the-date',
     giftRegistry: 'gift-registry',
-    rsvp: 'rsvp',
+    guestsV2: 'guests-v2',
     photoGallery: 'photo-gallery',
 };
 
@@ -129,7 +129,7 @@ const SECTION_LABELS = {
     hero: 'Destaque',
     saveTheDate: 'Save the Date',
     giftRegistry: 'Lista de Presentes',
-    rsvp: 'Confirme Presença',
+    guestsV2: 'Convidados',
     photoGallery: 'Galeria de Fotos',
 };
 

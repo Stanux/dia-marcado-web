@@ -24,7 +24,6 @@ class WeddingGuestSpreadsheetImportService
         'Telefone',
         'Contato Principal',
         'Lado',
-        'Status',
         'Criança',
     ];
 
@@ -38,7 +37,6 @@ class WeddingGuestSpreadsheetImportService
         'telefone',
         'contato_principal',
         'lado',
-        'status',
         'crianca',
     ];
 
@@ -55,7 +53,6 @@ class WeddingGuestSpreadsheetImportService
             '(11) 99999-0001',
             '',
             'Noiva',
-            'Pendente',
             'Não',
         ], null, 'A2');
         $sheet->fromArray([
@@ -65,7 +62,6 @@ class WeddingGuestSpreadsheetImportService
             '(11) 99999-0002',
             'Ana Oliveira',
             'Noivo',
-            'Confirmado',
             'Não',
         ], null, 'A3');
 
@@ -120,7 +116,6 @@ class WeddingGuestSpreadsheetImportService
             $normalizedPhone = $this->normalizePhone($phone);
             $primaryContactName = $this->cleanString($this->valueFromRow($values, $headerIndexes, 'contato_principal'));
             $sideRaw = $this->cleanString($this->valueFromRow($values, $headerIndexes, 'lado'));
-            $statusRaw = $this->cleanString($this->valueFromRow($values, $headerIndexes, 'status'));
             $isChildRaw = $this->cleanString($this->valueFromRow($values, $headerIndexes, 'crianca'));
 
             if ($name === null) {
@@ -139,13 +134,6 @@ class WeddingGuestSpreadsheetImportService
             if ($side === null) {
                 $errors++;
                 $resultRows[] = $this->buildRowResult($rowNumber, 'error', 'Lado inválido. Use Noiva, Noivo ou Ambos.', $name);
-                continue;
-            }
-
-            $status = $this->normalizeStatus($statusRaw);
-            if ($status === null) {
-                $errors++;
-                $resultRows[] = $this->buildRowResult($rowNumber, 'error', 'Status inválido. Use Pendente, Confirmado ou Recusado.', $name);
                 continue;
             }
 
@@ -215,7 +203,7 @@ class WeddingGuestSpreadsheetImportService
                 'email' => $email,
                 'phone' => $phone,
                 'side' => $side,
-                'status' => $status,
+                'status' => 'pending',
                 'is_child' => $this->normalizeBoolean($isChildRaw),
                 'is_active' => true,
             ]);
@@ -376,22 +364,6 @@ class WeddingGuestSpreadsheetImportService
             'noiva', 'bride' => 'bride',
             'noivo', 'groom' => 'groom',
             'ambos', 'both' => 'both',
-            default => null,
-        };
-    }
-
-    private function normalizeStatus(?string $value): ?string
-    {
-        if ($value === null) {
-            return 'pending';
-        }
-
-        $normalized = (string) Str::of($value)->trim()->ascii()->lower();
-
-        return match ($normalized) {
-            'pendente', 'pending' => 'pending',
-            'confirmado', 'confirmed' => 'confirmed',
-            'recusado', 'declined' => 'declined',
             default => null,
         };
     }

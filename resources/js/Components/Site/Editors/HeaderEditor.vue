@@ -183,25 +183,47 @@ const buildNavigationItem = (section) => ({
     showInMenu: false,
 });
 
+const normalizeGuestsTarget = (target) => {
+    const normalized = typeof target === 'string' ? target.trim() : '';
+
+    if (!normalized || normalized === '#rsvp' || normalized === '#confirmar-presenca') {
+        return '#guests-v2';
+    }
+
+    return normalized;
+};
+
 const initializeNavigation = () => {
     if (!localContent.value.navigation || !Array.isArray(localContent.value.navigation)) {
         localContent.value.navigation = navigableSections.value.map(section => buildNavigationItem(section));
     } else {
+        const hasGuestsV2InSource = localContent.value.navigation.some((item) => item?.sectionKey === 'guestsV2');
+
         // Normalize existing items that were created before target/type fields existed
-        localContent.value.navigation = localContent.value.navigation.map(item => {
-            if (!item?.sectionKey) {
-                return item;
-            }
+        localContent.value.navigation = localContent.value.navigation
+            .map(item => {
+                if (!item?.sectionKey) {
+                    return item;
+                }
 
-            const isLegacyHeroLabel = item.sectionKey === 'hero' && (!item.label || item.label === 'Hero');
+                if (item.sectionKey === 'rsvp' && hasGuestsV2InSource) {
+                    return null;
+                }
 
-            return {
-                ...item,
-                label: isLegacyHeroLabel ? 'Destaque' : (item.label || SECTION_LABELS[item.sectionKey] || item.sectionKey),
-                target: item.target || `#${SECTION_IDS[item.sectionKey] || ''}`,
-                type: item.type || 'anchor',
-            };
-        });
+                const migratedSectionKey = item.sectionKey === 'rsvp' ? 'guestsV2' : item.sectionKey;
+                const isLegacyHeroLabel = migratedSectionKey === 'hero' && (!item.label || item.label === 'Hero');
+
+                return {
+                    ...item,
+                    sectionKey: migratedSectionKey,
+                    label: isLegacyHeroLabel
+                        ? 'Destaque'
+                        : (item.label || SECTION_LABELS[migratedSectionKey] || migratedSectionKey),
+                    target: normalizeGuestsTarget(item.target || `#${SECTION_IDS[migratedSectionKey] || ''}`),
+                    type: item.type || 'anchor',
+                };
+            })
+            .filter(Boolean);
 
         // Ensure all sections are present
         navigableSections.value.forEach(section => {

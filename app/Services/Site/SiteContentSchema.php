@@ -20,6 +20,7 @@ class SiteContentSchema
         'hero',
         'saveTheDate',
         'giftRegistry',
+        'guestsV2',
         'rsvp',
         'photoGallery',
         'footer',
@@ -33,7 +34,7 @@ class SiteContentSchema
         'hero',
         'saveTheDate',
         'giftRegistry',
-        'rsvp',
+        'guestsV2',
         'photoGallery',
     ];
 
@@ -52,6 +53,7 @@ class SiteContentSchema
                 'hero' => self::getHeroSection(),
                 'saveTheDate' => self::getSaveTheDateSection(),
                 'giftRegistry' => self::getGiftRegistrySection(),
+                'guestsV2' => self::getGuestsV2Section(),
                 'rsvp' => self::getRsvpSection(),
                 'photoGallery' => self::getPhotoGallerySection(),
                 'footer' => self::getFooterSection(),
@@ -364,6 +366,29 @@ class SiteContentSchema
     }
 
     /**
+     * Get the default Guests V2 section structure.
+     */
+    public static function getGuestsV2Section(): array
+    {
+        return [
+            'enabled' => false,
+            'navigation' => [
+                'label' => 'Convidados',
+                'showInMenu' => true,
+            ],
+            'title' => 'Convidados',
+            'description' => 'Utilize o convite recebido para confirmar presença e manter seus dados atualizados.',
+            'helperText' => 'Este formulário utiliza as regras do módulo de convidados V2.',
+            'style' => [
+                'backgroundColor' => '#f5f5f5',
+                'layout' => 'card',
+                'containerMaxWidth' => 'max-w-6xl',
+                'showCard' => true,
+            ],
+        ];
+    }
+
+    /**
      * Get the default Photo Gallery section structure.
      */
     public static function getPhotoGallerySection(): array
@@ -512,7 +537,188 @@ class SiteContentSchema
      */
     public static function normalize(array $content): array
     {
-        return self::mergeWithDefaults(self::getDefaultContent(), $content);
+        $normalized = self::mergeWithDefaults(self::getDefaultContent(), $content);
+        $normalized = self::migrateLegacyRsvpToGuestsV2($normalized);
+
+        // Legacy RSVP section is intentionally disabled/hidden while Guests V2 is adopted.
+        if (isset($normalized['sections']['rsvp']) && is_array($normalized['sections']['rsvp'])) {
+            $normalized['sections']['rsvp']['enabled'] = false;
+
+            if (
+                isset($normalized['sections']['rsvp']['navigation'])
+                && is_array($normalized['sections']['rsvp']['navigation'])
+            ) {
+                $normalized['sections']['rsvp']['navigation']['showInMenu'] = false;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Migrate legacy RSVP references to Guests V2 so existing sites keep working
+     * without manual editor intervention.
+     */
+    private static function migrateLegacyRsvpToGuestsV2(array $content): array
+    {
+        if (!isset($content['sections']) || !is_array($content['sections'])) {
+            return $content;
+        }
+
+        $sections = &$content['sections'];
+
+        $legacyRsvp = is_array($sections['rsvp'] ?? null) ? $sections['rsvp'] : [];
+        if ($legacyRsvp === []) {
+            return $content;
+        }
+
+        if (!isset($sections['guestsV2']) || !is_array($sections['guestsV2'])) {
+            $sections['guestsV2'] = self::getGuestsV2Section();
+        }
+
+        $guestsV2 = &$sections['guestsV2'];
+        $legacyRsvpEnabled = (bool) ($legacyRsvp['enabled'] ?? false);
+
+        if (!(bool) ($guestsV2['enabled'] ?? false) && $legacyRsvpEnabled) {
+            $guestsV2['enabled'] = true;
+        }
+
+        $legacyNavigation = is_array($legacyRsvp['navigation'] ?? null) ? $legacyRsvp['navigation'] : [];
+        if (!isset($guestsV2['navigation']) || !is_array($guestsV2['navigation'])) {
+            $guestsV2['navigation'] = [
+                'label' => 'Convidados',
+                'showInMenu' => true,
+            ];
+        }
+
+        if (
+            !empty($legacyNavigation['label'])
+            && (
+                empty($guestsV2['navigation']['label'])
+                || $guestsV2['navigation']['label'] === 'Convidados'
+            )
+        ) {
+            $guestsV2['navigation']['label'] = (string) $legacyNavigation['label'];
+        }
+
+        if (
+            !(bool) ($guestsV2['navigation']['showInMenu'] ?? false)
+            && (bool) ($legacyNavigation['showInMenu'] ?? false)
+        ) {
+            $guestsV2['navigation']['showInMenu'] = true;
+        }
+
+        if (
+            !empty($legacyRsvp['title'])
+            && (
+                empty($guestsV2['title'])
+                || $guestsV2['title'] === 'Convidados'
+            )
+        ) {
+            $guestsV2['title'] = (string) $legacyRsvp['title'];
+        }
+
+        $legacyStyle = is_array($legacyRsvp['style'] ?? null) ? $legacyRsvp['style'] : [];
+        if ($legacyStyle !== []) {
+            if (!isset($guestsV2['style']) || !is_array($guestsV2['style'])) {
+                $guestsV2['style'] = [];
+            }
+
+            foreach (['backgroundColor', 'layout', 'containerMaxWidth', 'showCard'] as $styleKey) {
+                if (array_key_exists($styleKey, $legacyStyle)) {
+                    $guestsV2['style'][$styleKey] = $legacyStyle[$styleKey];
+                }
+            }
+        }
+
+        if (isset($sections['header']) && is_array($sections['header'])) {
+            $sections['header'] = self::migrateLegacyHeaderNavigation(
+                $sections['header'],
+                (string) ($guestsV2['navigation']['label'] ?? 'Convidados'),
+                (bool) ($guestsV2['navigation']['showInMenu'] ?? $legacyRsvpEnabled)
+            );
+        }
+
+        return $content;
+    }
+
+    private static function migrateLegacyHeaderNavigation(
+        array $headerSection,
+        string $defaultGuestsLabel,
+        bool $defaultShowInMenu
+    ): array {
+        $navigation = $headerSection['navigation'] ?? null;
+        if (!is_array($navigation)) {
+            return $headerSection;
+        }
+
+        $hasGuestsV2Item = false;
+        foreach ($navigation as $item) {
+            if (is_array($item) && ($item['sectionKey'] ?? null) === 'guestsV2') {
+                $hasGuestsV2Item = true;
+                break;
+            }
+        }
+
+        $migrated = [];
+
+        foreach ($navigation as $item) {
+            if (!is_array($item)) {
+                $migrated[] = $item;
+                continue;
+            }
+
+            $sectionKey = $item['sectionKey'] ?? null;
+            if ($sectionKey === 'rsvp') {
+                if ($hasGuestsV2Item) {
+                    continue;
+                }
+
+                $item['sectionKey'] = 'guestsV2';
+                $item['target'] = self::normalizeGuestsTarget((string) ($item['target'] ?? ''));
+                if (!isset($item['type']) || !is_string($item['type']) || trim($item['type']) === '') {
+                    $item['type'] = 'anchor';
+                }
+
+                if (!isset($item['label']) || !is_string($item['label']) || trim($item['label']) === '') {
+                    $item['label'] = $defaultGuestsLabel;
+                }
+
+                if (!array_key_exists('showInMenu', $item)) {
+                    $item['showInMenu'] = $defaultShowInMenu;
+                }
+
+                $hasGuestsV2Item = true;
+            } elseif (($item['sectionKey'] ?? null) === 'guestsV2') {
+                $item['target'] = self::normalizeGuestsTarget((string) ($item['target'] ?? ''));
+            }
+
+            $migrated[] = $item;
+        }
+
+        if (!$hasGuestsV2Item && $defaultShowInMenu) {
+            $migrated[] = [
+                'sectionKey' => 'guestsV2',
+                'label' => $defaultGuestsLabel,
+                'target' => '#guests-v2',
+                'type' => 'anchor',
+                'showInMenu' => true,
+            ];
+        }
+
+        $headerSection['navigation'] = $migrated;
+
+        return $headerSection;
+    }
+
+    private static function normalizeGuestsTarget(string $target): string
+    {
+        $trimmed = trim($target);
+        if ($trimmed === '' || $trimmed === '#rsvp' || $trimmed === '#confirmar-presenca') {
+            return '#guests-v2';
+        }
+
+        return $trimmed;
     }
 
     /**

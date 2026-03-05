@@ -167,11 +167,11 @@ const handleDrop = (event, dropIndex) => {
 const getTargetPlaceholder = (type) => {
     switch (type) {
         case 'anchor':
-            return '#hero, #rsvp, #galeria';
+            return '#hero, #guests-v2, #galeria';
         case 'url':
             return 'https://exemplo.com';
         case 'action':
-            return 'rsvp, contact';
+            return 'guests, contact';
         default:
             return '';
     }
@@ -351,7 +351,7 @@ const canAddMore = computed(() => items.value.length < props.maxItems);
         <!-- Help Text -->
         <div v-if="items.length > 0" class="help-text">
             <p class="text-xs text-gray-400">
-                <strong>Âncora:</strong> Link para seção da página (#hero, #rsvp) •
+                <strong>Âncora:</strong> Link para seção da página (#hero, #guests-v2) •
                 <strong>URL:</strong> Link externo •
                 <strong>Ação:</strong> Abre modal ou executa ação
             </p>

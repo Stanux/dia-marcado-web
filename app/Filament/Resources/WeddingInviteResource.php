@@ -4,13 +4,19 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\WeddingInviteResource\Pages;
 use App\Models\WeddingEvent;
+use App\Models\WeddingEventRsvp;
 use App\Models\WeddingGuest;
 use App\Models\WeddingInvite;
+use App\Models\SiteLayout;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Js;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Livewire\Component;
 
 class WeddingInviteResource extends WeddingScopedResource
 {
@@ -55,7 +61,8 @@ class WeddingInviteResource extends WeddingScopedResource
                                     $set('adult_quota', 0);
                                     $set('child_quota', 0);
                                 }
-                            }),
+                            })
+                            ->columnSpan(1),
 
                         Forms\Components\Select::make('invite_type')
                             ->label('Tipo de Convite')
@@ -66,7 +73,30 @@ class WeddingInviteResource extends WeddingScopedResource
                             ->default('individual')
                             ->required()
                             ->native(false)
-                            ->live(),
+                            ->live()
+                            ->columnSpan(1),
+
+                        Forms\Components\TextInput::make('adult_quota')
+                            ->label('Cota Adultos')
+                            ->numeric()
+                            ->minValue(0)
+                            ->disabled(fn (Forms\Get $get): bool => static::isClosedEvent($get('event_id')))
+                            ->dehydrateStateUsing(fn ($state, Forms\Get $get): int | null => static::isClosedEvent($get('event_id'))
+                                ? 0
+                                : (filled($state) ? (int) $state : null))
+                            ->nullable()
+                            ->columnSpan(1),
+
+                        Forms\Components\TextInput::make('child_quota')
+                            ->label('Cota Crianças')
+                            ->numeric()
+                            ->minValue(0)
+                            ->disabled(fn (Forms\Get $get): bool => static::isClosedEvent($get('event_id')))
+                            ->dehydrateStateUsing(fn ($state, Forms\Get $get): int | null => static::isClosedEvent($get('event_id'))
+                                ? 0
+                                : (filled($state) ? (int) $state : null))
+                            ->nullable()
+                            ->columnSpan(1),
 
                         Forms\Components\Select::make('primary_contact_id')
                             ->label('Contato Principal')
@@ -79,69 +109,43 @@ class WeddingInviteResource extends WeddingScopedResource
                             ->preload()
                             ->native(false)
                             ->nullable()
+                            ->live()
                             ->required(fn (Forms\Get $get): bool => $get('invite_type') !== 'global')
-                            ->visible(fn (Forms\Get $get): bool => $get('invite_type') !== 'global'),
-
-                        Forms\Components\TextInput::make('adult_quota')
-                            ->label('Cota Adultos')
-                            ->numeric()
-                            ->minValue(0)
-                            ->disabled(fn (Forms\Get $get): bool => static::isClosedEvent($get('event_id')))
-                            ->dehydrateStateUsing(fn ($state, Forms\Get $get): int | null => static::isClosedEvent($get('event_id'))
-                                ? 0
-                                : (filled($state) ? (int) $state : null))
-                            ->nullable(),
-
-                        Forms\Components\TextInput::make('child_quota')
-                            ->label('Cota Crianças')
-                            ->numeric()
-                            ->minValue(0)
-                            ->disabled(fn (Forms\Get $get): bool => static::isClosedEvent($get('event_id')))
-                            ->dehydrateStateUsing(fn ($state, Forms\Get $get): int | null => static::isClosedEvent($get('event_id'))
-                                ? 0
-                                : (filled($state) ? (int) $state : null))
-                            ->nullable(),
+                            ->visible(fn (Forms\Get $get): bool => $get('invite_type') !== 'global')
+                            ->columnSpan(1),
 
                         Forms\Components\DateTimePicker::make('expires_at')
                             ->label('Expira em')
                             ->maxDate(fn (Forms\Get $get): ?Carbon => static::resolveEventMaxExpiresAt($get('event_id')))
-                            ->required(),
+                            ->required()
+                            ->columnSpan(1),
 
                         Forms\Components\Toggle::make('is_active')
                             ->label('Ativo')
-                            ->default(true),
+                            ->default(true)
+                            ->columnSpan(1),
 
-                        Forms\Components\TextInput::make('token')
-                            ->label('Token')
+                        Forms\Components\TextInput::make('confirmation_code')
+                            ->label('Código de Confirmação')
                             ->disabled()
                             ->dehydrated(false)
                             ->visible(fn (string $operation): bool => $operation === 'edit')
-                            ->columnSpanFull(),
-
-                        Forms\Components\TextInput::make('confirmation_code')
-                            ->label('Código de Confirmação (Evento Fechado)')
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->visible(fn (string $operation): bool => $operation === 'edit'),
+                            ->helperText('Gerado automaticamente para todos os convites.')
+                            ->columnSpan(2),
                     ])
-                    ->columns(2),
+                    ->columns(4),
 
-                Forms\Components\Section::make('Envio')
+                Forms\Components\Section::make('Convidados e Status')
                     ->schema([
-                        Forms\Components\Select::make('sent_via')
-                            ->label('Canal de Envio')
-                            ->options([
-                                'whatsapp' => 'WhatsApp',
-                                'email' => 'E-mail',
-                            ])
-                            ->native(false)
-                            ->nullable(),
-
-                        Forms\Components\DateTimePicker::make('sent_at')
-                            ->label('Enviado em')
-                            ->nullable(),
-                    ])
-                    ->columns(2),
+                        Forms\Components\Placeholder::make('guest_statuses')
+                            ->label('')
+                            ->content(fn (Forms\Get $get): HtmlString => static::buildGuestStatusListHtml(
+                                eventId: $get('event_id'),
+                                inviteType: $get('invite_type'),
+                                primaryContactId: $get('primary_contact_id'),
+                                inviteId: static::resolveCurrentInviteId(),
+                            )),
+                    ]),
             ]);
     }
 
@@ -181,6 +185,23 @@ class WeddingInviteResource extends WeddingScopedResource
                     ->boolean(),
             ])
             ->actions([
+                Tables\Actions\Action::make('copy_link')
+                    ->label('Copiar Link')
+                    ->icon('heroicon-o-clipboard-document')
+                    ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Copiar link de acesso')
+                    ->action(function (WeddingInvite $record, Component $livewire): void {
+                        $link = static::buildInviteAccessUrl($record);
+
+                        $livewire->js('if (navigator.clipboard) { navigator.clipboard.writeText(' . Js::from($link) . '); }');
+
+                        Notification::make()
+                            ->title('Link copiado')
+                            ->body($link)
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\Action::make('whatsapp')
                     ->label('WhatsApp')
                     ->icon('heroicon-o-chat-bubble-left-right')
@@ -214,12 +235,11 @@ class WeddingInviteResource extends WeddingScopedResource
 
     protected static function buildWhatsappUrl(WeddingInvite $invite): string
     {
-        $appUrl = rtrim((string) config('app.url'), '/');
-        $link = $appUrl . '/convite/' . $invite->token;
+        $link = static::buildInviteAccessUrl($invite);
 
         $messageParts = [
             'Evento: ' . ($invite->event?->name ?? 'Evento'),
-            'Acesse seu convite: ' . $link,
+            'Acesse para confirmar presença: ' . $link,
         ];
 
         if (!empty($invite->confirmation_code)) {
@@ -233,6 +253,18 @@ class WeddingInviteResource extends WeddingScopedResource
         $message = implode("\n", $messageParts);
 
         return 'https://wa.me/?text=' . rawurlencode($message);
+    }
+
+    protected static function buildInviteAccessUrl(WeddingInvite $invite): string
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $siteSlug = SiteLayout::withoutGlobalScopes()
+            ->where('wedding_id', $invite->wedding_id)
+            ->value('slug');
+
+        return $siteSlug
+            ? "{$appUrl}/site/{$siteSlug}/convidados?event={$invite->event_id}"
+            : "{$appUrl}/";
     }
 
     protected static function isClosedEvent(?string $eventId): bool
@@ -263,5 +295,156 @@ class WeddingInviteResource extends WeddingScopedResource
         $time = filled($event->event_time) ? substr((string) $event->event_time, 0, 8) : '23:59:59';
 
         return Carbon::parse("{$date} {$time}");
+    }
+
+    protected static function buildGuestStatusListHtml(
+        ?string $eventId,
+        ?string $inviteType,
+        ?string $primaryContactId,
+        ?string $inviteId
+    ): HtmlString {
+        if (blank($eventId)) {
+            return new HtmlString('<p class="text-sm text-gray-500">Selecione o evento para visualizar os convidados e status.</p>');
+        }
+
+        if (($inviteType ?? 'individual') === 'global') {
+            if (blank($inviteId)) {
+                return new HtmlString('<p class="text-sm text-gray-500">Salve o convite global para começar a visualizar quem confirmou presença.</p>');
+            }
+
+            $rsvps = WeddingEventRsvp::query()
+                ->where('event_id', $eventId)
+                ->where('invite_id', $inviteId)
+                ->with(['guest:id,name'])
+                ->orderByDesc('responded_at')
+                ->get();
+
+            if ($rsvps->isEmpty()) {
+                return new HtmlString('<p class="text-sm text-gray-500">Ainda não há convidados vinculados a este convite global.</p>');
+            }
+
+            $rows = $rsvps
+                ->unique('guest_id')
+                ->map(function (WeddingEventRsvp $rsvp): string {
+                    $status = (string) ($rsvp->status ?? 'pending');
+
+                    $statusLabel = match ($status) {
+                        'confirmed' => 'Confirmado',
+                        'declined' => 'Recusado',
+                        default => 'Pendente',
+                    };
+
+                    $statusClasses = match ($status) {
+                        'confirmed' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+                        'declined' => 'bg-rose-50 text-rose-700 ring-rose-600/20',
+                        default => 'bg-gray-50 text-gray-700 ring-gray-600/20',
+                    };
+
+                    return '<tr class="border-t border-gray-100">'
+                        . '<td class="px-4 py-2 text-sm text-gray-900">' . e((string) ($rsvp->guest?->name ?? 'Convidado removido')) . '</td>'
+                        . '<td class="px-4 py-2 text-sm">'
+                        . '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ' . $statusClasses . '">'
+                        . e($statusLabel)
+                        . '</span>'
+                        . '</td>'
+                        . '</tr>';
+                })
+                ->implode('');
+
+            $table = '<div class="overflow-hidden rounded-lg border border-gray-200">'
+                . '<table class="min-w-full divide-y divide-gray-200">'
+                . '<thead class="bg-gray-50">'
+                . '<tr>'
+                . '<th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Convidado</th>'
+                . '<th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Status no Evento</th>'
+                . '</tr>'
+                . '</thead>'
+                . '<tbody class="bg-white">'
+                . $rows
+                . '</tbody>'
+                . '</table>'
+                . '</div>';
+
+            return new HtmlString($table);
+        }
+
+        if (blank($primaryContactId)) {
+            return new HtmlString('<p class="text-sm text-gray-500">Selecione o contato principal para visualizar os convidados vinculados.</p>');
+        }
+
+        $guests = WeddingGuest::query()
+            ->where(function ($query) use ($primaryContactId): void {
+                $query->whereKey($primaryContactId)
+                    ->orWhere('primary_contact_id', $primaryContactId);
+            })
+            ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$primaryContactId])
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        if ($guests->isEmpty()) {
+            return new HtmlString('<p class="text-sm text-gray-500">Nenhum convidado encontrado para este contato principal.</p>');
+        }
+
+        $rsvps = WeddingEventRsvp::query()
+            ->where('event_id', $eventId)
+            ->whereIn('guest_id', $guests->pluck('id')->all())
+            ->get(['guest_id', 'status'])
+            ->keyBy('guest_id');
+
+        $rows = $guests->map(function (WeddingGuest $guest) use ($rsvps): string {
+            $status = (string) ($rsvps->get($guest->id)?->status ?? 'pending');
+
+            $statusLabel = match ($status) {
+                'confirmed' => 'Confirmado',
+                'declined' => 'Recusado',
+                default => 'Pendente',
+            };
+
+            $statusClasses = match ($status) {
+                'confirmed' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+                'declined' => 'bg-rose-50 text-rose-700 ring-rose-600/20',
+                default => 'bg-gray-50 text-gray-700 ring-gray-600/20',
+            };
+
+            return '<tr class="border-t border-gray-100">'
+                . '<td class="px-4 py-2 text-sm text-gray-900">' . e((string) $guest->name) . '</td>'
+                . '<td class="px-4 py-2 text-sm">'
+                . '<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ' . $statusClasses . '">'
+                . e($statusLabel)
+                . '</span>'
+                . '</td>'
+                . '</tr>';
+        })->implode('');
+
+        $table = '<div class="overflow-hidden rounded-lg border border-gray-200">'
+            . '<table class="min-w-full divide-y divide-gray-200">'
+            . '<thead class="bg-gray-50">'
+            . '<tr>'
+            . '<th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Convidado</th>'
+            . '<th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Status no Evento</th>'
+            . '</tr>'
+            . '</thead>'
+            . '<tbody class="bg-white">'
+            . $rows
+            . '</tbody>'
+            . '</table>'
+            . '</div>';
+
+        return new HtmlString($table);
+    }
+
+    protected static function resolveCurrentInviteId(): ?string
+    {
+        $record = request()->route('record');
+
+        if ($record instanceof WeddingInvite) {
+            return (string) $record->getKey();
+        }
+
+        if (is_string($record) && $record !== '') {
+            return $record;
+        }
+
+        return null;
     }
 }

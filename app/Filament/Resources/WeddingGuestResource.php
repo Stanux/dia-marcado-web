@@ -62,15 +62,32 @@ class WeddingGuestResource extends WeddingScopedResource
                                 ->orderBy('name')
                                 ->pluck('name', 'id')
                                 ->all())
+                            ->rule(function (?WeddingGuest $record): \Closure {
+                                return function (string $attribute, mixed $value, \Closure $fail) use ($record): void {
+                                    if (blank($value)) {
+                                        return;
+                                    }
+
+                                    $selectedPrimary = WeddingGuest::query()->find($value);
+                                    if (!$selectedPrimary) {
+                                        return;
+                                    }
+
+                                    if ($record && (string) $record->getKey() === (string) $selectedPrimary->getKey()) {
+                                        $fail('O contato principal não pode ser o próprio convidado.');
+                                        return;
+                                    }
+
+                                    if ($selectedPrimary->primary_contact_id !== null) {
+                                        $fail('O contato definido como Principal já está cadastrado como convidado.');
+                                    }
+                                };
+                            })
                             ->searchable()
                             ->preload()
                             ->native(false)
                             ->nullable()
                             ->helperText('Se vazio, este registro também é um contato principal.'),
-
-                        Forms\Components\TextInput::make('relationship')
-                            ->label('Grau de Parentesco')
-                            ->maxLength(120),
 
                         Forms\Components\Select::make('side')
                             ->label('Lado')
@@ -80,17 +97,6 @@ class WeddingGuestResource extends WeddingScopedResource
                                 'both' => 'Ambos',
                             ])
                             ->default('both')
-                            ->required()
-                            ->native(false),
-
-                        Forms\Components\Select::make('status')
-                            ->label('Status')
-                            ->options([
-                                'pending' => 'Pendente',
-                                'confirmed' => 'Confirmado',
-                                'declined' => 'Recusado',
-                            ])
-                            ->default('pending')
                             ->required()
                             ->native(false),
 
@@ -125,21 +131,6 @@ class WeddingGuestResource extends WeddingScopedResource
                     })
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'pending' => 'Pendente',
-                        'confirmed' => 'Confirmado',
-                        'declined' => 'Recusado',
-                        default => $state,
-                    })
-                    ->color(fn (string $state): string => match ($state) {
-                        'confirmed' => 'success',
-                        'declined' => 'danger',
-                        default => 'gray',
-                    }),
-
                 Tables\Columns\TextColumn::make('side')
                     ->label('Lado')
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
@@ -162,14 +153,6 @@ class WeddingGuestResource extends WeddingScopedResource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->label('Status')
-                    ->options([
-                        'pending' => 'Pendente',
-                        'confirmed' => 'Confirmado',
-                        'declined' => 'Recusado',
-                    ]),
-
                 Tables\Filters\SelectFilter::make('side')
                     ->label('Lado')
                     ->options([

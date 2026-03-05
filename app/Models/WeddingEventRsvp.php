@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WeddingEventRsvp extends WeddingScopedModel
 {
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_CONFIRMED = 'confirmed';
+
+    public const STATUS_DECLINED = 'declined';
+
     protected $table = 'wedding_event_rsvps';
 
     protected $fillable = [

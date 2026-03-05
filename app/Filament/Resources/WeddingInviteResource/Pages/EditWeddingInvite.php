@@ -40,17 +40,13 @@ class EditWeddingInvite extends EditRecord
         $event = WeddingEvent::withoutGlobalScopes()->find($data['event_id'] ?? null);
         $this->ensureExpirationNotAfterEvent($event, $data['expires_at'] ?? null);
 
-        if ($event?->isClosed() && empty($this->record->confirmation_code)) {
+        if (empty($this->record->confirmation_code)) {
             $data['confirmation_code'] = $this->generateUniqueConfirmationCode();
         }
 
         if ($event?->isClosed()) {
             $data['adult_quota'] = 0;
             $data['child_quota'] = 0;
-        }
-
-        if (!$event?->isClosed()) {
-            $data['confirmation_code'] = null;
         }
 
         return $data;

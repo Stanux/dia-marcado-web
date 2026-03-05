@@ -50,12 +50,13 @@ class CreateWeddingInvite extends CreateRecord
         $data['expires_at'] = $data['expires_at'] ?? now()->addDays(7);
         $this->ensureExpirationNotAfterEvent($event, $data['expires_at']);
 
-        if ($event?->isClosed()) {
+        if (empty($data['confirmation_code'])) {
             $data['confirmation_code'] = $this->generateUniqueConfirmationCode();
+        }
+
+        if ($event?->isClosed()) {
             $data['adult_quota'] = 0;
             $data['child_quota'] = 0;
-        } else {
-            $data['confirmation_code'] = null;
         }
 
         return $data;

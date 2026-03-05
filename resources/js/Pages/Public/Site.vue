@@ -14,11 +14,12 @@ import PublicHeader from '@/Components/Public/PublicHeader.vue';
 import PublicHero from '@/Components/Public/PublicHero.vue';
 import PublicSaveTheDate from '@/Components/Public/PublicSaveTheDate.vue';
 import PublicGiftRegistry from '@/Components/Public/PublicGiftRegistry.vue';
-import PublicRsvp from '@/Components/Public/PublicRsvp.vue';
+import PublicGuestsV2 from '@/Components/Public/PublicGuestsV2.vue';
 import PublicPhotoGallery from '@/Components/Public/PublicPhotoGallery.vue';
 import PublicFooter from '@/Components/Public/PublicFooter.vue';
 const FIXED_SECTION_KEYS = ['header', 'footer'];
-const DEFAULT_MOVABLE_SECTION_ORDER = ['hero', 'saveTheDate', 'giftRegistry', 'rsvp', 'photoGallery'];
+const DEFAULT_MOVABLE_SECTION_ORDER = ['hero', 'saveTheDate', 'giftRegistry', 'guestsV2', 'photoGallery'];
+const LEGACY_HIDDEN_SECTION_KEYS = new Set(['rsvp']);
 
 const props = defineProps({
     site: {
@@ -112,7 +113,8 @@ const sanitizeMovableSectionOrder = (rawOrder, availableSectionKeys) => {
 };
 
 const orderedSectionKeys = computed(() => {
-    const availableSectionKeys = Object.keys(sections.value);
+    const availableSectionKeys = Object.keys(sections.value)
+        .filter((key) => !LEGACY_HIDDEN_SECTION_KEYS.has(key));
     const movableOrder = sanitizeMovableSectionOrder(props.content?.sectionOrder, availableSectionKeys);
 
     return [
@@ -127,7 +129,7 @@ const sectionComponentMap = {
     hero: PublicHero,
     saveTheDate: PublicSaveTheDate,
     giftRegistry: PublicGiftRegistry,
-    rsvp: PublicRsvp,
+    guestsV2: PublicGuestsV2,
     photoGallery: PublicPhotoGallery,
     footer: PublicFooter,
 };
@@ -182,7 +184,7 @@ const renderedSections = computed(() => {
                 };
             }
 
-            if (sectionKey === 'rsvp') {
+            if (sectionKey === 'guestsV2') {
                 return {
                     key: sectionKey,
                     component,

@@ -13,6 +13,7 @@ use App\Filament\Resources\TransactionResource;
 use App\Models\PartnerInvite;
 use App\Models\SiteLayout;
 use App\Models\SiteTemplate;
+use App\Services\Site\SiteContentSchema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
@@ -181,8 +182,12 @@ Route::middleware(['auth', 'wedding.inertia'])->prefix('admin')->group(function 
         
         // Convert to array to ensure all data is properly serialized
         $siteData = $siteLayout->toArray();
-        $siteData['draft_content'] = $siteLayout->draft_content;
-        $siteData['published_content'] = $siteLayout->published_content;
+        $siteData['draft_content'] = is_array($siteLayout->draft_content)
+            ? SiteContentSchema::normalize($siteLayout->draft_content)
+            : SiteContentSchema::getDefaultContent();
+        $siteData['published_content'] = is_array($siteLayout->published_content)
+            ? SiteContentSchema::normalize($siteLayout->published_content)
+            : null;
         $siteData['has_password'] = $siteLayout->access_token !== null;
         unset($siteData['access_token']);
 
@@ -331,6 +336,9 @@ require __DIR__.'/auth.php';
 // Public site routes (must be at the end to avoid conflicts with other routes)
 Route::get('/site/template/{slug}', [PublicSiteController::class, 'showTemplate'])
     ->name('public.site.template.preview');
+
+Route::get('/site/{slug}/convidados', [PublicSiteController::class, 'showGuests'])
+    ->name('public.site.guests');
 
 Route::get('/site/{slug}', [PublicSiteController::class, 'show'])
     ->name('public.site.show');

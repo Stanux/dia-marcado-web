@@ -49,6 +49,7 @@ const HeaderEditor = defineAsyncComponent(() => import('./Editors/HeaderEditor.v
 const HeroEditor = defineAsyncComponent(() => import('./Editors/HeroEditor.vue'));
 const SaveTheDateEditor = defineAsyncComponent(() => import('./Editors/SaveTheDateEditor.vue'));
 const GiftRegistryEditor = defineAsyncComponent(() => import('./Editors/GiftRegistryEditor.vue'));
+const GuestsV2Editor = defineAsyncComponent(() => import('./Editors/GuestsV2Editor.vue'));
 const RsvpEditor = defineAsyncComponent(() => import('./Editors/RsvpEditor.vue'));
 const PhotoGalleryEditor = defineAsyncComponent(() => import('./Editors/PhotoGalleryEditor.vue'));
 const FooterEditor = defineAsyncComponent(() => import('./Editors/FooterEditor.vue'));
@@ -112,6 +113,7 @@ const sectionTitles = {
     hero: 'Seção de Destaque',
     saveTheDate: 'Save the Date',
     giftRegistry: 'Lista de Presentes',
+    guestsV2: 'Convidados',
     rsvp: 'Confirmação de Presença (RSVP)',
     photoGallery: 'Galeria de Fotos',
     footer: 'Rodapé',
@@ -191,6 +193,7 @@ const editorComponents = {
     hero: HeroEditor,
     saveTheDate: SaveTheDateEditor,
     giftRegistry: GiftRegistryEditor,
+    guestsV2: GuestsV2Editor,
     rsvp: RsvpEditor,
     photoGallery: PhotoGalleryEditor,
     footer: FooterEditor,

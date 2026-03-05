@@ -80,7 +80,7 @@ class ListWeddingGuests extends ListRecords
                         ->disk('local')
                         ->storeFiles()
                         ->required()
-                        ->helperText('Estrutura obrigatória: Nome, Apelido, E-mail, Telefone, Contato Principal, Lado, Status, Criança.'),
+                        ->helperText('Estrutura obrigatória: Nome, Apelido, E-mail, Telefone, Contato Principal, Lado, Criança.'),
                 ])
                 ->action(function (array $data): void {
                     $weddingId = auth()->user()?->current_wedding_id ?? session('filament_wedding_id');

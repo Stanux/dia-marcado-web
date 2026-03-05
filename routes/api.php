@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\QuotaController;
 use App\Http\Controllers\Api\SiteLayoutController;
 use App\Http\Controllers\Api\SiteMediaController;
 use App\Http\Controllers\Api\SiteTemplateController;
+use App\Http\Controllers\Api\WeddingGuestPublicController;
 use App\Http\Controllers\WebhookController;
 use App\Models\Task;
 use Illuminate\Http\Request;
@@ -224,3 +225,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 // Public RSVP endpoint (open mode / token-based)
 Route::post('/public/rsvp', [GuestRsvpController::class, 'publicStore']);
+
+// Public Wedding Guests V2 endpoint (code-based)
+Route::prefix('/public/weddings/sites/{slug}/guests-v2')->group(function () {
+    Route::post('/resolve', [WeddingGuestPublicController::class, 'resolve']);
+    Route::post('/submit', [WeddingGuestPublicController::class, 'submit']);
+});

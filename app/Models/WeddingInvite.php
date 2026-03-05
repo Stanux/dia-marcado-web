@@ -20,15 +20,12 @@ class WeddingInvite extends WeddingScopedModel
         'adult_quota',
         'child_quota',
         'expires_at',
-        'sent_via',
-        'sent_at',
         'is_active',
         'metadata',
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
-        'sent_at' => 'datetime',
         'is_active' => 'boolean',
         'adult_quota' => 'integer',
         'child_quota' => 'integer',

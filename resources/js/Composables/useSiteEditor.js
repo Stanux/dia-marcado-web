@@ -17,7 +17,7 @@ export const SECTION_IDS = {
     hero: 'hero',
     saveTheDate: 'save-the-date',
     giftRegistry: 'gift-registry',
-    rsvp: 'rsvp',
+    guestsV2: 'guests-v2',
     photoGallery: 'photo-gallery',
 };
 
@@ -28,7 +28,7 @@ export const SECTION_LABELS = {
     hero: 'Destaque',
     saveTheDate: 'Save the Date',
     giftRegistry: 'Lista de Presentes',
-    rsvp: 'Confirme Presença',
+    guestsV2: 'Convidados',
     photoGallery: 'Galeria de Fotos',
 };
 
@@ -102,7 +102,7 @@ const THEME_BACKGROUND_BINDINGS = [
     { section: 'header', path: ['style', 'backgroundColor'], role: 'baseBackgroundColor' },
     { section: 'saveTheDate', path: ['style', 'backgroundColor'], role: 'surfaceBackgroundColor' },
     { section: 'giftRegistry', path: ['style', 'backgroundColor'], role: 'baseBackgroundColor' },
-    { section: 'rsvp', path: ['style', 'backgroundColor'], role: 'surfaceBackgroundColor' },
+    { section: 'guestsV2', path: ['style', 'backgroundColor'], role: 'surfaceBackgroundColor' },
     { section: 'photoGallery', path: ['style', 'backgroundColor'], role: 'baseBackgroundColor' },
 ];
 

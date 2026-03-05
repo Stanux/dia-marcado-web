@@ -35,13 +35,16 @@ const SECTION_ANCHORS_BY_KEY = {
     hero: 'hero',
     saveTheDate: 'save-the-date',
     giftRegistry: 'gift-registry',
-    rsvp: 'rsvp',
+    guestsV2: 'guests-v2',
     photoGallery: 'photo-gallery',
 };
 
 const LEGACY_ANCHOR_ALIASES = {
     'lista-presentes': 'gift-registry',
-    'confirmar-presenca': 'rsvp',
+    rsvp: 'guests-v2',
+    'confirmar-presenca': 'guests-v2',
+    guests: 'guests-v2',
+    convidados: 'guests-v2',
     galeria: 'photo-gallery',
 };
 
