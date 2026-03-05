@@ -173,6 +173,9 @@ class WeddingInviteResource extends WeddingScopedResource
                     ->label('Código')
                     ->badge()
                     ->color('warning')
+                    ->copyable()
+                    ->copyMessage('Código copiado')
+                    ->copyMessageDuration(1500)
                     ->placeholder('—'),
 
                 Tables\Columns\TextColumn::make('expires_at')
