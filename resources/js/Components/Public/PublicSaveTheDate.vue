@@ -212,10 +212,10 @@ const directionsUrl = computed(() => {
 // Layout classes
 const layoutClasses = computed(() => {
     if (isInlineWithMap.value) {
-        return 'flex flex-col lg:flex-row items-start gap-12';
+        return 'flex flex-col lg:flex-row items-start gap-12 py-6 sm:py-8';
     }
 
-    return 'max-w-xl mx-auto bg-white rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.08)] p-8 md:p-12';
+    return 'max-w-xl mx-auto bg-white rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.08)] p-6 sm:p-8';
 });
 
 // Description style
@@ -311,7 +311,7 @@ const calendarDisabledStyle = computed(() => ({
 
 <template>
     <section
-        class="py-16 md:py-20 px-4"
+        class="py-16 sm:py-20 px-4"
         :style="{ backgroundColor: sectionBackgroundColor }"
         id="save-the-date"
     >
@@ -323,7 +323,7 @@ const calendarDisabledStyle = computed(() => ({
                     :class="isInlineWithMap ? 'text-left' : 'text-center'"
                 >
                     <h2 
-                        class="text-3xl md:text-4xl font-bold mb-6 break-words [overflow-wrap:anywhere]"
+                        class="text-3xl md:text-4xl font-bold mb-8 break-words [overflow-wrap:anywhere]"
                         :style="{ 
                             color: sectionTypography.fontColor || theme.primaryColor, 
                             fontFamily: sectionTypography.fontFamily || descriptionTypography.fontFamily || theme.fontFamily,

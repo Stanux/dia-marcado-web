@@ -63,7 +63,7 @@ const giftConfig = computed(() => {
 
 <template>
     <section 
-        class="py-20 px-4"
+        class="py-16 sm:py-20 px-4"
         :style="{ backgroundColor: sectionBackgroundColor }"
         id="gift-registry"
     >

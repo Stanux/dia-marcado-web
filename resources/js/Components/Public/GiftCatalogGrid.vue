@@ -241,13 +241,13 @@ onMounted(() => {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 0;
 }
 
 /* Header */
 .catalog-header {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .catalog-title {
@@ -402,10 +402,6 @@ onMounted(() => {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .gift-catalog {
-    padding: 1.5rem 1rem;
-  }
-
   .catalog-title {
     font-size: 2rem;
   }

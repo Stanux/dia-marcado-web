@@ -712,13 +712,13 @@ onUnmounted(() => {
     <section
         v-if="hasVisibleAlbums"
         id="photo-gallery"
-        class="py-20 px-4"
+        class="py-16 sm:py-20 px-4"
         :style="{ backgroundColor: sectionBackgroundColor }"
     >
         <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-6">
+            <div class="text-center mb-8">
                 <h2
-                    class="text-3xl md:text-4xl font-bold mb-4"
+                    class="text-3xl md:text-4xl font-bold"
                     :style="titleTextStyle"
                 >
                     {{ content.title || 'Galeria de Fotos' }}
