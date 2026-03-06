@@ -1463,6 +1463,12 @@ onUnmounted(() => {
                                     :style="cropOverlayStyle"
                                     @mousedown="startDrag"
                                 >
+                                    <div class="crop-grid" aria-hidden="true">
+                                        <span class="crop-grid-line crop-grid-line-v crop-grid-line-v-1"></span>
+                                        <span class="crop-grid-line crop-grid-line-v crop-grid-line-v-2"></span>
+                                        <span class="crop-grid-line crop-grid-line-h crop-grid-line-h-1"></span>
+                                        <span class="crop-grid-line crop-grid-line-h crop-grid-line-h-2"></span>
+                                    </div>
                                     <div class="crop-border"></div>
                                 </div>
                             </div>
@@ -1891,6 +1897,45 @@ onUnmounted(() => {
     position: absolute;
     inset: 0;
     border: 2px dashed white;
+}
+
+.crop-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.crop-grid-line {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.crop-grid-line-v {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+}
+
+.crop-grid-line-v-1 {
+    left: 33.3333%;
+}
+
+.crop-grid-line-v-2 {
+    left: 66.6667%;
+}
+
+.crop-grid-line-h {
+    left: 0;
+    right: 0;
+    height: 1px;
+}
+
+.crop-grid-line-h-1 {
+    top: 33.3333%;
+}
+
+.crop-grid-line-h-2 {
+    top: 66.6667%;
 }
 
 .button-primary,

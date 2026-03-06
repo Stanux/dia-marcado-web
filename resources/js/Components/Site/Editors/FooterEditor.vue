@@ -3,7 +3,7 @@
  * FooterEditor Component
  * 
  * Editor for the Footer section of the wedding site.
- * Supports social links, copyright text, privacy policy, and back to top button.
+ * Supports social links, copyright text, and privacy policy.
  * 
  * @Requirements: 14.1, 14.3, 14.4, 14.5
  */
@@ -284,21 +284,6 @@ const socialPlatforms = [
                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
                     placeholder="https://exemplo.com/privacidade"
                 />
-            </div>
-        </div>
-
-        <!-- Back to Top -->
-        <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="footer-section-title">Navegação</h3>
-            
-            <div class="flex items-center">
-                <input
-                    type="checkbox"
-                    :checked="localContent.showBackToTop"
-                    @change="updateField('showBackToTop', $event.target.checked)"
-                    class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
-                />
-                <label class="ml-2 text-sm text-gray-700">Exibir botão "Voltar ao topo"</label>
             </div>
         </div>
 

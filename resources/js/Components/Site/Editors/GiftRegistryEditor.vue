@@ -47,7 +47,7 @@ if (!localContent.value.titleTypography) {
         fontSize: giftRegistryConfig.value?.title_font_size || 48,
         fontWeight: giftRegistryConfig.value?.title_style === 'bold' || giftRegistryConfig.value?.title_style === 'bold_italic' ? 700 : 400,
         fontItalic: giftRegistryConfig.value?.title_style === 'italic' || giftRegistryConfig.value?.title_style === 'bold_italic',
-        fontUnderline: false,
+        fontUnderline: Boolean(localContent.value?.config?.title_underline ?? false),
     };
 }
 
@@ -72,7 +72,7 @@ watch(() => props.content, (newContent) => {
             fontSize: giftRegistryConfig.value.title_font_size || 48,
             fontWeight: giftRegistryConfig.value.title_style === 'bold' || giftRegistryConfig.value.title_style === 'bold_italic' ? 700 : 400,
             fontItalic: giftRegistryConfig.value.title_style === 'italic' || giftRegistryConfig.value.title_style === 'bold_italic',
-            fontUnderline: false,
+            fontUnderline: Boolean(localContent.value?.config?.title_underline ?? false),
         };
     }
 }, { deep: true });
@@ -90,6 +90,7 @@ const emitChange = () => {
         localContent.value.config.title_font_family = localContent.value.titleTypography.fontFamily;
         localContent.value.config.title_color = localContent.value.titleTypography.fontColor;
         localContent.value.config.title_font_size = localContent.value.titleTypography.fontSize;
+        localContent.value.config.title_underline = Boolean(localContent.value.titleTypography.fontUnderline);
         
         // Convert typography to style
         const isBold = localContent.value.titleTypography.fontWeight >= 700;

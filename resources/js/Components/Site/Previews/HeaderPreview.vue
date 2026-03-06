@@ -141,13 +141,63 @@ const getSectionLabel = (sectionKey) => {
     return SECTION_LABELS[sectionKey] || sectionKey;
 };
 
+const parseBoolean = (value) => {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    if (typeof value === 'number') {
+        return value === 1;
+    }
+
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        return ['1', 'true', 'on', 'yes', 'sim'].includes(normalized);
+    }
+
+    return false;
+};
+
+const isTransparentBackground = computed(() => {
+    if (Object.prototype.hasOwnProperty.call(style.value, 'transparent')) {
+        return parseBoolean(style.value.transparent);
+    }
+
+    if (typeof style.value.backgroundColor === 'string') {
+        return style.value.backgroundColor.trim().toLowerCase() === 'transparent';
+    }
+
+    return false;
+});
+
+const isStickyEnabled = computed(() => parseBoolean(style.value.sticky) && !isTransparentBackground.value);
+const showBackToTop = computed(() => {
+    if (Object.prototype.hasOwnProperty.call(props.content, 'showBackToTop')) {
+        return parseBoolean(props.content.showBackToTop);
+    }
+
+    return true;
+});
+
+const backToTopButtonStyle = computed(() => ({
+    backgroundColor: props.content?.backToTopButton?.backgroundColor || '#111827',
+    color: props.content?.backToTopButton?.iconColor || '#ffffff',
+}));
+
+const scrollToTop = () => {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+    });
+};
+
 // Header styles
 const headerStyles = computed(() => ({
     height: style.value.height || '80px',
-    backgroundColor: resolveHeaderBackgroundColor(style.value.backgroundColor),
-    position: style.value.sticky ? 'sticky' : 'relative',
-    top: style.value.sticky ? '0' : 'auto',
-    zIndex: style.value.sticky ? '100' : 'auto',
+    backgroundColor: isTransparentBackground.value ? 'transparent' : resolveHeaderBackgroundColor(style.value.backgroundColor),
+    position: isStickyEnabled.value ? 'sticky' : 'relative',
+    top: isStickyEnabled.value ? '0' : 'auto',
+    zIndex: isStickyEnabled.value ? '100' : 'auto',
 }));
 
 // Alignment classes
@@ -178,7 +228,7 @@ const isMobileMenuOpen = computed(() => false); // Static for preview
 
 <template>
     <header 
-        class="border-b border-gray-100"
+        :class="isTransparentBackground ? '' : 'border-b border-gray-100'"
         :style="headerStyles"
     >
         <div class="h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -295,6 +345,20 @@ const isMobileMenuOpen = computed(() => false); // Static for preview
         >
             Header
         </div>
+
+        <button
+            v-if="showBackToTop"
+            type="button"
+            class="fixed bottom-4 right-4 z-[70] h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
+            :style="backToTopButtonStyle"
+            aria-label="Voltar ao topo"
+            title="Voltar ao topo"
+            @click="scrollToTop"
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+        </button>
     </header>
 </template>
 

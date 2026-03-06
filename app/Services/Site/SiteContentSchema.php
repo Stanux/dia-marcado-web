@@ -83,7 +83,7 @@ class SiteContentSchema
         return [
             'enabled' => true,
             'logo' => [
-                'type' => 'image', // 'image' ou 'text'
+                'type' => 'text', // 'image' ou 'text'
                 'url' => '',
                 'alt' => '',
                 'text' => [
@@ -110,6 +110,11 @@ class SiteContentSchema
                 'fontItalic' => false,
                 'fontUnderline' => false,
             ],
+            'showBackToTop' => true,
+            'backToTopButton' => [
+                'backgroundColor' => '#111827',
+                'iconColor' => '#ffffff',
+            ],
             'navigation' => [],
             'actionButton' => [
                 'label' => '',
@@ -121,6 +126,7 @@ class SiteContentSchema
                 'height' => '80px',
                 'alignment' => 'center',
                 'backgroundColor' => '#ffffff',
+                'transparent' => false,
                 'sticky' => false,
                 'overlay' => [
                     'enabled' => false,
@@ -258,6 +264,7 @@ class SiteContentSchema
                 'section_title' => 'Lista de Presentes',
                 'fee_modality' => 'couple_pays',
                 'registry_mode' => 'quantity',
+                'title_underline' => false,
             ],
             'title' => 'Lista de Presentes',
             'description' => 'Em breve...',
@@ -554,6 +561,7 @@ class SiteContentSchema
      */
     public static function normalize(array $content): array
     {
+        $content = self::migrateLegacyBackToTopControl($content);
         $normalized = self::mergeWithDefaults(self::getDefaultContent(), $content);
         $normalized = self::migrateLegacyRsvpToGuestsV2($normalized);
 
@@ -570,6 +578,40 @@ class SiteContentSchema
         }
 
         return $normalized;
+    }
+
+    /**
+     * Move legacy "back to top" controls from footer to header.
+     * Keeps old data working while the control is managed by Header > Navigation.
+     */
+    private static function migrateLegacyBackToTopControl(array $content): array
+    {
+        if (!isset($content['sections']) || !is_array($content['sections'])) {
+            return $content;
+        }
+
+        $sections = &$content['sections'];
+
+        $headerSection = is_array($sections['header'] ?? null) ? $sections['header'] : [];
+        $footerSection = is_array($sections['footer'] ?? null) ? $sections['footer'] : [];
+
+        if (!array_key_exists('showBackToTop', $headerSection) && array_key_exists('showBackToTop', $footerSection)) {
+            $headerSection['showBackToTop'] = (bool) $footerSection['showBackToTop'];
+        }
+
+        if (
+            !array_key_exists('backToTopButton', $headerSection)
+            && isset($footerSection['backToTopButton'])
+            && is_array($footerSection['backToTopButton'])
+        ) {
+            $headerSection['backToTopButton'] = $footerSection['backToTopButton'];
+        }
+
+        if ($headerSection !== []) {
+            $sections['header'] = $headerSection;
+        }
+
+        return $content;
     }
 
     /**

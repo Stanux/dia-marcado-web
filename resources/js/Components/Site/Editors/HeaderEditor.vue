@@ -83,6 +83,38 @@ const applyDefaultLogoInitialsIfEmpty = () => {
     localContent.value.logo.text.initials = [defaultInitial1, defaultInitial2];
 };
 
+const syncDefaultLogoInitials = () => {
+    const effectiveLogoType = localContent.value.logo?.type || 'text';
+    if (effectiveLogoType !== 'text') {
+        return false;
+    }
+
+    if (!localContent.value.logo) {
+        localContent.value.logo = {
+            type: 'text',
+            url: '',
+            alt: '',
+            text: {
+                initials: ['', ''],
+                connector: '&',
+            },
+        };
+    }
+
+    if (!localContent.value.logo.text) {
+        localContent.value.logo.text = {
+            initials: ['', ''],
+            connector: '&',
+        };
+    }
+
+    const before = JSON.stringify(localContent.value.logo.text.initials || ['', '']);
+    applyDefaultLogoInitialsIfEmpty();
+    const after = JSON.stringify(localContent.value.logo.text.initials || ['', '']);
+
+    return before !== after;
+};
+
 // Initialize typography for existing logo text if missing
 if (localContent.value.logo?.type === 'text' && localContent.value.logo.text && !localContent.value.logo.text.typography) {
     localContent.value.logo.text.typography = {
@@ -94,6 +126,10 @@ if (localContent.value.logo?.type === 'text' && localContent.value.logo.text && 
         fontUnderline: false,
     };
     // Emit the change to save the initialized typography
+    emit('change', JSON.parse(JSON.stringify(localContent.value)));
+}
+
+if (syncDefaultLogoInitials()) {
     emit('change', JSON.parse(JSON.stringify(localContent.value)));
 }
 
@@ -112,6 +148,10 @@ watch(() => props.content, (newContent) => {
             fontUnderline: false,
         };
         // Emit the change to save the initialized typography
+        emit('change', JSON.parse(JSON.stringify(localContent.value)));
+    }
+
+    if (syncDefaultLogoInitials()) {
         emit('change', JSON.parse(JSON.stringify(localContent.value)));
     }
 }, { deep: true });
@@ -153,6 +193,18 @@ const updateStyle = (field, value) => {
     emitChange();
 };
 
+const updateStyleValues = (values) => {
+    if (!localContent.value.style) {
+        localContent.value.style = {};
+    }
+
+    Object.entries(values).forEach(([field, value]) => {
+        localContent.value.style[field] = value;
+    });
+
+    emitChange();
+};
+
 const pickBackgroundColorFromScreen = async () => {
     if (!isEyeDropperSupported.value) {
         return;
@@ -163,7 +215,10 @@ const pickBackgroundColorFromScreen = async () => {
         const { sRGBHex } = await eyeDropper.open();
 
         if (typeof sRGBHex === 'string' && sRGBHex) {
-            updateStyle('backgroundColor', sRGBHex.toLowerCase());
+            updateStyleValues({
+                backgroundColor: sRGBHex.toLowerCase(),
+                transparent: false,
+            });
         }
     } catch (error) {
         if (error?.name !== 'AbortError') {
@@ -294,7 +349,15 @@ const insertTag = (tag) => {
  */
 const updateLogoType = (type) => {
     if (!localContent.value.logo) {
-        localContent.value.logo = { type: 'image', url: '', alt: '' };
+        localContent.value.logo = {
+            type,
+            url: '',
+            alt: '',
+            text: {
+                initials: ['', ''],
+                connector: '&',
+            },
+        };
     }
     localContent.value.logo.type = type;
     
@@ -506,8 +569,16 @@ const normalizeHexColor = (color, fallback = '#ffffff') => {
 
 // Computed properties
 const navigation = computed(() => localContent.value.navigation || []);
-const logo = computed(() => localContent.value.logo || { type: 'image', url: '', alt: '' });
-const logoType = computed(() => logo.value.type || 'image');
+const logo = computed(() => localContent.value.logo || {
+    type: 'text',
+    url: '',
+    alt: '',
+    text: {
+        initials: ['', ''],
+        connector: '&',
+    },
+});
+const logoType = computed(() => logo.value.type || 'text');
 const logoText = computed(() => logo.value.text || { initials: ['', ''], connector: '&' });
 const logoTextTypography = computed(() => logoText.value.typography || {
     fontFamily: 'Playfair Display',
@@ -552,8 +623,105 @@ const menuHoverTypography = computed(() => localContent.value.menuHoverTypograph
 const style = computed(() => localContent.value.style || {});
 const headerBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#ffffff'));
 
+const parseStyleBoolean = (value) => {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    if (typeof value === 'number') {
+        return value === 1;
+    }
+
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        return ['1', 'true', 'on', 'yes', 'sim'].includes(normalized);
+    }
+
+    return false;
+};
+
+const showBackToTop = computed(() => {
+    if (Object.prototype.hasOwnProperty.call(localContent.value, 'showBackToTop')) {
+        return parseStyleBoolean(localContent.value.showBackToTop);
+    }
+
+    return true;
+});
+const backToTopButton = computed(() => localContent.value.backToTopButton || {});
+const backToTopBackgroundColorHex = computed(() => normalizeHexColor(
+    backToTopButton.value.backgroundColor,
+    '#111827'
+));
+const backToTopIconColorHex = computed(() => normalizeHexColor(
+    backToTopButton.value.iconColor,
+    '#ffffff'
+));
+
+const isTransparentBackground = computed(() => {
+    if (Object.prototype.hasOwnProperty.call(style.value, 'transparent')) {
+        return parseStyleBoolean(style.value.transparent);
+    }
+
+    if (typeof style.value.backgroundColor === 'string') {
+        return style.value.backgroundColor.trim().toLowerCase() === 'transparent';
+    }
+
+    return false;
+});
+
+const isStickyEnabled = computed(() => parseStyleBoolean(style.value.sticky));
+
+const setBackgroundMode = (mode) => {
+    if (mode === 'transparent') {
+        updateStyleValues({
+            transparent: true,
+            backgroundColor: 'transparent',
+            sticky: false,
+        });
+        return;
+    }
+
+    const currentBackground = typeof style.value.backgroundColor === 'string'
+        ? style.value.backgroundColor.trim().toLowerCase()
+        : '';
+    const nextBackground = currentBackground === 'transparent'
+        ? '#ffffff'
+        : (style.value.backgroundColor || '#ffffff');
+
+    updateStyleValues({
+        transparent: false,
+        backgroundColor: nextBackground,
+    });
+};
+
+const handleBackgroundColorInput = (value) => {
+    updateStyleValues({
+        transparent: false,
+        backgroundColor: value,
+    });
+};
+
+const updateBackToTopButton = (field, value) => {
+    if (!localContent.value.backToTopButton || typeof localContent.value.backToTopButton !== 'object') {
+        localContent.value.backToTopButton = {};
+    }
+
+    localContent.value.backToTopButton[field] = value;
+    emitChange();
+};
+
+watch(isTransparentBackground, (transparent) => {
+    if (transparent && isStickyEnabled.value) {
+        updateStyle('sticky', false);
+    }
+}, { immediate: true });
+
 onMounted(() => {
     isEyeDropperSupported.value = typeof window !== 'undefined' && 'EyeDropper' in window;
+
+    if (syncDefaultLogoInitials()) {
+        emitChange();
+    }
 });
 </script>
 
@@ -569,16 +737,6 @@ onMounted(() => {
                 <div class="logo-type-tabs" role="tablist" aria-label="Tipo de Logo">
                     <button
                         type="button"
-                        @click="updateLogoType('image')"
-                        class="logo-type-tab"
-                        :class="{ 'logo-type-tab-active': logoType === 'image' }"
-                        :aria-selected="logoType === 'image'"
-                        role="tab"
-                    >
-                        Usar Imagem
-                    </button>
-                    <button
-                        type="button"
                         @click="updateLogoType('text')"
                         class="logo-type-tab"
                         :class="{ 'logo-type-tab-active': logoType === 'text' }"
@@ -586,6 +744,16 @@ onMounted(() => {
                         role="tab"
                     >
                         Usar Iniciais
+                    </button>
+                    <button
+                        type="button"
+                        @click="updateLogoType('image')"
+                        class="logo-type-tab"
+                        :class="{ 'logo-type-tab-active': logoType === 'image' }"
+                        :aria-selected="logoType === 'image'"
+                        role="tab"
+                    >
+                        Usar Imagem
                     </button>
                 </div>
             </div>
@@ -900,6 +1068,60 @@ onMounted(() => {
                     </div>
                 </div>
             </div>
+
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                <h4 class="text-sm font-semibold text-gray-800">Botão flutuante "Voltar ao topo"</h4>
+
+                <div class="flex items-center">
+                    <input
+                        type="checkbox"
+                        :checked="showBackToTop"
+                        @change="updateField('showBackToTop', $event.target.checked)"
+                        class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
+                    />
+                    <label class="ml-2 text-sm text-gray-700">Exibir botão no canto inferior direito</label>
+                </div>
+
+                <div v-if="showBackToTop" class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Cor do fundo</label>
+                        <div class="flex items-center gap-2">
+                            <input
+                                type="color"
+                                :value="backToTopBackgroundColorHex"
+                                @input="updateBackToTopButton('backgroundColor', $event.target.value)"
+                                @change="updateBackToTopButton('backgroundColor', $event.target.value)"
+                                class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <input
+                                type="text"
+                                :value="backToTopButton.backgroundColor || '#111827'"
+                                @input="updateBackToTopButton('backgroundColor', $event.target.value)"
+                                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Cor do símbolo</label>
+                        <div class="flex items-center gap-2">
+                            <input
+                                type="color"
+                                :value="backToTopIconColorHex"
+                                @input="updateBackToTopButton('iconColor', $event.target.value)"
+                                @change="updateBackToTopButton('iconColor', $event.target.value)"
+                                class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <input
+                                type="text"
+                                :value="backToTopButton.iconColor || '#ffffff'"
+                                @input="updateBackToTopButton('iconColor', $event.target.value)"
+                                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Style Settings -->
@@ -932,19 +1154,47 @@ onMounted(() => {
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fundo do menu</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        @click="setBackgroundMode('color')"
+                        class="px-3 py-2 text-sm font-medium border rounded-md transition-colors"
+                        :class="isTransparentBackground
+                            ? 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                            : 'border-wedding-500 bg-wedding-50 text-wedding-700'"
+                    >
+                        Cor
+                    </button>
+                    <button
+                        type="button"
+                        @click="setBackgroundMode('transparent')"
+                        class="px-3 py-2 text-sm font-medium border rounded-md transition-colors"
+                        :class="isTransparentBackground
+                            ? 'border-wedding-500 bg-wedding-50 text-wedding-700'
+                            : 'border-gray-300 text-gray-600 hover:bg-gray-50'"
+                    >
+                        Transparente
+                    </button>
+                </div>
+            </div>
+
+            <div :class="{ 'opacity-60': isTransparentBackground }">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Cor de Fundo</label>
                 <div class="flex items-center space-x-2">
                     <input
                         type="color"
                         :value="headerBackgroundColorHex"
-                        @input="updateStyle('backgroundColor', $event.target.value)"
-                        @change="updateStyle('backgroundColor', $event.target.value)"
+                        @input="handleBackgroundColorInput($event.target.value)"
+                        @change="handleBackgroundColorInput($event.target.value)"
+                        :disabled="isTransparentBackground"
                         class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
                     />
                     <button
                         v-if="isEyeDropperSupported"
                         type="button"
                         @click="pickBackgroundColorFromScreen"
+                        :disabled="isTransparentBackground"
                         class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
                         title="Capturar cor da tela"
                     >
@@ -954,21 +1204,32 @@ onMounted(() => {
                     </button>
                     <input
                         type="text"
-                        :value="style.backgroundColor || '#ffffff'"
-                        @input="updateStyle('backgroundColor', $event.target.value)"
+                        :value="isTransparentBackground ? 'transparent' : (style.backgroundColor || '#ffffff')"
+                        @input="handleBackgroundColorInput($event.target.value)"
+                        :disabled="isTransparentBackground"
                         class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
                     />
                 </div>
             </div>
 
+            <p v-if="isTransparentBackground" class="text-xs text-gray-500">
+                Modo transparente ativo. O menu ficará sobreposto à seção de Destaque.
+            </p>
+
             <div class="flex items-center">
                 <input
                     type="checkbox"
-                    :checked="style.sticky"
+                    :checked="isStickyEnabled"
+                    :disabled="isTransparentBackground"
                     @change="updateStyle('sticky', $event.target.checked)"
-                    class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
+                    class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <label class="ml-2 text-sm text-gray-700">Menu fixo (sticky)</label>
+                <label
+                    class="ml-2 text-sm"
+                    :class="isTransparentBackground ? 'text-gray-400' : 'text-gray-700'"
+                >
+                    Menu fixo (sticky)
+                </label>
             </div>
         </div>
     </div>

@@ -3,11 +3,11 @@
  * FooterPreview Component
  * 
  * Renders the footer section with social links, copyright,
- * privacy policy link, and back to top button.
+ * and privacy policy link.
  * 
  * @Requirements: 14.1, 14.3, 14.4, 14.5
  */
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
     content: {
@@ -56,10 +56,6 @@ const getIconSvg = (platform) => {
     return socialIcons[platform] || socialIcons.website;
 };
 
-// Scroll to top function
-const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-};
 </script>
 
 <template>
@@ -115,21 +111,6 @@ const scrollToTop = () => {
                 </a>
             </div>
 
-            <!-- Back to Top Button -->
-            <div 
-                v-if="content.showBackToTop"
-                class="flex justify-center mt-8"
-            >
-                <button
-                    @click="scrollToTop"
-                    class="flex items-center text-sm opacity-60 hover:opacity-100 transition-opacity"
-                >
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                    </svg>
-                    Voltar ao topo
-                </button>
-            </div>
         </div>
 
         <!-- Edit Mode Indicator -->

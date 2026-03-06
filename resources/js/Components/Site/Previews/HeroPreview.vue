@@ -112,7 +112,7 @@ const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/200
 
 <template>
     <section 
-        class="relative min-h-[400px] md:min-h-[600px] flex items-center justify-center"
+        class="relative min-h-[1080px] flex items-center justify-center"
         :class="layoutClasses"
     >
         <!-- Background Media -->

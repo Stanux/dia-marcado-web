@@ -3,7 +3,7 @@
  * PublicFooter Component
  * 
  * Renders the footer section with social links, copyright,
- * privacy policy link, and back to top button.
+ * and privacy policy link.
  * 
  * @Requirements: 14.1, 14.3, 14.4, 14.5
  */
@@ -48,10 +48,6 @@ const getIconSvg = (platform) => {
     return socialIcons[platform?.toLowerCase()] || socialIcons.website;
 };
 
-// Scroll to top function
-const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-};
 </script>
 
 <template>
@@ -110,23 +106,6 @@ const scrollToTop = () => {
                 </a>
             </div>
 
-            <!-- Back to Top Button -->
-            <div 
-                v-if="content.showBackToTop"
-                class="flex justify-center mt-10"
-            >
-                <button
-                    @click="scrollToTop"
-                    class="flex items-center text-sm opacity-50 hover:opacity-100 transition-all duration-200 group"
-                >
-                    <span class="w-10 h-10 flex items-center justify-center rounded-full border border-current mr-2 group-hover:bg-white/10 transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                        </svg>
-                    </span>
-                    Voltar ao topo
-                </button>
-            </div>
         </div>
     </footer>
 </template>

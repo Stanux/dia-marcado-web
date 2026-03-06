@@ -29,6 +29,32 @@ const overlay = computed(() => style.value.overlay || { color: '#000000', opacit
 const titleTypography = computed(() => props.content.titleTypography || {});
 const subtitleTypography = computed(() => props.content.subtitleTypography || {});
 
+const resolveTypographyFontSize = (value) => {
+    if (value === null || value === undefined || value === '') {
+        return undefined;
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return `${value}px`;
+    }
+
+    if (typeof value === 'string') {
+        const normalized = value.trim();
+        if (!normalized) {
+            return undefined;
+        }
+
+        const parsed = Number.parseFloat(normalized);
+        if (Number.isFinite(parsed)) {
+            return `${parsed}px`;
+        }
+
+        return normalized;
+    }
+
+    return undefined;
+};
+
 // Animation state
 const isVisible = ref(false);
 
@@ -75,6 +101,7 @@ const animationClass = computed(() => {
 const titleTextStyle = computed(() => ({
     fontFamily: titleTypography.value.fontFamily || props.theme.fontFamily,
     color: titleTypography.value.fontColor || '#ffffff',
+    fontSize: resolveTypographyFontSize(titleTypography.value.fontSize),
     fontWeight: titleTypography.value.fontWeight || undefined,
     fontStyle: titleTypography.value.fontItalic ? 'italic' : 'normal',
     textDecoration: titleTypography.value.fontUnderline ? 'underline' : 'none',
@@ -83,6 +110,7 @@ const titleTextStyle = computed(() => ({
 const subtitleTextStyle = computed(() => ({
     fontFamily: subtitleTypography.value.fontFamily || props.theme.fontFamily,
     color: subtitleTypography.value.fontColor || 'rgba(255, 255, 255, 0.9)',
+    fontSize: resolveTypographyFontSize(subtitleTypography.value.fontSize),
     fontWeight: subtitleTypography.value.fontWeight || undefined,
     fontStyle: subtitleTypography.value.fontItalic ? 'italic' : 'normal',
     textDecoration: subtitleTypography.value.fontUnderline ? 'underline' : 'none',
@@ -171,7 +199,7 @@ const navigateTo = (target) => {
 <template>
     <section 
         id="hero"
-        class="relative min-h-[420px] md:min-h-[700px] flex items-center justify-center"
+        class="public-hero-section relative flex items-center justify-center"
         :class="layoutClasses"
     >
         <!-- Background Media -->
@@ -372,5 +400,10 @@ const navigateTo = (target) => {
 /* Scale video embeds to cover container */
 .scale-150 {
     transform: scale(1.5);
+}
+
+.public-hero-section {
+    min-height: 100vh;
+    min-height: 100dvh;
 }
 </style>

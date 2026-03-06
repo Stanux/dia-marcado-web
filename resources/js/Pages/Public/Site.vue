@@ -156,6 +156,7 @@ const renderedSections = computed(() => {
                     props: {
                         ...baseProps,
                         enabledSections: enabledSections.value,
+                        footerContent: getSectionContent('footer'),
                         sectionOrder: orderedSectionKeys.value,
                     },
                 };

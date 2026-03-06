@@ -47,9 +47,33 @@ const resolveBaseBackgroundColor = (value) => {
 
 const sectionBackgroundColor = computed(() => resolveBaseBackgroundColor(style.value.backgroundColor));
 
-// Default config if not provided
+const resolveConfigObject = (value) => (
+    value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+);
+
+const resolveTitleStyleFromTypography = (typography = {}) => {
+    const isBold = Number(typography.fontWeight) >= 700;
+    const isItalic = Boolean(typography.fontItalic);
+
+    if (isBold && isItalic) {
+        return 'bold_italic';
+    }
+
+    if (isBold) {
+        return 'bold';
+    }
+
+    if (isItalic) {
+        return 'italic';
+    }
+
+    return 'normal';
+};
+
+// Merge config from persisted model and section content.
+// Section draft/published content has priority because it reflects editor state.
 const giftConfig = computed(() => {
-    return props.config || {
+    const mergedConfig = {
         section_title: 'Lista de Presentes',
         registry_mode: 'quantity',
         fee_modality: 'couple_pays',
@@ -57,7 +81,37 @@ const giftConfig = computed(() => {
         title_font_size: null,
         title_color: null,
         title_style: 'normal',
+        title_underline: false,
+        ...resolveConfigObject(props.config),
+        ...resolveConfigObject(props.content?.config),
     };
+
+    const titleTypography = resolveConfigObject(props.content?.titleTypography);
+
+    if (titleTypography.fontFamily) {
+        mergedConfig.title_font_family = titleTypography.fontFamily;
+    }
+
+    if (titleTypography.fontColor) {
+        mergedConfig.title_color = titleTypography.fontColor;
+    }
+
+    if (titleTypography.fontSize !== null && titleTypography.fontSize !== undefined && titleTypography.fontSize !== '') {
+        const parsedSize = Number.parseFloat(String(titleTypography.fontSize));
+        if (Number.isFinite(parsedSize)) {
+            mergedConfig.title_font_size = parsedSize;
+        }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(titleTypography, 'fontWeight') || Object.prototype.hasOwnProperty.call(titleTypography, 'fontItalic')) {
+        mergedConfig.title_style = resolveTitleStyleFromTypography(titleTypography);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(titleTypography, 'fontUnderline')) {
+        mergedConfig.title_underline = Boolean(titleTypography.fontUnderline);
+    }
+
+    return mergedConfig;
 });
 </script>
 

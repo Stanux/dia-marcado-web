@@ -23,6 +23,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    footerContent: {
+        type: Object,
+        default: () => ({}),
+    },
     sectionOrder: {
         type: Array,
         default: () => [],
@@ -125,7 +129,15 @@ const resolveType = (item = {}, target = '') => {
 };
 
 // Computed properties
-const logo = computed(() => props.content.logo || { type: 'image', url: '', alt: '' });
+const logo = computed(() => props.content.logo || {
+    type: 'text',
+    url: '',
+    alt: '',
+    text: {
+        initials: ['', ''],
+        connector: '&',
+    },
+});
 const navigation = computed(() => {
     const items = Array.isArray(props.content.navigation) ? props.content.navigation : [];
     if (!items.length) return [];
@@ -318,7 +330,25 @@ const responsiveSize = (value, fallback, min, viewportFactor = 5.5) => {
 
 const forceCompactNavigation = computed(() => ['mobile', 'tablet'].includes(props.viewportMode));
 const hideHeaderTextOnMobile = computed(() => props.viewportMode === 'mobile' || isMobileScreen.value);
-const isStickyEnabled = computed(() => parseBoolean(style.value.sticky));
+const isTransparentBackground = computed(() => {
+    if (Object.prototype.hasOwnProperty.call(style.value, 'transparent')) {
+        return parseBoolean(style.value.transparent);
+    }
+
+    if (typeof style.value.backgroundColor === 'string') {
+        return style.value.backgroundColor.trim().toLowerCase() === 'transparent';
+    }
+
+    return false;
+});
+const isStickyEnabled = computed(() => parseBoolean(style.value.sticky) && !isTransparentBackground.value);
+const headerHeightCss = computed(() => toCssSize(style.value.height, '80px'));
+const headerBackgroundColor = computed(() => (
+    isTransparentBackground.value ? 'transparent' : safeHeaderBackgroundColor.value
+));
+const headerBorderClass = computed(() => (
+    isTransparentBackground.value ? '' : 'border-b border-gray-100'
+));
 const showDesktopNavigation = computed(
     () => navigation.value.length > 0 && !forceCompactNavigation.value && isWideScreen.value
 );
@@ -337,6 +367,7 @@ const logoTextStyle = computed(() => ({
     fontSize: responsiveSize(logo.value.text?.typography?.fontSize, 48, 24, 8),
     fontWeight: logo.value.text?.typography?.fontWeight || 700,
     fontStyle: logo.value.text?.typography?.fontItalic ? 'italic' : 'normal',
+    textDecoration: logo.value.text?.typography?.fontUnderline ? 'underline' : 'none',
     lineHeight: 1.15,
     whiteSpace: 'nowrap',
 }));
@@ -369,22 +400,57 @@ const menuLinkStyle = computed(() => {
     const fallbackFamily = props.theme.fontFamily || 'Montserrat';
     const fallbackColor = '#374151';
     const fallbackHoverColor = props.theme.primaryColor || '#f97373';
+    const hasHoverItalic = Object.prototype.hasOwnProperty.call(hover, 'fontItalic');
+    const hasHoverUnderline = Object.prototype.hasOwnProperty.call(hover, 'fontUnderline');
+    const normalItalic = Boolean(normal.fontItalic);
+    const normalUnderline = Boolean(normal.fontUnderline);
 
     return {
         '--dm-menu-font-family': normal.fontFamily || fallbackFamily,
         '--dm-menu-font-color': normal.fontColor || fallbackColor,
         '--dm-menu-font-size': `${parsePixels(normal.fontSize, 14)}px`,
-        '--dm-menu-font-weight': String(normal.fontWeight || 400),
-        '--dm-menu-font-style': normal.fontItalic ? 'italic' : 'normal',
-        '--dm-menu-font-decoration': normal.fontUnderline ? 'underline' : 'none',
-        '--dm-menu-hover-font-family': hover.fontFamily || normal.fontFamily || fallbackFamily,
+        '--dm-menu-font-weight': String(normal.fontWeight ?? 400),
+        '--dm-menu-font-style': normalItalic ? 'italic' : 'normal',
+        '--dm-menu-font-decoration': normalUnderline ? 'underline' : 'none',
+        '--dm-menu-hover-font-family': hover.fontFamily ?? normal.fontFamily ?? fallbackFamily,
         '--dm-menu-hover-font-color': hover.fontColor || fallbackHoverColor,
         '--dm-menu-hover-font-size': `${parsePixels(hover.fontSize, parsePixels(normal.fontSize, 14))}px`,
-        '--dm-menu-hover-font-weight': String(hover.fontWeight || normal.fontWeight || 500),
-        '--dm-menu-hover-font-style': hover.fontItalic ? 'italic' : 'normal',
-        '--dm-menu-hover-font-decoration': hover.fontUnderline ? 'underline' : 'none',
+        '--dm-menu-hover-font-weight': String(hover.fontWeight ?? normal.fontWeight ?? 400),
+        '--dm-menu-hover-font-style': (hasHoverItalic ? Boolean(hover.fontItalic) : normalItalic) ? 'italic' : 'normal',
+        '--dm-menu-hover-font-decoration': (hasHoverUnderline ? Boolean(hover.fontUnderline) : normalUnderline) ? 'underline' : 'none',
     };
 });
+
+const mobileMenuButtonStyle = computed(() => ({
+    color: menuTypography.value.fontColor || '#374151',
+}));
+
+const showBackToTop = computed(() => {
+    if (Object.prototype.hasOwnProperty.call(props.content, 'showBackToTop')) {
+        return parseBoolean(props.content.showBackToTop);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(props.footerContent || {}, 'showBackToTop')) {
+        return parseBoolean(props.footerContent.showBackToTop);
+    }
+
+    return true;
+});
+
+const backToTopButton = computed(() => {
+    const headerButton = props.content?.backToTopButton || {};
+    const legacyFooterButton = props.footerContent?.backToTopButton || {};
+
+    return {
+        backgroundColor: headerButton.backgroundColor || legacyFooterButton.backgroundColor || '#111827',
+        iconColor: headerButton.iconColor || legacyFooterButton.iconColor || '#ffffff',
+    };
+});
+
+const backToTopButtonStyle = computed(() => ({
+    backgroundColor: backToTopButton.value.backgroundColor,
+    color: backToTopButton.value.iconColor,
+}));
 
 const syncViewportBreakpoint = () => {
     if (typeof window === 'undefined') {
@@ -504,15 +570,27 @@ watch(isStickyEnabled, (enabled) => {
 
 // Header styles
 const headerStyles = computed(() => ({
-    minHeight: style.value.height || '80px',
-    backgroundColor: safeHeaderBackgroundColor.value,
+    minHeight: headerHeightCss.value,
+    height: hideHeaderTextOnMobile.value ? headerHeightCss.value : undefined,
+    backgroundColor: headerBackgroundColor.value,
     position: isStickyEnabled.value ? 'sticky' : 'relative',
     top: isStickyEnabled.value ? '0px' : undefined,
-    zIndex: isStickyEnabled.value ? 50 : undefined,
+    zIndex: isStickyEnabled.value || isTransparentBackground.value ? 50 : undefined,
+    marginBottom: isTransparentBackground.value ? `calc(-1 * ${headerHeightCss.value})` : undefined,
+    overflow: 'visible',
 }));
 
 const headerRowStyles = computed(() => ({
-    minHeight: style.value.height || '80px',
+    minHeight: headerHeightCss.value,
+}));
+
+const mobileMenuStyles = computed(() => ({
+    position: 'absolute',
+    left: '0px',
+    right: '0px',
+    top: '100%',
+    zIndex: 65,
+    backgroundColor: headerBackgroundColor.value,
 }));
 
 const headerRowClass = computed(() => {
@@ -574,6 +652,13 @@ const scrollToAnchor = (targetSelector) => {
     });
 };
 
+const scrollToTop = () => {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+    });
+};
+
 // Navigate to target
 const navigateTo = (target, type) => {
     const normalizedTarget = normalizeTarget(target);
@@ -613,32 +698,36 @@ const navigateTo = (target, type) => {
 <template>
     <header 
         ref="headerRef"
-        class="border-b border-gray-100 transition-shadow duration-200"
-        :class="headerClasses"
+        class="transition-shadow duration-200"
+        :class="[headerBorderClass, headerClasses]"
         :style="headerStyles"
     >
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-full">
             <div class="flex items-center gap-2 md:gap-4" :class="headerRowClass" :style="headerRowStyles">
                 <!-- Logo -->
                 <div v-if="logo.type === 'image' && logo.url" class="flex-shrink-0 max-w-[96px] sm:max-w-[140px]">
-                    <img 
-                        :src="logo.url" 
-                        :alt="logo.alt || 'Logo'"
-                        :style="headerLogoStyle"
-                        class="w-auto object-contain"
-                    />
+                    <a href="/" class="public-header-logo-link" aria-label="Ir para o início">
+                        <img 
+                            :src="logo.url" 
+                            :alt="logo.alt || 'Logo'"
+                            :style="headerLogoStyle"
+                            class="w-auto object-contain"
+                        />
+                    </a>
                 </div>
                 
                 <!-- Logo Text (Initials) -->
                 <div v-else-if="logo.type === 'text' && logo.text" class="flex-shrink-0 max-w-[45%] sm:max-w-none">
-                    <span 
-                        class="font-bold tracking-wider block truncate"
-                        :style="logoTextStyle"
-                    >
-                        {{ (logo.text.initials?.[0] || '').toUpperCase().charAt(0) }}
-                        <span class="mx-1">{{ logo.text.connector || '&' }}</span>
-                        {{ (logo.text.initials?.[1] || '').toUpperCase().charAt(0) }}
-                    </span>
+                    <a href="/" class="public-header-logo-link" aria-label="Ir para o início">
+                        <span 
+                            class="font-bold tracking-wider block truncate"
+                            :style="logoTextStyle"
+                        >
+                            {{ (logo.text.initials?.[0] || '').toUpperCase().charAt(0) }}
+                            <span class="mx-1">{{ logo.text.connector || '&' }}</span>
+                            {{ (logo.text.initials?.[1] || '').toUpperCase().charAt(0) }}
+                        </span>
+                    </a>
                 </div>
 
                 <!-- Title & Subtitle -->
@@ -672,11 +761,13 @@ const navigateTo = (target, type) => {
                         v-for="(item, index) in navigation"
                         :key="index"
                         :href="item.target || '#'"
-                        class="public-header-nav-link cursor-pointer"
+                        class="public-header-nav-link public-header-nav-link-desktop cursor-pointer"
+                        :data-label="item.label"
                         :style="menuLinkStyle"
                         @click.prevent="navigateTo(item.target, item.type)"
                     >
-                        {{ item.label }}
+                        <span class="public-header-nav-link-normal">{{ item.label }}</span>
+                        <span class="public-header-nav-link-hover" aria-hidden="true">{{ item.label }}</span>
                     </a>
                 </nav>
 
@@ -700,8 +791,9 @@ const navigateTo = (target, type) => {
                 <!-- Mobile Menu Button -->
                 <button 
                     v-if="showMobileNavigation"
-                    class="p-2 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100 flex-shrink-0"
+                    class="p-2 rounded-md hover:bg-gray-100 flex-shrink-0"
                     :class="hideHeaderTextOnMobile ? 'ml-auto' : 'ml-2'"
+                    :style="mobileMenuButtonStyle"
                     @click="isMobileMenuOpen = !isMobileMenuOpen"
                     aria-label="Menu"
                 >
@@ -726,8 +818,9 @@ const navigateTo = (target, type) => {
         >
             <div 
                 v-if="isMobileMenuOpen && showMobileNavigation"
-                class="border-t border-gray-100"
-                :style="{ backgroundColor: safeHeaderBackgroundColor }"
+                class="absolute left-0 right-0 top-full z-[65]"
+                :class="isTransparentBackground ? '' : 'border-t border-gray-100'"
+                :style="mobileMenuStyles"
             >
                 <nav class="px-4 py-4 space-y-2">
                     <a
@@ -754,6 +847,20 @@ const navigateTo = (target, type) => {
                 </nav>
             </div>
         </Transition>
+
+        <button
+            v-if="showBackToTop"
+            type="button"
+            class="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-[70] h-12 w-12 rounded-full shadow-lg transition-transform duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-black/40 flex items-center justify-center"
+            :style="backToTopButtonStyle"
+            aria-label="Voltar ao topo"
+            title="Voltar ao topo"
+            @click="scrollToTop"
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+        </button>
     </header>
 </template>
 
@@ -764,29 +871,98 @@ header {
 }
 
 .public-header-nav-link {
+    line-height: 1.25;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.public-header-nav-link-desktop {
+    display: inline-grid;
+    align-items: center;
+}
+
+.public-header-nav-link-desktop::before {
+    content: attr(data-label);
+    grid-area: 1 / 1;
+    visibility: hidden;
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1.25;
+    font-family: var(--dm-menu-hover-font-family);
+    font-size: var(--dm-menu-hover-font-size);
+    font-weight: var(--dm-menu-hover-font-weight);
+    font-style: var(--dm-menu-hover-font-style);
+    text-decoration: var(--dm-menu-hover-font-decoration);
+}
+
+.public-header-nav-link-normal,
+.public-header-nav-link-hover {
+    grid-area: 1 / 1;
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+}
+
+.public-header-nav-link-normal {
     color: var(--dm-menu-font-color);
     font-family: var(--dm-menu-font-family);
     font-size: var(--dm-menu-font-size);
     font-weight: var(--dm-menu-font-weight);
     font-style: var(--dm-menu-font-style);
     text-decoration: var(--dm-menu-font-decoration);
-    line-height: 1.25;
-    transition: color 0.2s ease, opacity 0.2s ease;
+    opacity: 1;
 }
 
-.public-header-nav-link:hover,
-.public-header-nav-link:focus-visible {
+.public-header-nav-link-hover {
     color: var(--dm-menu-hover-font-color);
     font-family: var(--dm-menu-hover-font-family);
     font-size: var(--dm-menu-hover-font-size);
     font-weight: var(--dm-menu-hover-font-weight);
     font-style: var(--dm-menu-hover-font-style);
     text-decoration: var(--dm-menu-hover-font-decoration);
+    pointer-events: none;
+    opacity: 0;
+}
+
+.public-header-nav-link-desktop:hover .public-header-nav-link-normal,
+.public-header-nav-link-desktop:focus-visible .public-header-nav-link-normal {
+    opacity: 0;
+}
+
+.public-header-nav-link-desktop:hover .public-header-nav-link-hover,
+.public-header-nav-link-desktop:focus-visible .public-header-nav-link-hover {
     opacity: 0.95;
+}
+
+.public-header-nav-link-mobile {
+    color: var(--dm-menu-font-color);
+    font-family: var(--dm-menu-font-family);
+    font-size: var(--dm-menu-font-size);
+    font-weight: var(--dm-menu-font-weight);
+    font-style: var(--dm-menu-font-style);
+    text-decoration: var(--dm-menu-font-decoration);
 }
 
 .public-header-nav-link-mobile:hover,
 .public-header-nav-link-mobile:focus-visible {
+    color: var(--dm-menu-hover-font-color);
+    font-family: var(--dm-menu-hover-font-family);
+    font-size: var(--dm-menu-hover-font-size);
+    font-weight: var(--dm-menu-hover-font-weight);
+    font-style: var(--dm-menu-hover-font-style);
+    text-decoration: var(--dm-menu-hover-font-decoration);
     background-color: rgba(0, 0, 0, 0.04);
+}
+
+.public-header-logo-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+}
+
+.public-header-logo-link:hover,
+.public-header-logo-link:focus-visible,
+.public-header-logo-link:visited {
+    text-decoration: none;
+    color: inherit;
 }
 </style>

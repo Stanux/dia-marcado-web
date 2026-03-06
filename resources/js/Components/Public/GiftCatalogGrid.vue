@@ -35,6 +35,7 @@ interface GiftRegistryConfig {
   title_font_size?: number;
   title_color?: string;
   title_style?: string;
+  title_underline?: boolean;
   fee_modality: string;
   registry_mode?: 'quantity' | 'quota';
 }
@@ -68,6 +69,7 @@ const giftConfig = computed(() => {
     title_font_size: null,
     title_color: null,
     title_style: 'normal',
+    title_underline: false,
   };
 });
 
@@ -96,6 +98,10 @@ const titleStyles = computed(() => {
     if (style === 'italic' || style === 'bold_italic') {
       styles.fontStyle = 'italic';
     }
+  }
+
+  if (config.title_underline) {
+    styles.textDecoration = 'underline';
   }
   
   return styles;
