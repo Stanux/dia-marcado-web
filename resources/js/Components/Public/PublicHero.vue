@@ -403,7 +403,7 @@ const navigateTo = (target) => {
 }
 
 .public-hero-section {
-    min-height: 100vh;
-    min-height: 100dvh;
+    min-height: var(--dm-preview-viewport-height, 100vh);
+    min-height: var(--dm-preview-viewport-height, 100dvh);
 }
 </style>

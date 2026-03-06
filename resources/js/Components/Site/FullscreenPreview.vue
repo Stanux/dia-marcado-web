@@ -36,11 +36,11 @@ const previewContent = ref(null);
 const isLoading = ref(false);
 const loadError = ref(null);
 
-// Preview breakpoints
+// Preview viewport presets
 const previewBreakpoints = {
-    mobile: { width: '375px', label: 'Mobile', icon: 'mobile' },
-    tablet: { width: '768px', label: 'Tablet', icon: 'tablet' },
-    desktop: { width: '100%', label: 'Web', icon: 'desktop' },
+    mobile: { width: '375px', height: '812px', label: 'Mobile', icon: 'mobile' },
+    tablet: { width: '768px', height: '1024px', label: 'Tablet', icon: 'tablet' },
+    desktop: { width: '100%', height: '100vh', label: 'Web', icon: 'desktop' },
 };
 
 // Handle close
@@ -160,11 +160,14 @@ watch(
                 <!-- Preview Content Area -->
                 <div class="w-full min-h-screen flex justify-center" style="margin: 0; padding: 0;">
                     <div
-                        class="bg-white transition-all duration-300"
+                        class="bg-white transition-all duration-300 overflow-hidden"
                         :style="{ 
                             width: previewBreakpoints[previewMode].width,
+                            height: previewBreakpoints[previewMode].height,
+                            '--dm-preview-viewport-width': previewBreakpoints[previewMode].width,
+                            '--dm-preview-viewport-height': previewBreakpoints[previewMode].height,
                             maxWidth: '100%',
-                            minHeight: '100vh',
+                            maxHeight: '100vh',
                             margin: 0,
                             padding: 0,
                         }"
@@ -175,12 +178,13 @@ watch(
                         <div v-else-if="loadError" class="p-8 text-center text-red-600">
                             {{ loadError }}
                         </div>
-                        <SitePreview
-                            v-else
-                            :content="previewContent || content"
-                            :wedding="wedding"
-                            :mode="previewMode"
-                        />
+                        <div v-else class="fullscreen-preview-scroll">
+                            <SitePreview
+                                :content="previewContent || content"
+                                :wedding="wedding"
+                                :mode="previewMode"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -199,5 +203,11 @@ watch(
 
 .text-wedding-700 {
     color: #b9163a;
+}
+
+.fullscreen-preview-scroll {
+    height: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
 }
 </style>

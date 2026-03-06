@@ -567,6 +567,30 @@ const normalizeHexColor = (color, fallback = '#ffffff') => {
     return `#${toHex(rgbaMatch[1])}${toHex(rgbaMatch[2])}${toHex(rgbaMatch[3])}`;
 };
 
+const normalizePercentage = (value, fallback = 0) => {
+    const parsed = typeof value === 'number'
+        ? value
+        : Number.parseFloat(value);
+
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+
+    return Math.max(0, Math.min(100, Math.round(parsed)));
+};
+
+const normalizeBlurAmount = (value, fallback = 14) => {
+    const parsed = typeof value === 'number'
+        ? value
+        : Number.parseFloat(value);
+
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+
+    return Math.max(0, Math.min(32, Math.round(parsed)));
+};
+
 // Computed properties
 const navigation = computed(() => localContent.value.navigation || []);
 const logo = computed(() => localContent.value.logo || {
@@ -622,6 +646,12 @@ const menuHoverTypography = computed(() => localContent.value.menuHoverTypograph
 });
 const style = computed(() => localContent.value.style || {});
 const headerBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#ffffff'));
+const mobileMenuBackgroundColorHex = computed(() => normalizeHexColor(
+    style.value.mobileMenuBackgroundColor,
+    '#111827'
+));
+const mobileMenuTransparency = computed(() => normalizePercentage(style.value.mobileMenuTransparency, 18));
+const mobileMenuBlur = computed(() => normalizeBlurAmount(style.value.mobileMenuBlur, 14));
 
 const parseStyleBoolean = (value) => {
     if (typeof value === 'boolean') {
@@ -699,6 +729,18 @@ const handleBackgroundColorInput = (value) => {
         transparent: false,
         backgroundColor: value,
     });
+};
+
+const handleMobileMenuBackgroundColorInput = (value) => {
+    updateStyle('mobileMenuBackgroundColor', value);
+};
+
+const handleMobileMenuTransparencyInput = (value) => {
+    updateStyle('mobileMenuTransparency', normalizePercentage(value, 18));
+};
+
+const handleMobileMenuBlurInput = (value) => {
+    updateStyle('mobileMenuBlur', normalizeBlurAmount(value, 14));
 };
 
 const updateBackToTopButton = (field, value) => {
@@ -1069,7 +1111,66 @@ onMounted(() => {
                 </div>
             </div>
 
-            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+            <div class="space-y-4">
+                <h4 class="text-sm font-semibold text-gray-800">Menu mobile</h4>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Cor de fundo</label>
+                        <div class="flex items-center gap-2">
+                            <input
+                                type="color"
+                                :value="mobileMenuBackgroundColorHex"
+                                @input="handleMobileMenuBackgroundColorInput($event.target.value)"
+                                @change="handleMobileMenuBackgroundColorInput($event.target.value)"
+                                class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                            />
+                            <input
+                                type="text"
+                                :value="style.mobileMenuBackgroundColor || '#111827'"
+                                @input="handleMobileMenuBackgroundColorInput($event.target.value)"
+                                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">
+                            Transparência
+                            <span class="ml-1 text-gray-500">{{ mobileMenuTransparency }}%</span>
+                        </label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            :value="mobileMenuTransparency"
+                            @input="handleMobileMenuTransparencyInput($event.target.value)"
+                            class="w-full accent-wedding-600"
+                        />
+                        <p class="mt-1 text-xs text-gray-500">0% = sólido, 100% = totalmente transparente.</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                        Intensidade do desfoque
+                        <span class="ml-1 text-gray-500">{{ mobileMenuBlur }}px</span>
+                    </label>
+                    <input
+                        type="range"
+                        min="0"
+                        max="32"
+                        step="1"
+                        :value="mobileMenuBlur"
+                        @input="handleMobileMenuBlurInput($event.target.value)"
+                        class="w-full accent-wedding-600"
+                    />
+                    <p class="mt-1 text-xs text-gray-500">0px desativa o blur. Valores maiores aumentam o efeito de vidro.</p>
+                </div>
+            </div>
+
+            <div class="space-y-3">
                 <h4 class="text-sm font-semibold text-gray-800">Botão flutuante "Voltar ao topo"</h4>
 
                 <div class="flex items-center">

@@ -127,6 +127,9 @@ class SiteContentSchema
                 'alignment' => 'center',
                 'backgroundColor' => '#ffffff',
                 'transparent' => false,
+                'mobileMenuBackgroundColor' => '#111827',
+                'mobileMenuTransparency' => 18,
+                'mobileMenuBlur' => 14,
                 'sticky' => false,
                 'overlay' => [
                     'enabled' => false,

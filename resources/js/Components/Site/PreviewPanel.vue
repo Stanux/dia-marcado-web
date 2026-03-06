@@ -3,12 +3,12 @@
  * PreviewPanel Component
  * 
  * Provides responsive preview functionality with three viewports:
- * mobile (375px), tablet (768px), and desktop (1280px).
+ * mobile (375x812), tablet (768x1024), and desktop (1280x900).
  * Shows draft watermark when content is not published.
  * 
  * @Requirements: 7.1, 7.2, 7.3
  */
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import SitePreview from './SitePreview.vue';
 
 const props = defineProps({
@@ -48,18 +48,21 @@ const viewports = {
         key: 'mobile',
         label: 'Mobile',
         width: 375,
+        height: 812,
         icon: 'mobile',
     },
     tablet: {
         key: 'tablet',
         label: 'Tablet',
         width: 768,
+        height: 1024,
         icon: 'tablet',
     },
     desktop: {
         key: 'desktop',
         label: 'Desktop',
         width: 1280,
+        height: 900,
         icon: 'desktop',
     },
 };
@@ -68,24 +71,43 @@ const viewports = {
 const containerRef = ref(null);
 const previewScale = ref(1);
 
-// Calculate scale based on container width
-const calculateScale = (containerWidth, viewportWidth) => {
-    if (containerWidth >= viewportWidth) {
-        return 1;
-    }
-    return Math.max(0.25, containerWidth / viewportWidth);
+// Calculate scale based on available width and height
+const calculateScale = (containerWidth, containerHeight, viewportWidth, viewportHeight) => {
+    const widthScale = containerWidth >= viewportWidth ? 1 : containerWidth / viewportWidth;
+    const heightScale = containerHeight >= viewportHeight ? 1 : containerHeight / viewportHeight;
+
+    return Math.max(0.2, Math.min(widthScale, heightScale, 1));
 };
 
 // Watch for container size changes
 const updateScale = () => {
     if (!containerRef.value) return;
-    const containerWidth = containerRef.value.clientWidth - 48; // Account for padding
-    const viewportWidth = viewports[activeViewport.value].width;
-    previewScale.value = calculateScale(containerWidth, viewportWidth);
+    const containerWidth = Math.max(containerRef.value.clientWidth - 48, 1); // Account for padding
+    const containerHeight = Math.max(containerRef.value.clientHeight - 96, 1); // Reserve space for viewport label
+    const viewport = viewports[activeViewport.value];
+    previewScale.value = calculateScale(containerWidth, containerHeight, viewport.width, viewport.height);
 };
 
 // Update scale when viewport changes
 watch(activeViewport, updateScale);
+watch(viewMode, () => nextTick(updateScale));
+watch(
+    () => props.isOpen,
+    (open) => {
+        if (open) {
+            nextTick(updateScale);
+        }
+    }
+);
+
+onMounted(() => {
+    window.addEventListener('resize', updateScale);
+    nextTick(updateScale);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('resize', updateScale);
+});
 
 // Guest view mode
 const isGuestView = ref(false);
@@ -100,10 +122,28 @@ const previewContainerStyle = computed(() => {
     const viewport = viewports[activeViewport.value];
     return {
         width: `${viewport.width}px`,
+        height: `${viewport.height}px`,
+        '--dm-preview-viewport-width': `${viewport.width}px`,
+        '--dm-preview-viewport-height': `${viewport.height}px`,
         transform: `scale(${previewScale.value})`,
         transformOrigin: 'top center',
     };
 });
+
+const getSideBySideViewportStyle = (viewport) => {
+    const maxWidth = 320;
+    const maxHeight = 220;
+    const scale = Math.min(1, maxWidth / viewport.width, maxHeight / viewport.height);
+
+    return {
+        width: `${viewport.width}px`,
+        height: `${viewport.height}px`,
+        '--dm-preview-viewport-width': `${viewport.width}px`,
+        '--dm-preview-viewport-height': `${viewport.height}px`,
+        transform: `scale(${scale})`,
+        transformOrigin: 'top center',
+    };
+};
 </script>
 
 <template>
@@ -188,7 +228,7 @@ const previewContainerStyle = computed(() => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     {{ viewport.label }}
-                    <span class="ml-1 text-gray-400">({{ viewport.width }}px)</span>
+                    <span class="ml-1 text-gray-400">({{ viewport.width }}x{{ viewport.height }}px)</span>
                 </button>
             </div>
         </div>
@@ -217,19 +257,21 @@ const previewContainerStyle = computed(() => {
                         </div>
 
                         <!-- Site Preview -->
-                        <SitePreview
-                            :content="content"
-                            :theme="theme"
-                            :wedding="wedding"
-                            :is-edit-mode="!isGuestView"
-                            :viewport="activeViewport"
-                        />
+                        <div class="preview-viewport-scroll">
+                            <SitePreview
+                                :content="content"
+                                :theme="theme"
+                                :wedding="wedding"
+                                :is-edit-mode="!isGuestView"
+                                :mode="activeViewport"
+                            />
+                        </div>
                     </div>
                 </div>
 
                 <!-- Viewport Info -->
                 <p class="text-center text-xs text-gray-500 mt-4">
-                    {{ viewports[activeViewport].label }} - {{ viewports[activeViewport].width }}px
+                    {{ viewports[activeViewport].label }} - {{ viewports[activeViewport].width }}x{{ viewports[activeViewport].height }}px
                     <span v-if="previewScale < 1" class="ml-1">({{ Math.round(previewScale * 100) }}% zoom)</span>
                 </p>
             </template>
@@ -253,17 +295,13 @@ const previewContainerStyle = computed(() => {
                             <svg v-else class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
-                            {{ viewport.label }} ({{ viewport.width }}px)
+                            {{ viewport.label }} ({{ viewport.width }}x{{ viewport.height }}px)
                         </div>
 
                         <!-- Preview Container -->
                         <div
                             class="bg-white border border-gray-300 rounded-lg shadow overflow-hidden relative"
-                            :style="{
-                                width: `${Math.min(viewport.width, 320)}px`,
-                                transform: `scale(${Math.min(1, 320 / viewport.width)})`,
-                                transformOrigin: 'top center',
-                            }"
+                            :style="getSideBySideViewportStyle(viewport)"
                         >
                             <!-- Draft Watermark -->
                             <div
@@ -276,13 +314,15 @@ const previewContainerStyle = computed(() => {
                                 </span>
                             </div>
 
-                            <SitePreview
-                                :content="content"
-                                :theme="theme"
-                                :wedding="wedding"
-                                :is-edit-mode="!isGuestView"
-                                :viewport="viewport.key"
-                            />
+                            <div class="preview-viewport-scroll">
+                                <SitePreview
+                                    :content="content"
+                                    :theme="theme"
+                                    :wedding="wedding"
+                                    :is-edit-mode="!isGuestView"
+                                    :mode="viewport.key"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -300,5 +340,11 @@ const previewContainerStyle = computed(() => {
 }
 .text-wedding-700 {
     color: #b9163a;
+}
+
+.preview-viewport-scroll {
+    height: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
 }
 </style>

@@ -307,6 +307,64 @@ const parsePixels = (value, fallback) => {
     return fallback;
 };
 
+const clampPercentage = (value, fallback = 0) => {
+    const parsed = typeof value === 'number'
+        ? value
+        : Number.parseFloat(value);
+
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+
+    return Math.max(0, Math.min(100, parsed));
+};
+
+const clampRange = (value, min, max, fallback) => {
+    const parsed = typeof value === 'number'
+        ? value
+        : Number.parseFloat(value);
+
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+
+    return Math.max(min, Math.min(max, parsed));
+};
+
+const resolveRgbChannels = (value, fallback = [17, 24, 39]) => {
+    if (typeof value !== 'string' || !value.trim()) {
+        return fallback;
+    }
+
+    const normalized = value.trim();
+
+    if (/^#[0-9a-f]{6}$/i.test(normalized)) {
+        return [
+            Number.parseInt(normalized.slice(1, 3), 16),
+            Number.parseInt(normalized.slice(3, 5), 16),
+            Number.parseInt(normalized.slice(5, 7), 16),
+        ];
+    }
+
+    if (/^#[0-9a-f]{3}$/i.test(normalized)) {
+        return normalized
+            .slice(1)
+            .split('')
+            .map((channel) => Number.parseInt(`${channel}${channel}`, 16));
+    }
+
+    const rgbMatch = normalized.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*[+-]?\d*\.?\d+\s*)?\)$/i);
+    if (rgbMatch) {
+        return [
+            clampRgbChannel(rgbMatch[1]),
+            clampRgbChannel(rgbMatch[2]),
+            clampRgbChannel(rgbMatch[3]),
+        ];
+    }
+
+    return fallback;
+};
+
 const toCssSize = (value, fallback = '64px') => {
     if (typeof value === 'number' && Number.isFinite(value)) {
         return `${value}px`;
@@ -424,6 +482,17 @@ const menuLinkStyle = computed(() => {
 const mobileMenuButtonStyle = computed(() => ({
     color: menuTypography.value.fontColor || '#374151',
 }));
+
+const mobileMenuBackgroundColor = computed(() => {
+    if (typeof style.value.mobileMenuBackgroundColor === 'string' && style.value.mobileMenuBackgroundColor.trim()) {
+        return style.value.mobileMenuBackgroundColor.trim();
+    }
+
+    return '#111827';
+});
+
+const mobileMenuTransparency = computed(() => clampPercentage(style.value.mobileMenuTransparency, 18));
+const mobileMenuBlur = computed(() => clampRange(style.value.mobileMenuBlur, 0, 32, 14));
 
 const showBackToTop = computed(() => {
     if (Object.prototype.hasOwnProperty.call(props.content, 'showBackToTop')) {
@@ -590,7 +659,15 @@ const mobileMenuStyles = computed(() => ({
     right: '0px',
     top: '100%',
     zIndex: 65,
-    backgroundColor: headerBackgroundColor.value,
+    backgroundColor: (() => {
+        const [r, g, b] = resolveRgbChannels(mobileMenuBackgroundColor.value, [17, 24, 39]);
+        const alpha = Math.max(0, Math.min(1, 1 - (mobileMenuTransparency.value / 100)));
+
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    })(),
+    backdropFilter: `blur(${mobileMenuBlur.value}px)`,
+    WebkitBackdropFilter: `blur(${mobileMenuBlur.value}px)`,
+    boxShadow: '0 18px 50px rgba(0, 0, 0, 0.28)',
 }));
 
 const headerRowClass = computed(() => {
@@ -949,7 +1026,7 @@ header {
     font-weight: var(--dm-menu-hover-font-weight);
     font-style: var(--dm-menu-hover-font-style);
     text-decoration: var(--dm-menu-hover-font-decoration);
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
 .public-header-logo-link {
