@@ -78,12 +78,6 @@ const descriptionStyle = computed(() => ({
     textDecoration: descriptionTypography.value.fontUnderline ? 'underline' : 'none',
 }));
 const descriptionTextColor = computed(() => descriptionStyle.value.color || '#4b5563');
-const inviteValidationCardStyle = computed(() => ({
-    borderColor: descriptionTextColor.value,
-}));
-const inviteValidationTitleStyle = computed(() => ({
-    color: descriptionTextColor.value,
-}));
 
 const ALERT_VARIANTS = {
     error: {
@@ -731,19 +725,25 @@ async function confirmModalSubmit() {
 <template>
     <section id="guests-v2" class="py-16 sm:py-20" :style="sectionStyles">
         <div class="mx-auto px-4 sm:px-6 lg:px-8" :class="containerClass">
-            <div :class="showCard ? layoutClass : 'p-0 bg-transparent border-0 shadow-none'" :style="showCard ? cardContainerStyle : undefined">
-                <div class="text-center">
-                    <h2 class="text-3xl font-semibold sm:text-4xl" :style="titleStyle">{{ title }}</h2>
-                    <p class="mt-3 text-base sm:text-lg" :style="descriptionStyle">{{ description }}</p>
-                </div>
+            <div class="text-center">
+                <h2 class="text-3xl font-semibold sm:text-4xl" :style="titleStyle">{{ title }}</h2>
+                <p class="mt-3 text-base sm:text-lg" :style="descriptionStyle">{{ description }}</p>
+            </div>
 
-                <div v-if="isPreview" class="mt-8 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-600">
+            <div
+                :class="[
+                    'mt-8',
+                    showCard ? layoutClass : 'p-0 bg-transparent border-0 shadow-none',
+                ]"
+                :style="showCard ? cardContainerStyle : undefined"
+            >
+                <div v-if="isPreview" class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-600">
                     No preview do editor, o fluxo completo de validação por código fica desabilitado.
                 </div>
 
-                <div v-else class="mt-8 space-y-6">
-                    <div class="rounded-xl border bg-gray-50 p-4 sm:p-5" :style="inviteValidationCardStyle">
-                        <p class="text-sm font-semibold text-center" :style="inviteValidationTitleStyle">
+                <div v-else class="space-y-6">
+                    <div>
+                        <p class="text-sm font-semibold text-center" :style="{ color: descriptionTextColor }">
                             Para confirmar presença, escolha o evento e informe o código de 6 dígitos.
                         </p>
                         <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
