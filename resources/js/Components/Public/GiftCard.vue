@@ -69,9 +69,14 @@ const quotaProgressPercent = computed(() => {
   return Math.min(100, Math.max(0, progress));
 });
 
+const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 // Methods
 function formatPrice(priceInCents: number): string {
-  return (priceInCents / 100).toFixed(2).replace('.', ',');
+  return currencyFormatter.format(priceInCents / 100);
 }
 
 function handlePurchaseClick() {
@@ -120,22 +125,26 @@ function handlePurchaseClick() {
       <p class="gift-description">{{ gift.description }}</p>
       
       <div class="gift-footer">
-        <div class="gift-price">
-          <span v-if="gift.is_fallback_donation" class="gift-price-prefix">A partir de</span>
-          R$ {{ formatPrice(gift.display_price) }}
+        <div class="gift-price-row">
+          <div class="gift-price">
+            <span v-if="gift.is_fallback_donation" class="gift-price-prefix">A partir de</span>
+            R$ {{ formatPrice(gift.display_price) }}
+          </div>
         </div>
         
-        <button
-          @click="handlePurchaseClick"
-          :disabled="buttonDisabled"
-          :class="[
-            'purchase-button',
-            { 'sold-out': isSoldOut },
-            { 'preview': isPreview }
-          ]"
-        >
-          {{ buttonText }}
-        </button>
+        <div class="gift-action-row">
+          <button
+            @click="handlePurchaseClick"
+            :disabled="buttonDisabled"
+            :class="[
+              'purchase-button',
+              { 'sold-out': isSoldOut },
+              { 'preview': isPreview }
+            ]"
+          >
+            {{ buttonText }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -257,17 +266,28 @@ function handlePurchaseClick() {
 
 /* Footer */
 .gift-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
   margin-top: auto;
+}
+
+.gift-price-row,
+.gift-action-row {
+  width: 100%;
+}
+
+.gift-price-row {
+  display: flex;
+  justify-content: center;
+  text-align: center;
 }
 
 .gift-price {
   font-size: 1.5rem;
   font-weight: 700;
   color: #059669;
+  text-align: center;
 }
 
 .gift-price-prefix {
@@ -290,6 +310,7 @@ function handlePurchaseClick() {
   cursor: pointer;
   transition: background-color 0.2s, transform 0.1s;
   white-space: nowrap;
+  width: 100%;
 }
 
 .purchase-button:hover:not(:disabled) {
@@ -348,15 +369,4 @@ function handlePurchaseClick() {
   }
 }
 
-@media (max-width: 480px) {
-  .gift-footer {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
-  }
-
-  .purchase-button {
-    width: 100%;
-  }
-}
 </style>

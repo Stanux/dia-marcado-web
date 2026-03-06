@@ -355,49 +355,51 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         // Check header contrast
         if (($sections['header']['enabled'] ?? false)) {
             $header = is_array($sections['header'] ?? null) ? $sections['header'] : [];
-            $bgColor = (string) ($header['style']['backgroundColor'] ?? '#ffffff');
-            $candidates = $this->getHeaderContrastCandidates($header, is_array($theme) ? $theme : []);
+            if (!$this->isHeaderContrastBackgroundTransparent($header)) {
+                $bgColor = (string) ($header['style']['backgroundColor'] ?? '#ffffff');
+                $candidates = $this->getHeaderContrastCandidates($header, is_array($theme) ? $theme : []);
 
-            $failingCandidates = [];
+                $failingCandidates = [];
 
-            foreach ($candidates as $candidate) {
-                $ratio = $this->calculateContrastRatio((string) $candidate['color'], $bgColor);
-                $requiredRatio = $this->getRequiredContrastRatio(
-                    $candidate['fontSize'] ?? null,
-                    $candidate['fontWeight'] ?? null
-                );
+                foreach ($candidates as $candidate) {
+                    $ratio = $this->calculateContrastRatio((string) $candidate['color'], $bgColor);
+                    $requiredRatio = $this->getRequiredContrastRatio(
+                        $candidate['fontSize'] ?? null,
+                        $candidate['fontWeight'] ?? null
+                    );
 
-                if ($ratio < $requiredRatio) {
-                    $failingCandidates[] = [
-                        'label' => (string) ($candidate['label'] ?? 'Texto'),
-                        'ratio' => $ratio,
-                        'required' => $requiredRatio,
+                    if ($ratio < $requiredRatio) {
+                        $failingCandidates[] = [
+                            'label' => (string) ($candidate['label'] ?? 'Texto'),
+                            'ratio' => $ratio,
+                            'required' => $requiredRatio,
+                        ];
+                    }
+                }
+
+                if (!empty($failingCandidates)) {
+                    usort($failingCandidates, static fn (array $a, array $b): int => $a['ratio'] <=> $b['ratio']);
+                    $worstCandidate = $failingCandidates[0];
+                    $failingLabels = array_values(array_unique(array_map(
+                        static fn (array $candidate): string => (string) $candidate['label'],
+                        $failingCandidates
+                    )));
+
+                    $warnings[] = [
+                        'type' => 'low_contrast',
+                        'section' => 'header',
+                        'ratio' => round($worstCandidate['ratio'], 2),
+                        'required' => $worstCandidate['required'],
+                        'elements' => $failingLabels,
+                        'message' => sprintf(
+                            'Contraste insuficiente no cabeçalho (%.2f:1, mínimo %.1f:1) em: %s',
+                            $worstCandidate['ratio'],
+                            $worstCandidate['required'],
+                            implode(', ', $failingLabels)
+                        ),
+                        'suggestion' => 'Ajuste as cores do texto ou fundo para melhorar a legibilidade',
                     ];
                 }
-            }
-
-            if (!empty($failingCandidates)) {
-                usort($failingCandidates, static fn (array $a, array $b): int => $a['ratio'] <=> $b['ratio']);
-                $worstCandidate = $failingCandidates[0];
-                $failingLabels = array_values(array_unique(array_map(
-                    static fn (array $candidate): string => (string) $candidate['label'],
-                    $failingCandidates
-                )));
-
-                $warnings[] = [
-                    'type' => 'low_contrast',
-                    'section' => 'header',
-                    'ratio' => round($worstCandidate['ratio'], 2),
-                    'required' => $worstCandidate['required'],
-                    'elements' => $failingLabels,
-                    'message' => sprintf(
-                        'Contraste insuficiente no cabeçalho (%.2f:1, mínimo %.1f:1) em: %s',
-                        $worstCandidate['ratio'],
-                        $worstCandidate['required'],
-                        implode(', ', $failingLabels)
-                    ),
-                    'suggestion' => 'Ajuste as cores do texto ou fundo para melhorar a legibilidade',
-                ];
             }
         }
 
@@ -1432,28 +1434,6 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             ];
         }
 
-        $headerTitle = trim((string) ($header['title'] ?? ''));
-        if ($headerTitle !== '') {
-            $titleTypography = is_array($header['titleTypography'] ?? null) ? $header['titleTypography'] : [];
-            $candidates[] = [
-                'label' => 'Título',
-                'color' => (string) ($titleTypography['fontColor'] ?? $themePrimaryColor),
-                'fontSize' => $titleTypography['fontSize'] ?? 20,
-                'fontWeight' => $titleTypography['fontWeight'] ?? 600,
-            ];
-        }
-
-        $headerSubtitle = trim((string) ($header['subtitle'] ?? ''));
-        if ($headerSubtitle !== '') {
-            $subtitleTypography = is_array($header['subtitleTypography'] ?? null) ? $header['subtitleTypography'] : [];
-            $candidates[] = [
-                'label' => 'Subtítulo',
-                'color' => (string) ($subtitleTypography['fontColor'] ?? '#6b7280'),
-                'fontSize' => $subtitleTypography['fontSize'] ?? 14,
-                'fontWeight' => $subtitleTypography['fontWeight'] ?? 400,
-            ];
-        }
-
         if ($this->headerHasVisibleNavigation($header)) {
             $menuTypography = is_array($header['menuTypography'] ?? null) ? $header['menuTypography'] : [];
             $menuHoverTypography = is_array($header['menuHoverTypography'] ?? null) ? $header['menuHoverTypography'] : [];
@@ -1512,6 +1492,36 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         }
 
         return false;
+    }
+
+    /**
+     * Transparent headers sit over the hero/media layer, so there is no deterministic
+     * single background color to validate against in QA.
+     */
+    private function isHeaderContrastBackgroundTransparent(array $header): bool
+    {
+        $style = is_array($header['style'] ?? null) ? $header['style'] : [];
+        $transparentFlag = $style['transparent'] ?? false;
+
+        if (is_bool($transparentFlag)) {
+            if ($transparentFlag) {
+                return true;
+            }
+        } elseif (is_numeric($transparentFlag)) {
+            if ((int) $transparentFlag === 1) {
+                return true;
+            }
+        } elseif (is_string($transparentFlag)) {
+            $normalizedFlag = strtolower(trim($transparentFlag));
+
+            if (in_array($normalizedFlag, ['1', 'true', 'on', 'yes', 'sim'], true)) {
+                return true;
+            }
+        }
+
+        $backgroundColor = strtolower(trim((string) ($style['backgroundColor'] ?? '')));
+
+        return $backgroundColor === 'transparent';
     }
 
     /**

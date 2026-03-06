@@ -181,8 +181,65 @@ const sanitizeMovableSectionOrder = (rawOrder, availableSectionKeys) => {
         }
     });
 
-    return sanitized;
+    return enforceHeroPositionForTransparentHeader(sanitized, draftContent.value);
 };
+
+const isHeaderTransparent = (content) => {
+    const headerStyle = content?.sections?.header?.style || {};
+    const transparentFlag = headerStyle.transparent;
+
+    if (typeof transparentFlag === 'boolean') {
+        if (transparentFlag) {
+            return true;
+        }
+    } else if (typeof transparentFlag === 'number') {
+        if (transparentFlag === 1) {
+            return true;
+        }
+    } else if (typeof transparentFlag === 'string') {
+        const normalized = transparentFlag.trim().toLowerCase();
+        if (['1', 'true', 'on', 'yes', 'sim'].includes(normalized)) {
+            return true;
+        }
+    }
+
+    if (typeof headerStyle.backgroundColor === 'string') {
+        return headerStyle.backgroundColor.trim().toLowerCase() === 'transparent';
+    }
+
+    return false;
+};
+
+const enforceHeroPositionForTransparentHeader = (order, content) => {
+    if (!isHeaderTransparent(content) || !Array.isArray(order) || !order.includes('hero')) {
+        return order;
+    }
+
+    return [
+        'hero',
+        ...order.filter((sectionKey) => sectionKey !== 'hero'),
+    ];
+};
+
+const isTransparentHeaderInDraft = computed(() => isHeaderTransparent(draftContent.value));
+const lockedSectionKeys = computed(() => (isTransparentHeaderInDraft.value ? ['hero'] : []));
+
+watch(isTransparentHeaderInDraft, (transparent, previousValue) => {
+    if (!transparent || previousValue === undefined || !draftContent.value?.sections) {
+        return;
+    }
+
+    const availableSectionKeys = Object.keys(draftContent.value.sections)
+        .filter((key) => !HIDDEN_LEGACY_SECTION_KEYS.has(key));
+    const currentOrder = sanitizeMovableSectionOrder(draftContent.value.sectionOrder, availableSectionKeys);
+
+    if (JSON.stringify(draftContent.value.sectionOrder || []) === JSON.stringify(currentOrder)) {
+        return;
+    }
+
+    draftContent.value.sectionOrder = currentOrder;
+    touchMutation();
+});
 
 const orderedSectionKeys = computed(() => {
     const sectionMap = draftContent.value?.sections || {};
@@ -1158,6 +1215,7 @@ onUnmounted(() => {
                 <SectionSidebar
                     :sections="sections"
                     :active-section="activeSection"
+                    :locked-section-keys="lockedSectionKeys"
                     @select="selectSection"
                     @toggle="toggleSection"
                     @reorder="handleSectionReorder"
@@ -1172,6 +1230,7 @@ onUnmounted(() => {
                         mobile
                         :sections="sections"
                         :active-section="activeSection"
+                        :locked-section-keys="lockedSectionKeys"
                         @select="selectSection"
                         @toggle="toggleSection"
                         @reorder="handleSectionReorder"

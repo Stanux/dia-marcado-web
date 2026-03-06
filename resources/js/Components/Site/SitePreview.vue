@@ -99,7 +99,44 @@ const sanitizeMovableSectionOrder = (rawOrder, availableSectionKeys) => {
         }
     });
 
-    return sanitized;
+    return enforceHeroPositionForTransparentHeader(sanitized, sections.value);
+};
+
+const isTransparentHeader = (sectionMap) => {
+    const headerStyle = sectionMap?.header?.style || {};
+    const transparentFlag = headerStyle.transparent;
+
+    if (typeof transparentFlag === 'boolean') {
+        if (transparentFlag) {
+            return true;
+        }
+    } else if (typeof transparentFlag === 'number') {
+        if (transparentFlag === 1) {
+            return true;
+        }
+    } else if (typeof transparentFlag === 'string') {
+        const normalized = transparentFlag.trim().toLowerCase();
+        if (['1', 'true', 'on', 'yes', 'sim'].includes(normalized)) {
+            return true;
+        }
+    }
+
+    if (typeof headerStyle.backgroundColor === 'string') {
+        return headerStyle.backgroundColor.trim().toLowerCase() === 'transparent';
+    }
+
+    return false;
+};
+
+const enforceHeroPositionForTransparentHeader = (order, sectionMap) => {
+    if (!isTransparentHeader(sectionMap) || !Array.isArray(order) || !order.includes('hero')) {
+        return order;
+    }
+
+    return [
+        'hero',
+        ...order.filter((sectionKey) => sectionKey !== 'hero'),
+    ];
 };
 
 const orderedSectionKeys = computed(() => {
@@ -148,6 +185,18 @@ const renderedSections = computed(() => {
                         enabledSections: enabledSections.value,
                         footerContent: getSectionContent('footer'),
                         sectionOrder: orderedSectionKeys.value,
+                        viewportMode: props.mode,
+                    },
+                };
+            }
+
+            if (sectionKey === 'hero') {
+                return {
+                    key: sectionKey,
+                    component,
+                    props: {
+                        ...baseProps,
+                        headerContent: getSectionContent('header'),
                         viewportMode: props.mode,
                     },
                 };

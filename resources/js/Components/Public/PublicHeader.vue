@@ -8,7 +8,6 @@
  * @Requirements: 8.1, 8.5, 8.6, 8.7
  */
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
-import { usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     content: {
@@ -36,8 +35,6 @@ const props = defineProps({
         default: 'auto',
     },
 });
-
-const page = usePage();
 
 const SECTION_ANCHORS_BY_KEY = {
     hero: 'hero',
@@ -194,8 +191,6 @@ const actionButton = computed(() => {
     };
 });
 const style = computed(() => props.content.style || {});
-const titleTypography = computed(() => props.content.titleTypography || {});
-const subtitleTypography = computed(() => props.content.subtitleTypography || {});
 const menuTypography = computed(() => props.content.menuTypography || {});
 const menuHoverTypography = computed(() => props.content.menuHoverTypography || {});
 
@@ -387,7 +382,6 @@ const responsiveSize = (value, fallback, min, viewportFactor = 5.5) => {
 };
 
 const forceCompactNavigation = computed(() => ['mobile', 'tablet'].includes(props.viewportMode));
-const hideHeaderTextOnMobile = computed(() => props.viewportMode === 'mobile' || isMobileScreen.value);
 const isTransparentBackground = computed(() => {
     if (Object.prototype.hasOwnProperty.call(style.value, 'transparent')) {
         return parseBoolean(style.value.transparent);
@@ -428,28 +422,6 @@ const logoTextStyle = computed(() => ({
     textDecoration: logo.value.text?.typography?.fontUnderline ? 'underline' : 'none',
     lineHeight: 1.15,
     whiteSpace: 'nowrap',
-}));
-
-const titleStyle = computed(() => ({
-    color: titleTypography.value.fontColor || props.theme.primaryColor,
-    fontFamily: titleTypography.value.fontFamily || props.theme.fontFamily,
-    fontSize: responsiveSize(titleTypography.value.fontSize, 20, 16, 6),
-    fontWeight: titleTypography.value.fontWeight || 600,
-    fontStyle: titleTypography.value.fontItalic ? 'italic' : 'normal',
-    textDecoration: titleTypography.value.fontUnderline ? 'underline' : 'none',
-    overflowWrap: 'anywhere',
-    wordBreak: 'break-word',
-}));
-
-const subtitleStyle = computed(() => ({
-    color: subtitleTypography.value.fontColor || '#6b7280',
-    fontFamily: subtitleTypography.value.fontFamily || props.theme.fontFamily,
-    fontSize: responsiveSize(subtitleTypography.value.fontSize, 14, 12, 4.5),
-    fontWeight: subtitleTypography.value.fontWeight || 400,
-    fontStyle: subtitleTypography.value.fontItalic ? 'italic' : 'normal',
-    textDecoration: subtitleTypography.value.fontUnderline ? 'underline' : 'none',
-    overflowWrap: 'anywhere',
-    wordBreak: 'break-word',
 }));
 
 const menuLinkStyle = computed(() => {
@@ -530,60 +502,6 @@ const syncViewportBreakpoint = () => {
     isMobileScreen.value = window.matchMedia('(max-width: 767px)').matches;
 };
 
-/**
- * Replace placeholders in text with actual wedding data
- */
-const replacePlaceholders = (text) => {
-    if (!text) return text;
-    
-    const wedding = page.props.wedding;
-    if (!wedding) return text;
-    
-    let result = text;
-    
-    // Replace wedding date
-    const monthNames = [
-        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ];
-    const date = wedding.wedding_date ? new Date(wedding.wedding_date) : null;
-    const longDate = date
-        ? `${date.getDate()} de ${monthNames[date.getMonth()]} de ${date.getFullYear()}`
-        : '[DATA A DEFINIR]';
-    const shortDate = date
-        ? date.toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        })
-        : '[DATA A DEFINIR]';
-
-    result = result.replace(/{data_extenso}/g, longDate);
-    result = result.replace(/{data_simples}/g, shortDate);
-    // Compatibilidade retroativa
-    result = result.replace(/{data}/g, longDate);
-    result = result.replace(/{data_curta}/g, shortDate);
-    
-    // Replace bride and groom names
-    if (wedding.bride_name) {
-        result = result.replace(/{nome_2}/g, wedding.bride_name);
-        result = result.replace(/{noiva}/g, wedding.bride_name);
-        const firstName = wedding.bride_name.split(' ')[0];
-        result = result.replace(/{primeiro_nome_2}/g, firstName);
-        result = result.replace(/{primeiro_nome_noiva}/g, firstName);
-    }
-    
-    if (wedding.groom_name) {
-        result = result.replace(/{nome_1}/g, wedding.groom_name);
-        result = result.replace(/{noivo}/g, wedding.groom_name);
-        const firstName = wedding.groom_name.split(' ')[0];
-        result = result.replace(/{primeiro_nome_1}/g, firstName);
-        result = result.replace(/{primeiro_nome_noivo}/g, firstName);
-    }
-    
-    return result;
-};
-
 // Mobile menu state
 const isMobileMenuOpen = ref(false);
 const headerRef = ref(null);
@@ -640,7 +558,7 @@ watch(isStickyEnabled, (enabled) => {
 // Header styles
 const headerStyles = computed(() => ({
     minHeight: headerHeightCss.value,
-    height: hideHeaderTextOnMobile.value ? headerHeightCss.value : undefined,
+    height: headerHeightCss.value,
     backgroundColor: headerBackgroundColor.value,
     position: isStickyEnabled.value ? 'sticky' : 'relative',
     top: isStickyEnabled.value ? '0px' : undefined,
@@ -670,27 +588,10 @@ const mobileMenuStyles = computed(() => ({
     boxShadow: '0 18px 50px rgba(0, 0, 0, 0.28)',
 }));
 
-const headerRowClass = computed(() => {
-    if (hideHeaderTextOnMobile.value) {
-        return 'justify-between';
-    }
-
-    return alignmentClass.value;
-});
-
 // Header classes
 const headerClasses = computed(() => ({
     'shadow-md': isStickyEnabled.value && isScrolled.value,
 }));
-
-// Alignment classes
-const alignmentClass = computed(() => {
-    switch (style.value.alignment) {
-        case 'left': return 'justify-start';
-        case 'right': return 'justify-end';
-        default: return 'justify-center';
-    }
-});
 
 // Button style classes
 const buttonClasses = computed(() => {
@@ -780,7 +681,7 @@ const navigateTo = (target, type) => {
         :style="headerStyles"
     >
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-full">
-            <div class="flex items-center gap-2 md:gap-4" :class="headerRowClass" :style="headerRowStyles">
+            <div class="flex items-center gap-2 md:gap-4 h-full" :style="headerRowStyles">
                 <!-- Logo -->
                 <div v-if="logo.type === 'image' && logo.url" class="flex-shrink-0 max-w-[96px] sm:max-w-[140px]">
                     <a href="/" class="public-header-logo-link" aria-label="Ir para o início">
@@ -807,32 +708,10 @@ const navigateTo = (target, type) => {
                     </a>
                 </div>
 
-                <!-- Title & Subtitle -->
-                <div 
-                    v-if="!hideHeaderTextOnMobile"
-                    class="flex-1 min-w-0 px-1 sm:px-3"
-                    :class="{ 'text-center': style.alignment === 'center' }"
-                >
-                    <h1 
-                        v-if="content.title"
-                        class="leading-tight break-words"
-                        :style="titleStyle"
-                    >
-                        {{ replacePlaceholders(content.title) }}
-                    </h1>
-                    <p 
-                        v-if="content.subtitle"
-                        class="mt-0.5 break-words"
-                        :style="subtitleStyle"
-                    >
-                        {{ replacePlaceholders(content.subtitle) }}
-                    </p>
-                </div>
-
                 <!-- Desktop Navigation -->
                 <nav 
                     v-if="showDesktopNavigation"
-                    class="flex items-center space-x-6 lg:space-x-8 shrink-0"
+                    class="ml-auto flex items-center space-x-6 lg:space-x-8 shrink-0"
                 >
                     <a
                         v-for="(item, index) in navigation"
@@ -868,8 +747,7 @@ const navigateTo = (target, type) => {
                 <!-- Mobile Menu Button -->
                 <button 
                     v-if="showMobileNavigation"
-                    class="p-2 rounded-md hover:bg-gray-100 flex-shrink-0"
-                    :class="hideHeaderTextOnMobile ? 'ml-auto' : 'ml-2'"
+                    class="ml-auto p-2 rounded-md hover:bg-gray-100 flex-shrink-0"
                     :style="mobileMenuButtonStyle"
                     @click="isMobileMenuOpen = !isMobileMenuOpen"
                     aria-label="Menu"

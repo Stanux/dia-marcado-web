@@ -54,13 +54,18 @@ const maxInstallments = computed(() => {
   return Math.max(1, max);
 });
 
+const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const installmentOptions = computed(() => {
   const options = [];
   const amount = (props.amountInCents || props.gift.display_price) / 100;
   
   for (let i = 1; i <= maxInstallments.value; i++) {
     const installmentAmount = amount / i;
-    const formattedAmount = installmentAmount.toFixed(2).replace('.', ',');
+    const formattedAmount = currencyFormatter.format(installmentAmount);
     
     let label = `${i}x de R$ ${formattedAmount}`;
     if (i === 1) {
@@ -68,7 +73,7 @@ const installmentOptions = computed(() => {
     } else if (i > 3) {
       // Simulate interest for installments > 3
       const withInterest = installmentAmount * 1.02; // 2% interest example
-      const formattedWithInterest = withInterest.toFixed(2).replace('.', ',');
+      const formattedWithInterest = currencyFormatter.format(withInterest);
       label = `${i}x de R$ ${formattedWithInterest} (com juros)`;
     }
     

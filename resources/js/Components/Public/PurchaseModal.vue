@@ -131,9 +131,14 @@ const displayError = computed(() => {
   return customAmountError.value || quotaQuantityError.value || error.value;
 });
 
+const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 // Methods
 function formatPrice(priceInCents: number): string {
-  return (priceInCents / 100).toFixed(2).replace('.', ',');
+  return currencyFormatter.format(priceInCents / 100);
 }
 
 function formatCurrencyInput(rawValue: string): string {

@@ -18,6 +18,14 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    headerContent: {
+        type: Object,
+        default: () => ({}),
+    },
+    viewportMode: {
+        type: String,
+        default: 'auto',
+    },
 });
 
 // Computed properties
@@ -55,14 +63,86 @@ const resolveTypographyFontSize = (value) => {
     return undefined;
 };
 
+const parseBoolean = (value) => {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    if (typeof value === 'number') {
+        return value === 1;
+    }
+
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        return ['1', 'true', 'on', 'yes', 'sim'].includes(normalized);
+    }
+
+    return false;
+};
+
+const toCssSize = (value, fallback = '80px') => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return `${value}px`;
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+        const normalized = value.trim();
+
+        if (/^\d+(\.\d+)?$/.test(normalized)) {
+            return `${normalized}px`;
+        }
+
+        return normalized;
+    }
+
+    return fallback;
+};
+
 // Animation state
 const isVisible = ref(false);
+const isDesktopViewport = ref(true);
+let desktopMediaQuery = null;
+
+const headerStyle = computed(() => props.headerContent?.style || {});
+const isHeaderTransparent = computed(() => {
+    if (Object.prototype.hasOwnProperty.call(headerStyle.value, 'transparent')) {
+        return parseBoolean(headerStyle.value.transparent);
+    }
+
+    if (typeof headerStyle.value.backgroundColor === 'string') {
+        return headerStyle.value.backgroundColor.trim().toLowerCase() === 'transparent';
+    }
+
+    return false;
+});
+const headerHeightCss = computed(() => toCssSize(headerStyle.value.height, '80px'));
+const shouldOffsetHeroForDesktop = computed(() => isDesktopViewport.value && !isHeaderTransparent.value);
+
+const syncViewportBreakpoint = () => {
+    if (props.viewportMode === 'desktop') {
+        isDesktopViewport.value = true;
+        return;
+    }
+
+    if (props.viewportMode === 'mobile' || props.viewportMode === 'tablet') {
+        isDesktopViewport.value = false;
+        return;
+    }
+
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    isDesktopViewport.value = window.matchMedia('(min-width: 1024px)').matches;
+};
 
 onMounted(() => {
-    // Trigger animation after mount
-    setTimeout(() => {
-        isVisible.value = true;
-    }, 100);
+    syncViewportBreakpoint();
+
+    if (props.viewportMode === 'auto' && typeof window !== 'undefined') {
+        desktopMediaQuery = window.matchMedia('(min-width: 1024px)');
+        desktopMediaQuery.addEventListener('change', syncViewportBreakpoint);
+    }
 });
 
 // Layout classes
@@ -181,6 +261,10 @@ onMounted(() => {
 
 onUnmounted(() => {
     stopGalleryCarousel();
+
+    if (desktopMediaQuery) {
+        desktopMediaQuery.removeEventListener('change', syncViewportBreakpoint);
+    }
 });
 
 // Navigate to target
@@ -194,6 +278,23 @@ const navigateTo = (target) => {
         window.location.href = target;
     }
 };
+
+const heroSectionStyle = computed(() => {
+    const fallbackViewportHeight = 'var(--dm-preview-viewport-height, 100vh)';
+    const dynamicViewportHeight = 'var(--dm-preview-viewport-height, 100dvh)';
+
+    if (!shouldOffsetHeroForDesktop.value) {
+        return {
+            '--dm-hero-min-height-fallback': fallbackViewportHeight,
+            '--dm-hero-min-height': dynamicViewportHeight,
+        };
+    }
+
+    return {
+        '--dm-hero-min-height-fallback': `calc(${fallbackViewportHeight} - ${headerHeightCss.value})`,
+        '--dm-hero-min-height': `calc(${dynamicViewportHeight} - ${headerHeightCss.value})`,
+    };
+});
 </script>
 
 <template>
@@ -201,6 +302,7 @@ const navigateTo = (target) => {
         id="hero"
         class="public-hero-section relative flex items-center justify-center"
         :class="layoutClasses"
+        :style="heroSectionStyle"
     >
         <!-- Background Media -->
         <div class="absolute inset-0 overflow-hidden">
@@ -403,7 +505,7 @@ const navigateTo = (target) => {
 }
 
 .public-hero-section {
-    min-height: var(--dm-preview-viewport-height, 100vh);
-    min-height: var(--dm-preview-viewport-height, 100dvh);
+    min-height: var(--dm-hero-min-height-fallback, var(--dm-preview-viewport-height, 100vh));
+    min-height: var(--dm-hero-min-height, var(--dm-preview-viewport-height, 100dvh));
 }
 </style>

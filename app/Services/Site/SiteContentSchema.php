@@ -567,6 +567,7 @@ class SiteContentSchema
         $content = self::migrateLegacyBackToTopControl($content);
         $normalized = self::mergeWithDefaults(self::getDefaultContent(), $content);
         $normalized = self::migrateLegacyRsvpToGuestsV2($normalized);
+        $normalized = self::enforceHeroOrderWhenHeaderIsTransparent($normalized);
 
         // Legacy RSVP section is intentionally disabled/hidden while Guests V2 is adopted.
         if (isset($normalized['sections']['rsvp']) && is_array($normalized['sections']['rsvp'])) {
@@ -613,6 +614,51 @@ class SiteContentSchema
         if ($headerSection !== []) {
             $sections['header'] = $headerSection;
         }
+
+        return $content;
+    }
+
+    /**
+     * Keep hero immediately after the header when the header is transparent.
+     */
+    private static function enforceHeroOrderWhenHeaderIsTransparent(array $content): array
+    {
+        $headerStyle = is_array($content['sections']['header']['style'] ?? null)
+            ? $content['sections']['header']['style']
+            : [];
+
+        $transparentFlag = $headerStyle['transparent'] ?? false;
+        $isTransparent = false;
+
+        if (is_bool($transparentFlag)) {
+            $isTransparent = $transparentFlag;
+        } elseif (is_numeric($transparentFlag)) {
+            $isTransparent = (int) $transparentFlag === 1;
+        } elseif (is_string($transparentFlag)) {
+            $isTransparent = in_array(strtolower(trim($transparentFlag)), ['1', 'true', 'on', 'yes', 'sim'], true);
+        }
+
+        if (!$isTransparent) {
+            $backgroundColor = strtolower(trim((string) ($headerStyle['backgroundColor'] ?? '')));
+            $isTransparent = $backgroundColor === 'transparent';
+        }
+
+        if (
+            !$isTransparent
+            || !isset($content['sectionOrder'])
+            || !is_array($content['sectionOrder'])
+            || !in_array('hero', $content['sectionOrder'], true)
+        ) {
+            return $content;
+        }
+
+        $content['sectionOrder'] = [
+            'hero',
+            ...array_values(array_filter(
+                $content['sectionOrder'],
+                static fn (mixed $sectionKey): bool => $sectionKey !== 'hero'
+            )),
+        ];
 
         return $content;
     }

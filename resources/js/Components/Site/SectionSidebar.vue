@@ -23,6 +23,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    lockedSectionKeys: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const emit = defineEmits(['select', 'toggle', 'reorder']);
@@ -45,7 +49,7 @@ const canToggle = (sectionKey) => {
  * Check if a section can be reordered via drag and drop.
  */
 const canReorder = (sectionKey) => {
-    return canToggle(sectionKey);
+    return canToggle(sectionKey) && !props.lockedSectionKeys.includes(sectionKey);
 };
 
 /**

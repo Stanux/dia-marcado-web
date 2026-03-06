@@ -3,7 +3,7 @@
  * HeaderEditor Component
  * 
  * Editor for the Header section of the wedding site.
- * Supports logo upload, title, subtitle, navigation menu, and action button.
+ * Supports logo upload and navigation menu configuration.
  * 
  * @Requirements: 8.1, 8.5, 8.6, 8.7
  */
@@ -337,14 +337,6 @@ const onImageSelected = (imageData) => {
 };
 
 /**
- * Inserir tag no título
- */
-const insertTag = (tag) => {
-    const currentTitle = localContent.value.title || '';
-    updateField('title', currentTitle + tag);
-};
-
-/**
  * Atualizar tipo de logo
  */
 const updateLogoType = (type) => {
@@ -461,44 +453,6 @@ const updateLogoTextTypography = (field, value) => {
 };
 
 /**
- * Atualizar tipografia do título
- */
-const updateTitleTypography = (field, value) => {
-    if (!localContent.value.titleTypography) {
-        localContent.value.titleTypography = {
-            fontFamily: 'Playfair Display',
-            fontColor: '#333333',
-            fontSize: 48,
-            fontWeight: 700,
-            fontItalic: false,
-            fontUnderline: false,
-        };
-    }
-    
-    localContent.value.titleTypography[field] = value;
-    emitChange();
-};
-
-/**
- * Atualizar tipografia do subtítulo
- */
-const updateSubtitleTypography = (field, value) => {
-    if (!localContent.value.subtitleTypography) {
-        localContent.value.subtitleTypography = {
-            fontFamily: 'Montserrat',
-            fontColor: '#666666',
-            fontSize: 24,
-            fontWeight: 400,
-            fontItalic: true,
-            fontUnderline: false,
-        };
-    }
-    
-    localContent.value.subtitleTypography[field] = value;
-    emitChange();
-};
-
-/**
  * Atualizar tipografia do menu
  */
 const updateMenuTypography = (field, value) => {
@@ -567,6 +521,52 @@ const normalizeHexColor = (color, fallback = '#ffffff') => {
     return `#${toHex(rgbaMatch[1])}${toHex(rgbaMatch[2])}${toHex(rgbaMatch[3])}`;
 };
 
+const hexToRgb = (hexColor) => {
+    const normalized = normalizeHexColor(hexColor, '');
+    if (!normalized) {
+        return null;
+    }
+
+    return {
+        r: Number.parseInt(normalized.slice(1, 3), 16),
+        g: Number.parseInt(normalized.slice(3, 5), 16),
+        b: Number.parseInt(normalized.slice(5, 7), 16),
+    };
+};
+
+const getRelativeLuminance = (hexColor) => {
+    const rgb = hexToRgb(hexColor);
+    if (!rgb) {
+        return null;
+    }
+
+    const channels = [rgb.r, rgb.g, rgb.b].map((channel) => {
+        const srgb = channel / 255;
+
+        if (srgb <= 0.03928) {
+            return srgb / 12.92;
+        }
+
+        return ((srgb + 0.055) / 1.055) ** 2.4;
+    });
+
+    return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2]);
+};
+
+const getContrastRatio = (foreground, background) => {
+    const foregroundLuminance = getRelativeLuminance(foreground);
+    const backgroundLuminance = getRelativeLuminance(background);
+
+    if (foregroundLuminance === null || backgroundLuminance === null) {
+        return 0;
+    }
+
+    const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+    const darker = Math.min(foregroundLuminance, backgroundLuminance);
+
+    return (lighter + 0.05) / (darker + 0.05);
+};
+
 const normalizePercentage = (value, fallback = 0) => {
     const parsed = typeof value === 'number'
         ? value
@@ -612,22 +612,6 @@ const logoTextTypography = computed(() => logoText.value.typography || {
     fontItalic: false,
     fontUnderline: false,
 });
-const titleTypography = computed(() => localContent.value.titleTypography || {
-    fontFamily: 'Playfair Display',
-    fontColor: '#333333',
-    fontSize: 48,
-    fontWeight: 700,
-    fontItalic: false,
-    fontUnderline: false,
-});
-const subtitleTypography = computed(() => localContent.value.subtitleTypography || {
-    fontFamily: 'Montserrat',
-    fontColor: '#666666',
-    fontSize: 24,
-    fontWeight: 400,
-    fontItalic: true,
-    fontUnderline: false,
-});
 const menuTypography = computed(() => localContent.value.menuTypography || {
     fontFamily: 'Montserrat',
     fontColor: '#374151',
@@ -652,6 +636,10 @@ const mobileMenuBackgroundColorHex = computed(() => normalizeHexColor(
 ));
 const mobileMenuTransparency = computed(() => normalizePercentage(style.value.mobileMenuTransparency, 18));
 const mobileMenuBlur = computed(() => normalizeBlurAmount(style.value.mobileMenuBlur, 14));
+const typographyPreviewSurfaces = {
+    light: '#f9fafb',
+    dark: '#111827',
+};
 
 const parseStyleBoolean = (value) => {
     if (typeof value === 'boolean') {
@@ -698,6 +686,33 @@ const isTransparentBackground = computed(() => {
 
     return false;
 });
+
+const getTypographyPreviewBackgroundColor = (fontColor, fallback = '#374151') => {
+    if (!isTransparentBackground.value) {
+        return headerBackgroundColorHex.value;
+    }
+
+    const normalizedFontColor = normalizeHexColor(fontColor, fallback);
+    const lightContrast = getContrastRatio(normalizedFontColor, typographyPreviewSurfaces.light);
+    const darkContrast = getContrastRatio(normalizedFontColor, typographyPreviewSurfaces.dark);
+
+    return darkContrast >= lightContrast
+        ? typographyPreviewSurfaces.dark
+        : typographyPreviewSurfaces.light;
+};
+
+const logoTypographyPreviewBackgroundColor = computed(() => getTypographyPreviewBackgroundColor(
+    logoTextTypography.value.fontColor,
+    '#333333'
+));
+const menuTypographyPreviewBackgroundColor = computed(() => getTypographyPreviewBackgroundColor(
+    menuTypography.value.fontColor,
+    '#374151'
+));
+const menuHoverTypographyPreviewBackgroundColor = computed(() => getTypographyPreviewBackgroundColor(
+    menuHoverTypography.value.fontColor,
+    '#f97373'
+));
 
 const isStickyEnabled = computed(() => parseStyleBoolean(style.value.sticky));
 
@@ -896,7 +911,7 @@ onMounted(() => {
                     :font-weight="logoTextTypography.fontWeight"
                     :font-italic="logoTextTypography.fontItalic"
                     :font-underline="logoTextTypography.fontUnderline"
-                    :preview-background-color="headerBackgroundColorHex"
+                    :preview-background-color="logoTypographyPreviewBackgroundColor"
                     @update:font-family="updateLogoTextTypography('fontFamily', $event)"
                     @update:font-color="updateLogoTextTypography('fontColor', $event)"
                     @update:font-size="updateLogoTextTypography('fontSize', $event)"
@@ -906,130 +921,10 @@ onMounted(() => {
                     label="Tipografia das Iniciais"
                 />
 
-                <!-- Preview do texto -->
-                <div v-if="logoText.initials[0] || logoText.initials[1]" class="p-4 bg-gray-50 rounded-md text-center">
-                    <p 
-                        :style="{
-                            fontFamily: logoTextTypography.fontFamily,
-                            color: logoTextTypography.fontColor,
-                            fontSize: `${logoTextTypography.fontSize}px`,
-                            fontWeight: logoTextTypography.fontWeight,
-                            fontStyle: logoTextTypography.fontItalic ? 'italic' : 'normal',
-                            textDecoration: logoTextTypography.fontUnderline ? 'underline' : 'none',
-                        }"
-                    >
-                        {{ (logoText.initials[0] || '').toUpperCase() }} {{ logoText.connector }} {{ (logoText.initials[1] || '').toUpperCase() }}
-                    </p>
-                    <p class="text-xs text-gray-500 mt-1">Preview do logo</p>
-                </div>
-
                 <p class="text-xs text-gray-500">
                     Ex: Vinícius e Lilian = V & L
                 </p>
             </div>
-        </div>
-
-        <!-- Title Section -->
-        <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Textos</h3>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Título</label>
-                <div class="space-y-2">
-                    <input
-                        type="text"
-                        :value="localContent.title"
-                        @input="updateField('title', $event.target.value)"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                        placeholder="Ex: {nome_1} & {nome_2}"
-                    />
-                    <div class="flex flex-wrap gap-2">
-                        <button
-                            @click="insertTag('{nome_1}')"
-                            class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                        >
-                            + {nome_1}
-                        </button>
-                        <button
-                            @click="insertTag('{nome_2}')"
-                            class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                        >
-                            + {nome_2}
-                        </button>
-                        <button
-                            @click="insertTag('{primeiro_nome_1}')"
-                            class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                        >
-                            + {primeiro_nome_1}
-                        </button>
-                        <button
-                            @click="insertTag('{primeiro_nome_2}')"
-                            class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                        >
-                            + {primeiro_nome_2}
-                        </button>
-                        <button
-                            @click="insertTag('{data_extenso}')"
-                            class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                        >
-                            + {data_extenso}
-                        </button>
-                        <button
-                            @click="insertTag('{data_simples}')"
-                            class="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                        >
-                            + {data_simples}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tipografia do Título -->
-            <TypographyControl
-                :font-family="titleTypography.fontFamily"
-                :font-color="titleTypography.fontColor"
-                :font-size="titleTypography.fontSize"
-                :font-weight="titleTypography.fontWeight"
-                :font-italic="titleTypography.fontItalic"
-                :font-underline="titleTypography.fontUnderline"
-                :preview-background-color="headerBackgroundColorHex"
-                @update:font-family="updateTitleTypography('fontFamily', $event)"
-                @update:font-color="updateTitleTypography('fontColor', $event)"
-                @update:font-size="updateTitleTypography('fontSize', $event)"
-                @update:font-weight="updateTitleTypography('fontWeight', $event)"
-                @update:font-italic="updateTitleTypography('fontItalic', $event)"
-                @update:font-underline="updateTitleTypography('fontUnderline', $event)"
-                label="Tipografia do Título"
-            />
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Subtítulo</label>
-                <input
-                    type="text"
-                    :value="localContent.subtitle"
-                    @input="updateField('subtitle', $event.target.value)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    placeholder="Ex: Nosso casamento"
-                />
-            </div>
-
-            <!-- Tipografia do Subtítulo -->
-            <TypographyControl
-                :font-family="subtitleTypography.fontFamily"
-                :font-color="subtitleTypography.fontColor"
-                :font-size="subtitleTypography.fontSize"
-                :font-weight="subtitleTypography.fontWeight"
-                :font-italic="subtitleTypography.fontItalic"
-                :font-underline="subtitleTypography.fontUnderline"
-                :preview-background-color="headerBackgroundColorHex"
-                @update:font-family="updateSubtitleTypography('fontFamily', $event)"
-                @update:font-color="updateSubtitleTypography('fontColor', $event)"
-                @update:font-size="updateSubtitleTypography('fontSize', $event)"
-                @update:font-weight="updateSubtitleTypography('fontWeight', $event)"
-                @update:font-italic="updateSubtitleTypography('fontItalic', $event)"
-                @update:font-underline="updateSubtitleTypography('fontUnderline', $event)"
-                label="Tipografia do Subtítulo"
-            />
         </div>
 
         <!-- Navigation Menu -->
@@ -1045,7 +940,7 @@ onMounted(() => {
                 :font-weight="menuTypography.fontWeight"
                 :font-italic="menuTypography.fontItalic"
                 :font-underline="menuTypography.fontUnderline"
-                :preview-background-color="headerBackgroundColorHex"
+                :preview-background-color="menuTypographyPreviewBackgroundColor"
                 @update:font-family="updateMenuTypography('fontFamily', $event)"
                 @update:font-color="updateMenuTypography('fontColor', $event)"
                 @update:font-size="updateMenuTypography('fontSize', $event)"
@@ -1062,7 +957,7 @@ onMounted(() => {
                 :font-weight="menuHoverTypography.fontWeight"
                 :font-italic="menuHoverTypography.fontItalic"
                 :font-underline="menuHoverTypography.fontUnderline"
-                :preview-background-color="headerBackgroundColorHex"
+                :preview-background-color="menuHoverTypographyPreviewBackgroundColor"
                 @update:font-family="updateMenuHoverTypography('fontFamily', $event)"
                 @update:font-color="updateMenuHoverTypography('fontColor', $event)"
                 @update:font-size="updateMenuHoverTypography('fontSize', $event)"
@@ -1229,29 +1124,15 @@ onMounted(() => {
         <div class="space-y-4 pt-6 border-t border-gray-200">
             <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Estilo</h3>
             
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Altura</label>
-                    <input
-                        type="text"
-                        :value="style.height"
-                        @input="updateStyle('height', $event.target.value)"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                        placeholder="80px"
-                    />
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Alinhamento</label>
-                    <select
-                        :value="style.alignment"
-                        @change="updateStyle('alignment', $event.target.value)"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    >
-                        <option value="left">Esquerda</option>
-                        <option value="center">Centro</option>
-                        <option value="right">Direita</option>
-                    </select>
-                </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Altura</label>
+                <input
+                    type="text"
+                    :value="style.height"
+                    @input="updateStyle('height', $event.target.value)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                    placeholder="80px"
+                />
             </div>
 
             <div>

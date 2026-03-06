@@ -2,7 +2,7 @@
 /**
  * HeaderPreview Component
  * 
- * Renders the header section preview with logo, title, navigation, and action button.
+ * Renders the header section preview with logo, navigation, and action button.
  * 
  * @Requirements: 8.1, 8.5, 8.6, 8.7
  */
@@ -37,22 +37,6 @@ const logoTextTypography = computed(() => logoText.value.typography || {
     fontSize: 32,
     fontWeight: 700,
     fontItalic: false,
-    fontUnderline: false,
-});
-const titleTypography = computed(() => props.content.titleTypography || {
-    fontFamily: 'Playfair Display',
-    fontColor: '#333333',
-    fontSize: 48,
-    fontWeight: 700,
-    fontItalic: false,
-    fontUnderline: false,
-});
-const subtitleTypography = computed(() => props.content.subtitleTypography || {
-    fontFamily: 'Montserrat',
-    fontColor: '#666666',
-    fontSize: 24,
-    fontWeight: 400,
-    fontItalic: true,
     fontUnderline: false,
 });
 const navigation = computed(() => {
@@ -200,15 +184,6 @@ const headerStyles = computed(() => ({
     zIndex: isStickyEnabled.value ? '100' : 'auto',
 }));
 
-// Alignment classes
-const alignmentClass = computed(() => {
-    switch (style.value.alignment) {
-        case 'left': return 'justify-start';
-        case 'right': return 'justify-end';
-        default: return 'justify-center';
-    }
-});
-
 // Button style classes
 const buttonClasses = computed(() => {
     const baseClasses = 'px-4 py-2 text-sm font-medium rounded-md transition-colors';
@@ -232,7 +207,7 @@ const isMobileMenuOpen = computed(() => false); // Static for preview
         :style="headerStyles"
     >
         <div class="h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="h-full flex items-center" :class="alignmentClass">
+            <div class="h-full flex items-center">
                 <!-- Logo -->
                 <div v-if="logoType === 'image' && logo.url" class="flex-shrink-0">
                     <img 
@@ -261,49 +236,10 @@ const isMobileMenuOpen = computed(() => false); // Static for preview
                     </span>
                 </div>
 
-                <!-- Title & Subtitle -->
-                <div 
-                    class="flex-1 px-4"
-                    :class="{ 'text-center': style.alignment === 'center' }"
-                >
-                    <h1 
-                        v-if="content.title"
-                        :style="{
-                            fontFamily: titleTypography.fontFamily,
-                            color: titleTypography.fontColor,
-                            fontSize: `${titleTypography.fontSize}px`,
-                            fontWeight: titleTypography.fontWeight,
-                            fontStyle: titleTypography.fontItalic ? 'italic' : 'normal',
-                            textDecoration: titleTypography.fontUnderline ? 'underline' : 'none',
-                        }"
-                    >
-                        {{ content.title }}
-                    </h1>
-                    <p 
-                        v-if="content.subtitle"
-                        :style="{
-                            fontFamily: subtitleTypography.fontFamily,
-                            color: subtitleTypography.fontColor,
-                            fontSize: `${subtitleTypography.fontSize}px`,
-                            fontWeight: subtitleTypography.fontWeight,
-                            fontStyle: subtitleTypography.fontItalic ? 'italic' : 'normal',
-                            textDecoration: subtitleTypography.fontUnderline ? 'underline' : 'none',
-                        }"
-                    >
-                        {{ content.subtitle }}
-                    </p>
-                    <p 
-                        v-if="content.showDate"
-                        class="text-xs text-gray-500 mt-0.5"
-                    >
-                        {data_extenso}
-                    </p>
-                </div>
-
                 <!-- Desktop Navigation -->
                 <nav 
                     v-if="navigation.length > 0 && viewport !== 'mobile'"
-                    class="hidden md:flex items-center space-x-6"
+                    class="ml-auto hidden md:flex items-center space-x-6"
                 >
                     <a
                         v-for="(item, index) in navigation"
