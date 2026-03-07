@@ -221,11 +221,13 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             return $result;
         }
 
-        $albums = $content['albums'] ?? [];
+        $albums = $this->getPhotoGalleryAlbums($content['albums'] ?? []);
         $photosWithoutAlt = [];
 
-        foreach ($albums as $albumName => $album) {
-            $items = $this->getGalleryAlbumItems(is_array($album) ? $album : []);
+        foreach ($albums as $albumData) {
+            $albumName = (string) ($albumData['label'] ?? 'Álbum');
+            $album = is_array($albumData['album'] ?? null) ? $albumData['album'] : [];
+            $items = $this->getGalleryAlbumItems($album);
             foreach ($items as $index => $item) {
                 if ($this->getGalleryItemType($item) !== 'image') {
                     continue;
@@ -254,20 +256,7 @@ class SiteValidatorService implements SiteValidatorServiceInterface
      */
     private function validateFooterSection(array $content): ValidationResult
     {
-        $result = ValidationResult::success();
-
-        $showPrivacyPolicy = $content['showPrivacyPolicy'] ?? false;
-        $privacyPolicyUrl = $content['privacyPolicyUrl'] ?? '';
-
-        if ($showPrivacyPolicy && empty(trim($privacyPolicyUrl))) {
-            $result->addError('Footer: URL da política de privacidade é obrigatória quando habilitada');
-        }
-
-        if (!empty($privacyPolicyUrl) && !$this->isValidUrl($privacyPolicyUrl)) {
-            $result->addError('Footer: URL da política de privacidade é inválida');
-        }
-
-        return $result;
+        return ValidationResult::success();
     }
 
 
@@ -318,9 +307,12 @@ class SiteValidatorService implements SiteValidatorServiceInterface
 
         // Check photo gallery (only if enabled)
         if (($sections['photoGallery']['enabled'] ?? false)) {
-            $albums = $sections['photoGallery']['albums'] ?? [];
-            foreach ($albums as $albumName => $album) {
-                $items = $this->getGalleryAlbumItems(is_array($album) ? $album : []);
+            $albums = $this->getPhotoGalleryAlbums($sections['photoGallery']['albums'] ?? []);
+            foreach ($albums as $albumData) {
+                $albumKey = (string) ($albumData['key'] ?? '0');
+                $albumName = (string) ($albumData['label'] ?? 'Álbum');
+                $album = is_array($albumData['album'] ?? null) ? $albumData['album'] : [];
+                $items = $this->getGalleryAlbumItems($album);
                 foreach ($items as $index => $item) {
                     if ($this->getGalleryItemType($item) !== 'image') {
                         continue;
@@ -331,7 +323,7 @@ class SiteValidatorService implements SiteValidatorServiceInterface
                         $warnings[] = [
                             'type' => 'missing_alt',
                             'section' => 'photoGallery',
-                            'element' => "albums.{$albumName}.items[{$index}]",
+                            'element' => "albums.{$albumKey}.items[{$index}]",
                             'message' => "Mídia {$index} (imagem) no álbum '{$albumName}' não tem texto alternativo",
                             'suggestion' => 'Adicione uma descrição da foto para acessibilidade',
                         ];
@@ -1087,18 +1079,7 @@ class SiteValidatorService implements SiteValidatorServiceInterface
             }
         }
 
-        // Check footer privacy policy URL
         if (($sections['footer']['enabled'] ?? false)) {
-            $privacyUrl = $sections['footer']['privacyPolicyUrl'] ?? '';
-            if (!empty($privacyUrl) && !$this->isValidUrl($privacyUrl)) {
-                $invalidLinks[] = [
-                    'section' => 'footer',
-                    'element' => 'privacyPolicyUrl',
-                    'url' => $privacyUrl,
-                ];
-            }
-
-            // Check social links
             $socialLinks = $sections['footer']['socialLinks'] ?? [];
             foreach ($socialLinks as $index => $link) {
                 $url = $link['url'] ?? '';
@@ -1233,6 +1214,54 @@ class SiteValidatorService implements SiteValidatorServiceInterface
         }
 
         return $items;
+    }
+
+    /**
+     * Normalize photo gallery albums to a list with stable labels.
+     *
+     * @return array<int, array{key: string, label: string, album: array}>
+     */
+    private function getPhotoGalleryAlbums(mixed $albums): array
+    {
+        if (!is_array($albums)) {
+            return [];
+        }
+
+        $normalizedAlbums = [];
+
+        if (array_is_list($albums)) {
+            foreach ($albums as $index => $album) {
+                if (!is_array($album)) {
+                    continue;
+                }
+
+                $title = trim((string) ($album['title'] ?? ''));
+
+                $normalizedAlbums[] = [
+                    'key' => (string) $index,
+                    'label' => $title !== '' ? $title : 'Álbum ' . ($index + 1),
+                    'album' => $album,
+                ];
+            }
+
+            return $normalizedAlbums;
+        }
+
+        foreach ($albums as $key => $album) {
+            if (!is_array($album)) {
+                continue;
+            }
+
+            $title = trim((string) ($album['title'] ?? ''));
+
+            $normalizedAlbums[] = [
+                'key' => (string) $key,
+                'label' => $title !== '' ? $title : (string) $key,
+                'album' => $album,
+            ];
+        }
+
+        return $normalizedAlbums;
     }
 
     /**

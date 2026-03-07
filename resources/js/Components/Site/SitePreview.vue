@@ -51,6 +51,7 @@ const theme = computed(() => ({
 
 // Wedding data for preview. Prefer explicit prop passed by the editor.
 const wedding = computed(() => props.wedding || page.props.wedding || {});
+const site = computed(() => page.props.site || {});
 
 // Check if section is enabled
 const isSectionEnabled = (sectionKey) => {
@@ -185,6 +186,7 @@ const renderedSections = computed(() => {
                         enabledSections: enabledSections.value,
                         footerContent: getSectionContent('footer'),
                         sectionOrder: orderedSectionKeys.value,
+                        siteSlug: site.value.slug || '',
                         viewportMode: props.mode,
                     },
                 };

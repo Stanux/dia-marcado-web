@@ -27,60 +27,115 @@ const page = usePage();
 const wedding = computed(() => page.props.wedding);
 const giftRegistryConfig = computed(() => wedding.value?.gift_registry_config);
 
+const DEFAULT_SECTION_TITLE_TYPOGRAPHY = {
+    fontFamily: 'Playfair Display',
+    fontColor: '#333333',
+    fontSize: 48,
+    fontWeight: 400,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_CARD_TITLE_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#1f2937',
+    fontSize: 18,
+    fontWeight: 600,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_CARD_DESCRIPTION_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#6b7280',
+    fontSize: 14,
+    fontWeight: 400,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_CARD_PRICE_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#059669',
+    fontSize: 24,
+    fontWeight: 700,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_BUTTON_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#ffffff',
+    fontSize: 14,
+    fontWeight: 600,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
 // Local copy of content for editing (deep clone to avoid reference issues)
 const localContent = ref(JSON.parse(JSON.stringify(props.content)));
 
-// Initialize config from content or from database
-if (!localContent.value.config) {
+const mergeTypography = (currentValue, defaults) => ({
+    ...defaults,
+    ...(currentValue && typeof currentValue === 'object' ? currentValue : {}),
+});
+
+const ensureStructure = () => {
+    if (!localContent.value.config) {
+        localContent.value.config = {};
+    }
+
     localContent.value.config = {
         section_title: giftRegistryConfig.value?.section_title || 'Lista de Presentes',
         registry_mode: giftRegistryConfig.value?.registry_mode || 'quantity',
         fee_modality: giftRegistryConfig.value?.fee_modality || 'couple_pays',
+        ...localContent.value.config,
     };
-}
 
-// Initialize typography from config or defaults
-if (!localContent.value.titleTypography) {
-    localContent.value.titleTypography = {
-        fontFamily: giftRegistryConfig.value?.title_font_family || 'Playfair Display',
-        fontColor: giftRegistryConfig.value?.title_color || '#333333',
-        fontSize: giftRegistryConfig.value?.title_font_size || 48,
-        fontWeight: giftRegistryConfig.value?.title_style === 'bold' || giftRegistryConfig.value?.title_style === 'bold_italic' ? 700 : 400,
-        fontItalic: giftRegistryConfig.value?.title_style === 'italic' || giftRegistryConfig.value?.title_style === 'bold_italic',
-        fontUnderline: Boolean(localContent.value?.config?.title_underline ?? false),
+    if (!localContent.value.style || typeof localContent.value.style !== 'object') {
+        localContent.value.style = {};
+    }
+
+    localContent.value.style = {
+        backgroundColor: '#ffffff',
+        cardBackgroundColor: '#ffffff',
+        cardBorderColor: '#e5e7eb',
+        buttonBackgroundColor: '#3b82f6',
+        ...localContent.value.style,
     };
-}
+
+    localContent.value.titleTypography = mergeTypography(
+        localContent.value.titleTypography || {
+            fontFamily: giftRegistryConfig.value?.title_font_family || DEFAULT_SECTION_TITLE_TYPOGRAPHY.fontFamily,
+            fontColor: giftRegistryConfig.value?.title_color || DEFAULT_SECTION_TITLE_TYPOGRAPHY.fontColor,
+            fontSize: giftRegistryConfig.value?.title_font_size || DEFAULT_SECTION_TITLE_TYPOGRAPHY.fontSize,
+            fontWeight: giftRegistryConfig.value?.title_style === 'bold' || giftRegistryConfig.value?.title_style === 'bold_italic' ? 700 : 400,
+            fontItalic: giftRegistryConfig.value?.title_style === 'italic' || giftRegistryConfig.value?.title_style === 'bold_italic',
+            fontUnderline: Boolean(localContent.value?.config?.title_underline ?? false),
+        },
+        DEFAULT_SECTION_TITLE_TYPOGRAPHY,
+    );
+
+    localContent.value.cardTitleTypography = mergeTypography(localContent.value.cardTitleTypography, DEFAULT_CARD_TITLE_TYPOGRAPHY);
+    localContent.value.cardDescriptionTypography = mergeTypography(localContent.value.cardDescriptionTypography, DEFAULT_CARD_DESCRIPTION_TYPOGRAPHY);
+    localContent.value.cardPriceTypography = mergeTypography(localContent.value.cardPriceTypography, DEFAULT_CARD_PRICE_TYPOGRAPHY);
+    localContent.value.buttonTypography = mergeTypography(localContent.value.buttonTypography, DEFAULT_BUTTON_TYPOGRAPHY);
+};
+
+ensureStructure();
 
 // Watch for external content changes
 watch(() => props.content, (newContent) => {
     localContent.value = JSON.parse(JSON.stringify(newContent));
-    
-    // Ensure config exists
-    if (!localContent.value.config && giftRegistryConfig.value) {
-        localContent.value.config = {
-            section_title: giftRegistryConfig.value.section_title || 'Lista de Presentes',
-            registry_mode: giftRegistryConfig.value.registry_mode || 'quantity',
-            fee_modality: giftRegistryConfig.value.fee_modality || 'couple_pays',
-        };
-    }
-    
-    // Ensure typography exists
-    if (!localContent.value.titleTypography && giftRegistryConfig.value) {
-        localContent.value.titleTypography = {
-            fontFamily: giftRegistryConfig.value.title_font_family || 'Playfair Display',
-            fontColor: giftRegistryConfig.value.title_color || '#333333',
-            fontSize: giftRegistryConfig.value.title_font_size || 48,
-            fontWeight: giftRegistryConfig.value.title_style === 'bold' || giftRegistryConfig.value.title_style === 'bold_italic' ? 700 : 400,
-            fontItalic: giftRegistryConfig.value.title_style === 'italic' || giftRegistryConfig.value.title_style === 'bold_italic',
-            fontUnderline: Boolean(localContent.value?.config?.title_underline ?? false),
-        };
-    }
+    ensureStructure();
 }, { deep: true });
 
 /**
  * Emit changes to parent (includes config in the content)
  */
 const emitChange = () => {
+    ensureStructure();
+
     // Sync typography to config before emitting
     if (localContent.value.titleTypography) {
         if (!localContent.value.config) {
@@ -145,17 +200,26 @@ const updateConfig = (field, value) => {
  */
 const updateTitleTypography = (field, value) => {
     if (!localContent.value.titleTypography) {
-        localContent.value.titleTypography = {
-            fontFamily: 'Playfair Display',
-            fontColor: '#333333',
-            fontSize: 48,
-            fontWeight: 400,
-            fontItalic: false,
-            fontUnderline: false,
-        };
+        localContent.value.titleTypography = { ...DEFAULT_SECTION_TITLE_TYPOGRAPHY };
     }
-    
+
     localContent.value.titleTypography[field] = value;
+    emitChange();
+};
+
+const updateTypographyField = (fieldKey, field, value) => {
+    if (!localContent.value[fieldKey] || typeof localContent.value[fieldKey] !== 'object') {
+        const defaultsByKey = {
+            cardTitleTypography: DEFAULT_CARD_TITLE_TYPOGRAPHY,
+            cardDescriptionTypography: DEFAULT_CARD_DESCRIPTION_TYPOGRAPHY,
+            cardPriceTypography: DEFAULT_CARD_PRICE_TYPOGRAPHY,
+            buttonTypography: DEFAULT_BUTTON_TYPOGRAPHY,
+        };
+
+        localContent.value[fieldKey] = { ...(defaultsByKey[fieldKey] || DEFAULT_CARD_TITLE_TYPOGRAPHY) };
+    }
+
+    localContent.value[fieldKey][field] = value;
     emitChange();
 };
 
@@ -190,17 +254,31 @@ const feeExample = computed(() => {
 const style = computed(() => localContent.value.style || {});
 const config = computed(() => localContent.value.config || {});
 const giftRegistryBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#ffffff'));
+const giftCardBackgroundColorHex = computed(() => normalizeHexColor(style.value.cardBackgroundColor, '#ffffff'));
+const giftCardBorderColorHex = computed(() => normalizeHexColor(style.value.cardBorderColor, '#e5e7eb'));
+const giftButtonBackgroundColorHex = computed(() => normalizeHexColor(style.value.buttonBackgroundColor, '#3b82f6'));
 const titleTypography = computed(() => localContent.value.titleTypography || {
-    fontFamily: 'Playfair Display',
-    fontColor: '#333333',
-    fontSize: 48,
-    fontWeight: 400,
-    fontItalic: false,
-    fontUnderline: false,
+    ...DEFAULT_SECTION_TITLE_TYPOGRAPHY,
 });
+const cardTitleTypography = computed(() => localContent.value.cardTitleTypography || DEFAULT_CARD_TITLE_TYPOGRAPHY);
+const cardDescriptionTypography = computed(() => localContent.value.cardDescriptionTypography || DEFAULT_CARD_DESCRIPTION_TYPOGRAPHY);
+const cardPriceTypography = computed(() => localContent.value.cardPriceTypography || DEFAULT_CARD_PRICE_TYPOGRAPHY);
+const buttonTypography = computed(() => localContent.value.buttonTypography || DEFAULT_BUTTON_TYPOGRAPHY);
 
 const pickGiftRegistryBackgroundColor = () => {
     pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
+};
+
+const pickGiftCardBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateStyle('cardBackgroundColor', hex));
+};
+
+const pickGiftCardBorderColor = () => {
+    pickColorFromScreen((hex) => updateStyle('cardBorderColor', hex));
+};
+
+const pickGiftButtonBackgroundColor = () => {
+    pickColorFromScreen((hex) => updateStyle('buttonBackgroundColor', hex));
 };
 </script>
 
@@ -275,6 +353,168 @@ const pickGiftRegistryBackgroundColor = () => {
                     />
                 </div>
             </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Cor de Fundo do Card</label>
+                <div class="flex items-center space-x-2">
+                    <input
+                        type="color"
+                        :value="giftCardBackgroundColorHex"
+                        @input="updateStyle('cardBackgroundColor', $event.target.value)"
+                        @change="updateStyle('cardBackgroundColor', $event.target.value)"
+                        class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                    />
+                    <button
+                        v-if="isEyeDropperSupported"
+                        type="button"
+                        @click="pickGiftCardBackgroundColor"
+                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                        title="Capturar cor da tela"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                        </svg>
+                    </button>
+                    <input
+                        type="text"
+                        :value="style.cardBackgroundColor || '#ffffff'"
+                        @input="updateStyle('cardBackgroundColor', $event.target.value)"
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Cor da Borda do Card</label>
+                <div class="flex items-center space-x-2">
+                    <input
+                        type="color"
+                        :value="giftCardBorderColorHex"
+                        @input="updateStyle('cardBorderColor', $event.target.value)"
+                        @change="updateStyle('cardBorderColor', $event.target.value)"
+                        class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                    />
+                    <button
+                        v-if="isEyeDropperSupported"
+                        type="button"
+                        @click="pickGiftCardBorderColor"
+                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                        title="Capturar cor da tela"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                        </svg>
+                    </button>
+                    <input
+                        type="text"
+                        :value="style.cardBorderColor || '#e5e7eb'"
+                        @input="updateStyle('cardBorderColor', $event.target.value)"
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Cor do Botão</label>
+                <div class="flex items-center space-x-2">
+                    <input
+                        type="color"
+                        :value="giftButtonBackgroundColorHex"
+                        @input="updateStyle('buttonBackgroundColor', $event.target.value)"
+                        @change="updateStyle('buttonBackgroundColor', $event.target.value)"
+                        class="h-10 w-14 border border-gray-300 rounded cursor-pointer"
+                    />
+                    <button
+                        v-if="isEyeDropperSupported"
+                        type="button"
+                        @click="pickGiftButtonBackgroundColor"
+                        class="h-10 w-10 inline-flex items-center justify-center border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                        title="Capturar cor da tela"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5l4 4M7 13l6-6a2.828 2.828 0 114 4l-6 6m-4 0H3v-4l9-9" />
+                        </svg>
+                    </button>
+                    <input
+                        type="text"
+                        :value="style.buttonBackgroundColor || '#3b82f6'"
+                        @input="updateStyle('buttonBackgroundColor', $event.target.value)"
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500 text-sm"
+                    />
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4 pt-6 border-t border-gray-200">
+            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Tipografia dos Cards</h3>
+
+            <TypographyControl
+                :font-family="cardTitleTypography.fontFamily"
+                :font-color="cardTitleTypography.fontColor"
+                :font-size="cardTitleTypography.fontSize"
+                :font-weight="cardTitleTypography.fontWeight"
+                :font-italic="cardTitleTypography.fontItalic"
+                :font-underline="cardTitleTypography.fontUnderline"
+                :preview-background-color="giftCardBackgroundColorHex"
+                label="Tipografia do Título do Presente"
+                @update:font-family="updateTypographyField('cardTitleTypography', 'fontFamily', $event)"
+                @update:font-color="updateTypographyField('cardTitleTypography', 'fontColor', $event)"
+                @update:font-size="updateTypographyField('cardTitleTypography', 'fontSize', $event)"
+                @update:font-weight="updateTypographyField('cardTitleTypography', 'fontWeight', $event)"
+                @update:font-italic="updateTypographyField('cardTitleTypography', 'fontItalic', $event)"
+                @update:font-underline="updateTypographyField('cardTitleTypography', 'fontUnderline', $event)"
+            />
+
+            <TypographyControl
+                :font-family="cardDescriptionTypography.fontFamily"
+                :font-color="cardDescriptionTypography.fontColor"
+                :font-size="cardDescriptionTypography.fontSize"
+                :font-weight="cardDescriptionTypography.fontWeight"
+                :font-italic="cardDescriptionTypography.fontItalic"
+                :font-underline="cardDescriptionTypography.fontUnderline"
+                :preview-background-color="giftCardBackgroundColorHex"
+                label="Tipografia da Descrição"
+                @update:font-family="updateTypographyField('cardDescriptionTypography', 'fontFamily', $event)"
+                @update:font-color="updateTypographyField('cardDescriptionTypography', 'fontColor', $event)"
+                @update:font-size="updateTypographyField('cardDescriptionTypography', 'fontSize', $event)"
+                @update:font-weight="updateTypographyField('cardDescriptionTypography', 'fontWeight', $event)"
+                @update:font-italic="updateTypographyField('cardDescriptionTypography', 'fontItalic', $event)"
+                @update:font-underline="updateTypographyField('cardDescriptionTypography', 'fontUnderline', $event)"
+            />
+
+            <TypographyControl
+                :font-family="cardPriceTypography.fontFamily"
+                :font-color="cardPriceTypography.fontColor"
+                :font-size="cardPriceTypography.fontSize"
+                :font-weight="cardPriceTypography.fontWeight"
+                :font-italic="cardPriceTypography.fontItalic"
+                :font-underline="cardPriceTypography.fontUnderline"
+                :preview-background-color="giftCardBackgroundColorHex"
+                label="Tipografia do Preço"
+                @update:font-family="updateTypographyField('cardPriceTypography', 'fontFamily', $event)"
+                @update:font-color="updateTypographyField('cardPriceTypography', 'fontColor', $event)"
+                @update:font-size="updateTypographyField('cardPriceTypography', 'fontSize', $event)"
+                @update:font-weight="updateTypographyField('cardPriceTypography', 'fontWeight', $event)"
+                @update:font-italic="updateTypographyField('cardPriceTypography', 'fontItalic', $event)"
+                @update:font-underline="updateTypographyField('cardPriceTypography', 'fontUnderline', $event)"
+            />
+
+            <TypographyControl
+                :font-family="buttonTypography.fontFamily"
+                :font-color="buttonTypography.fontColor"
+                :font-size="buttonTypography.fontSize"
+                :font-weight="buttonTypography.fontWeight"
+                :font-italic="buttonTypography.fontItalic"
+                :font-underline="buttonTypography.fontUnderline"
+                :preview-background-color="giftButtonBackgroundColorHex"
+                label="Tipografia do Botão"
+                @update:font-family="updateTypographyField('buttonTypography', 'fontFamily', $event)"
+                @update:font-color="updateTypographyField('buttonTypography', 'fontColor', $event)"
+                @update:font-size="updateTypographyField('buttonTypography', 'fontSize', $event)"
+                @update:font-weight="updateTypographyField('buttonTypography', 'fontWeight', $event)"
+                @update:font-italic="updateTypographyField('buttonTypography', 'fontItalic', $event)"
+                @update:font-underline="updateTypographyField('buttonTypography', 'fontUnderline', $event)"
+            />
         </div>
 
         <!-- Fee Configuration -->

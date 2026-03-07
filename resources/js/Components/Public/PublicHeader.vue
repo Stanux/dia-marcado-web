@@ -30,6 +30,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    siteSlug: {
+        type: String,
+        default: '',
+    },
     viewportMode: {
         type: String,
         default: 'auto',
@@ -57,6 +61,12 @@ const SECTION_KEYS_BY_ANCHOR = Object.entries(SECTION_ANCHORS_BY_KEY).reduce((ac
     accumulator[anchor] = sectionKey;
     return accumulator;
 }, {});
+
+const siteHomeUrl = computed(() => {
+    const slug = String(props.siteSlug || '').trim();
+
+    return slug ? `/site/${slug}` : '/';
+});
 
 const normalizeTarget = (rawTarget) => {
     if (typeof rawTarget !== 'string') {
@@ -684,7 +694,7 @@ const navigateTo = (target, type) => {
             <div class="flex items-center gap-2 md:gap-4 h-full" :style="headerRowStyles">
                 <!-- Logo -->
                 <div v-if="logo.type === 'image' && logo.url" class="flex-shrink-0 max-w-[96px] sm:max-w-[140px]">
-                    <a href="/" class="public-header-logo-link" aria-label="Ir para o início">
+                    <a :href="siteHomeUrl" class="public-header-logo-link" aria-label="Ir para o início">
                         <img 
                             :src="logo.url" 
                             :alt="logo.alt || 'Logo'"
@@ -696,7 +706,7 @@ const navigateTo = (target, type) => {
                 
                 <!-- Logo Text (Initials) -->
                 <div v-else-if="logo.type === 'text' && logo.text" class="flex-shrink-0 max-w-[45%] sm:max-w-none">
-                    <a href="/" class="public-header-logo-link" aria-label="Ir para o início">
+                    <a :href="siteHomeUrl" class="public-header-logo-link" aria-label="Ir para o início">
                         <span 
                             class="font-bold tracking-wider block truncate"
                             :style="logoTextStyle"

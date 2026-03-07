@@ -7,7 +7,7 @@
  * 
  * @Requirements: 2.1, 2.4, 3.1, 3.2, 15.2
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, type CSSProperties } from 'vue';
 import GiftCard from './GiftCard.vue';
 import PurchaseModal from './PurchaseModal.vue';
 import { useGiftRegistry } from '@/Composables/useGiftRegistry';
@@ -40,20 +40,42 @@ interface GiftRegistryConfig {
   registry_mode?: 'quantity' | 'quota';
 }
 
+interface TypographyConfig {
+  fontFamily?: string | null;
+  fontColor?: string | null;
+  fontSize?: number | null;
+  fontWeight?: number | string | null;
+  fontItalic?: boolean;
+  fontUnderline?: boolean;
+}
+
+interface GiftCatalogAppearance {
+  cardBackgroundColor?: string | null;
+  cardBorderColor?: string | null;
+  buttonBackgroundColor?: string | null;
+  cardTitleTypography?: TypographyConfig | null;
+  cardDescriptionTypography?: TypographyConfig | null;
+  cardPriceTypography?: TypographyConfig | null;
+  buttonTypography?: TypographyConfig | null;
+}
+
 interface Props {
   eventId: string;
   config?: GiftRegistryConfig | null;
+  appearance?: GiftCatalogAppearance | null;
   isPreview?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   config: null,
+  appearance: null,
   isPreview: false
 });
 
 // State
 const gifts = ref<GiftItem[]>([]);
-const sortBy = ref<'price_asc' | 'price_desc'>('price_asc');
+const sortBy = ref<'price_asc' | 'price_desc'>('price_desc');
+const viewMode = ref<'grid' | 'list'>('grid');
 const selectedGift = ref<GiftItem | null>(null);
 
 // Use gift registry composable for API calls and error handling
@@ -72,6 +94,50 @@ const giftConfig = computed(() => {
     title_underline: false,
   };
 });
+
+const appearance = computed<GiftCatalogAppearance>(() => props.appearance || {});
+
+const resolveTypographyStyle = (typography?: TypographyConfig | null): CSSProperties => {
+  if (!typography) {
+    return {};
+  }
+
+  const styles: CSSProperties = {};
+
+  if (typography.fontFamily) {
+    styles.fontFamily = typography.fontFamily;
+  }
+
+  if (typography.fontColor) {
+    styles.color = typography.fontColor;
+  }
+
+  if (typography.fontSize !== null && typography.fontSize !== undefined && typography.fontSize !== '') {
+    styles.fontSize = `${typography.fontSize}px`;
+  }
+
+  if (typography.fontWeight !== null && typography.fontWeight !== undefined && typography.fontWeight !== '') {
+    styles.fontWeight = String(typography.fontWeight) as CSSProperties['fontWeight'];
+  }
+
+  if (typography.fontItalic) {
+    styles.fontStyle = 'italic';
+  }
+
+  if (typography.fontUnderline) {
+    styles.textDecoration = 'underline';
+  }
+
+  return styles;
+};
+
+const cardBackgroundColor = computed(() => appearance.value.cardBackgroundColor || '#ffffff');
+const cardBorderColor = computed(() => appearance.value.cardBorderColor || '#e5e7eb');
+const buttonBackgroundColor = computed(() => appearance.value.buttonBackgroundColor || '#3b82f6');
+const cardTitleStyle = computed(() => resolveTypographyStyle(appearance.value.cardTitleTypography));
+const cardDescriptionStyle = computed(() => resolveTypographyStyle(appearance.value.cardDescriptionTypography));
+const cardPriceStyle = computed(() => resolveTypographyStyle(appearance.value.cardPriceTypography));
+const buttonTypographyStyle = computed(() => resolveTypographyStyle(appearance.value.buttonTypography));
 
 // Computed
 const titleStyles = computed(() => {
@@ -119,6 +185,10 @@ const sortedGifts = computed(() => {
   return sorted;
 });
 
+const sortButtonLabel = computed(() => (
+  sortBy.value === 'price_desc' ? 'Preço ↑' : 'Preço ↓'
+));
+
 // Methods
 async function fetchGifts() {
   try {
@@ -153,6 +223,10 @@ function handlePurchaseSuccess() {
   closePurchaseModal();
   // Refresh the gift list to update quantities
   fetchGifts();
+}
+
+function toggleSortDirection() {
+  sortBy.value = sortBy.value === 'price_desc' ? 'price_asc' : 'price_desc';
 }
 
 // Lifecycle
@@ -207,23 +281,54 @@ onMounted(() => {
     <div v-else class="gift-content">
       <!-- Filters -->
       <div class="filters">
-        <label for="sort-select" class="filter-label">Ordenar por:</label>
-        <select 
-          id="sort-select"
-          v-model="sortBy" 
-          class="sort-select"
+        <div class="view-mode-toggle" role="group" aria-label="Modo de visualização">
+          <button
+            type="button"
+            class="toolbar-button"
+            :class="{ active: viewMode === 'grid' }"
+            @click="viewMode = 'grid'"
+            aria-label="Exibir em grade"
+          >
+            <svg class="toolbar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="toolbar-button"
+            :class="{ active: viewMode === 'list' }"
+            @click="viewMode = 'list'"
+            aria-label="Exibir em lista"
+          >
+            <svg class="toolbar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
+            </svg>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="toolbar-button sort-button"
+          @click="toggleSortDirection"
         >
-          <option value="price_asc">Menor Preço</option>
-          <option value="price_desc">Maior Preço</option>
-        </select>
+          {{ sortButtonLabel }}
+        </button>
       </div>
 
       <!-- Grid -->
-      <div class="gift-grid">
+      <div class="gift-grid" :class="{ 'gift-grid-list': viewMode === 'list' }">
         <GiftCard
           v-for="gift in sortedGifts"
           :key="gift.id"
           :gift="gift"
+          :card-background-color="cardBackgroundColor"
+          :card-border-color="cardBorderColor"
+          :button-background-color="buttonBackgroundColor"
+          :title-style="cardTitleStyle"
+          :description-style="cardDescriptionStyle"
+          :price-style="cardPriceStyle"
+          :button-typography-style="buttonTypographyStyle"
+          :view-mode="viewMode"
           :is-preview="isPreview"
           @purchase="openPurchaseModal"
         />
@@ -365,37 +470,57 @@ onMounted(() => {
 .filters {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 2rem;
   padding: 0 0.5rem;
+  flex-wrap: wrap;
 }
 
-.filter-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #6b7280;
+.view-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.sort-select {
+.toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.5rem 1rem;
   border: 1px solid #d1d5db;
   border-radius: 0.5rem;
   font-size: 0.875rem;
+  font-weight: 600;
   color: #374151;
   background-color: white;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background-color 0.2s, color 0.2s;
 }
 
-.sort-select:hover {
+.toolbar-button:hover {
   border-color: #9ca3af;
 }
 
-.sort-select:focus {
+.toolbar-button:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.toolbar-button.active {
+  background-color: #111827;
+  border-color: #111827;
+  color: white;
+}
+
+.toolbar-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.sort-button {
+  min-width: 7rem;
 }
 
 /* Grid */
@@ -404,6 +529,10 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 2rem;
   padding: 0.5rem;
+}
+
+.gift-grid.gift-grid-list {
+  grid-template-columns: 1fr;
 }
 
 /* Responsive */
@@ -422,9 +551,12 @@ onMounted(() => {
   }
 
   .filters {
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 0.5rem;
+  }
+
+  .sort-button {
+    justify-content: center;
   }
 }
 

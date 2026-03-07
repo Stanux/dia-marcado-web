@@ -1,12 +1,4 @@
 <script setup>
-/**
- * PublicFooter Component
- * 
- * Renders the footer section with social links, copyright,
- * and privacy policy link.
- * 
- * @Requirements: 14.1, 14.3, 14.4, 14.5
- */
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -20,14 +12,13 @@ const props = defineProps({
     },
 });
 
-// Computed properties
 const style = computed(() => props.content.style || {});
 const socialLinks = computed(() => props.content.socialLinks || []);
-
-// Copyright year (auto-fill if not set)
-const copyrightYear = computed(() => {
-    return props.content.copyrightYear || new Date().getFullYear();
-});
+const fixedCopyrightText = '© 2026 Dia Marcado. Todos os direitos reservados.';
+const privacyPolicyUrl = '/politica-de-privacidade';
+const accountCtaUrl = '/admin/register';
+const accountCtaLabel = 'Criar conta';
+const accountPitch = 'Vai casar? Crie seu site e organize seu casamento de forma simples e elegante.';
 
 // Social platform icons (SVG paths)
 const socialIcons = {
@@ -47,12 +38,11 @@ const socialIcons = {
 const getIconSvg = (platform) => {
     return socialIcons[platform?.toLowerCase()] || socialIcons.website;
 };
-
 </script>
 
 <template>
-    <footer 
-        class="py-16 px-4 relative"
+    <footer
+        class="px-4 py-12 sm:py-14"
         :style="{ 
             backgroundColor: style.backgroundColor || '#1f2937',
             color: style.textColor || '#ffffff',
@@ -61,57 +51,57 @@ const getIconSvg = (platform) => {
         id="footer"
     >
         <div class="max-w-6xl mx-auto">
-            <!-- Social Links -->
-            <div 
-                v-if="socialLinks.length > 0"
-                class="flex justify-center space-x-5 mb-10"
-            >
-                <a
-                    v-for="(link, index) in socialLinks"
-                    :key="index"
-                    :href="link.url || '#'"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200 hover:scale-110"
-                    :style="{ backgroundColor: 'rgba(255,255,255,0.1)' }"
-                    :title="link.platform"
-                >
-                    <svg 
-                        class="w-5 h-5" 
-                        fill="currentColor" 
-                        viewBox="0 0 24 24"
-                        v-html="getIconSvg(link.platform)"
-                    />
-                </a>
-            </div>
+            <div class="grid gap-10 text-center md:grid-cols-3 md:items-start md:text-left">
+                <div class="flex flex-wrap items-center justify-center gap-3 md:justify-start">
+                    <a
+                        v-for="(link, index) in socialLinks"
+                        :key="index"
+                        :href="link.url || '#'"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex h-11 w-11 items-center justify-center rounded-full border transition-opacity duration-200 hover:opacity-80"
+                        :style="{ borderColor: 'currentColor' }"
+                        :title="link.platform"
+                    >
+                        <svg
+                            class="h-5 w-5"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                            v-html="getIconSvg(link.platform)"
+                        />
+                    </a>
+                </div>
 
-            <!-- Copyright -->
-            <div class="text-center">
-                <p class="text-sm opacity-70">
-                    {{ content.copyrightText || 'Todos os direitos reservados' }}
-                </p>
-                <p class="text-sm opacity-50 mt-1">
-                    © {{ copyrightYear }}
-                </p>
-                
-                <!-- Privacy Policy Link -->
-                <a
-                    v-if="content.showPrivacyPolicy && content.privacyPolicyUrl"
-                    :href="content.privacyPolicyUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="text-sm opacity-50 hover:opacity-80 mt-4 inline-block transition-opacity"
-                >
-                    Política de Privacidade
-                </a>
-            </div>
+                <div class="space-y-2 text-center md:justify-self-center">
+                    <p class="text-sm font-medium opacity-90">
+                        {{ fixedCopyrightText }}
+                    </p>
+                    <a
+                        :href="privacyPolicyUrl"
+                        class="inline-flex text-sm opacity-75 transition-opacity hover:opacity-100"
+                    >
+                        Política de Privacidade
+                    </a>
+                </div>
 
+                <div class="space-y-4 md:text-right">
+                    <p class="text-sm leading-7 opacity-90">
+                        {{ accountPitch }}
+                    </p>
+                    <a
+                        :href="accountCtaUrl"
+                        class="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                        :style="{ backgroundColor: theme.primaryColor || '#c45a6f' }"
+                    >
+                        {{ accountCtaLabel }}
+                    </a>
+                </div>
+            </div>
         </div>
     </footer>
 </template>
 
 <style scoped>
-/* Footer link hover effects */
 a:hover {
     text-decoration: none;
 }

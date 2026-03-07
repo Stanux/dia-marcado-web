@@ -195,6 +195,7 @@ const renderedSections = computed(() => {
                         enabledSections: enabledSections.value,
                         footerContent: getSectionContent('footer'),
                         sectionOrder: orderedSectionKeys.value,
+                        siteSlug: props.site.slug,
                     },
                 };
             }

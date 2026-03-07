@@ -271,8 +271,51 @@ class SiteContentSchema
             ],
             'title' => 'Lista de Presentes',
             'description' => 'Em breve...',
+            'titleTypography' => [
+                'fontFamily' => 'Playfair Display',
+                'fontColor' => '#333333',
+                'fontSize' => 48,
+                'fontWeight' => 400,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'cardTitleTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#1f2937',
+                'fontSize' => 18,
+                'fontWeight' => 600,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'cardDescriptionTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#6b7280',
+                'fontSize' => 14,
+                'fontWeight' => 400,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'cardPriceTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#059669',
+                'fontSize' => 24,
+                'fontWeight' => 700,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
+            'buttonTypography' => [
+                'fontFamily' => 'Montserrat',
+                'fontColor' => '#ffffff',
+                'fontSize' => 14,
+                'fontWeight' => 600,
+                'fontItalic' => false,
+                'fontUnderline' => false,
+            ],
             'style' => [
                 'backgroundColor' => '#ffffff',
+                'cardBackgroundColor' => '#ffffff',
+                'cardBorderColor' => '#e5e7eb',
+                'buttonBackgroundColor' => '#3b82f6',
             ],
         ];
     }
@@ -428,13 +471,9 @@ class SiteContentSchema
             ],
             'title' => 'Galeria de Fotos',
             'albums' => [
-                'before' => [
-                    'title' => 'Nossa História',
-                    'items' => [],
-                    'photos' => [],
-                ],
-                'after' => [
-                    'title' => 'O Grande Dia',
+                [
+                    'id' => 'album-1',
+                    'title' => 'Álbum 1',
                     'items' => [],
                     'photos' => [],
                 ],
@@ -448,10 +487,6 @@ class SiteContentSchema
             'video' => [
                 'hoverPreview' => true,
                 'hoverDelayMs' => 1000,
-            ],
-            'display' => [
-                'showBefore' => true,
-                'showAfter' => true,
             ],
             'titleTypography' => [
                 'fontFamily' => 'Playfair Display',
@@ -565,6 +600,7 @@ class SiteContentSchema
     public static function normalize(array $content): array
     {
         $content = self::migrateLegacyBackToTopControl($content);
+        $content = self::migrateLegacyPhotoGalleryAlbums($content);
         $normalized = self::mergeWithDefaults(self::getDefaultContent(), $content);
         $normalized = self::migrateLegacyRsvpToGuestsV2($normalized);
         $normalized = self::enforceHeroOrderWhenHeaderIsTransparent($normalized);
@@ -616,6 +652,97 @@ class SiteContentSchema
         }
 
         return $content;
+    }
+
+    /**
+     * Migrate legacy photo gallery albums from fixed before/after keys
+     * to a public album list while preserving media and titles.
+     */
+    private static function migrateLegacyPhotoGalleryAlbums(array $content): array
+    {
+        if (
+            !isset($content['sections']['photoGallery'])
+            || !is_array($content['sections']['photoGallery'])
+        ) {
+            return $content;
+        }
+
+        $photoGallery = &$content['sections']['photoGallery'];
+        $albums = $photoGallery['albums'] ?? null;
+
+        if (!is_array($albums)) {
+            return $content;
+        }
+
+        $normalizedAlbums = [];
+
+        if (array_is_list($albums)) {
+            foreach ($albums as $index => $album) {
+                if (!is_array($album)) {
+                    continue;
+                }
+
+                $normalizedAlbums[] = self::normalizePhotoGalleryAlbum($album, $index);
+            }
+        } else {
+            foreach ($albums as $legacyKey => $album) {
+                if (!is_array($album)) {
+                    continue;
+                }
+
+                $normalizedAlbums[] = self::normalizePhotoGalleryAlbum(
+                    $album,
+                    count($normalizedAlbums),
+                    is_string($legacyKey) ? $legacyKey : null
+                );
+            }
+        }
+
+        if ($normalizedAlbums === []) {
+            $normalizedAlbums[] = self::normalizePhotoGalleryAlbum([], 0);
+        }
+
+        $photoGallery['albums'] = $normalizedAlbums;
+
+        return $content;
+    }
+
+    private static function normalizePhotoGalleryAlbum(array $album, int $index, ?string $legacyKey = null): array
+    {
+        $normalizedAlbum = $album;
+
+        $normalizedAlbum['id'] = trim((string) ($album['id'] ?? ''));
+        if ($normalizedAlbum['id'] === '') {
+            $normalizedAlbum['id'] = self::buildPhotoGalleryAlbumId($legacyKey, $index);
+        }
+
+        $title = trim((string) ($album['title'] ?? ''));
+        if ($title === '') {
+            $title = match ($legacyKey) {
+                'before' => 'Nossa História',
+                'after' => 'O Grande Dia',
+                default => 'Álbum ' . ($index + 1),
+            };
+        }
+
+        $normalizedAlbum['title'] = $title;
+        $normalizedAlbum['items'] = is_array($album['items'] ?? null) ? $album['items'] : [];
+        $normalizedAlbum['photos'] = is_array($album['photos'] ?? null) ? $album['photos'] : [];
+
+        return $normalizedAlbum;
+    }
+
+    private static function buildPhotoGalleryAlbumId(?string $legacyKey, int $index): string
+    {
+        $base = strtolower(trim((string) $legacyKey));
+        $base = preg_replace('/[^a-z0-9]+/', '-', $base) ?? '';
+        $base = trim($base, '-');
+
+        if ($base === '') {
+            $base = 'album';
+        }
+
+        return $base . '-' . ($index + 1);
     }
 
     /**

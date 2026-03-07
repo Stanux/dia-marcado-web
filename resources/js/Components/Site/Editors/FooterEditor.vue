@@ -1,11 +1,9 @@
 <script setup>
 /**
  * FooterEditor Component
- * 
+ *
  * Editor for the Footer section of the wedding site.
- * Supports social links, copyright text, and privacy policy.
- * 
- * @Requirements: 14.1, 14.3, 14.4, 14.5
+ * Supports social links and footer style configuration.
  */
 import { ref, watch, computed } from 'vue';
 import { useColorField } from '@/Composables/useColorField';
@@ -33,14 +31,6 @@ watch(() => props.content, (newContent) => {
  */
 const emitChange = () => {
     emit('change', JSON.parse(JSON.stringify(localContent.value)));
-};
-
-/**
- * Update a field and emit change
- */
-const updateField = (field, value) => {
-    localContent.value[field] = value;
-    emitChange();
 };
 
 /**
@@ -228,62 +218,6 @@ const socialPlatforms = [
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Copyright -->
-        <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="footer-section-title">Copyright</h3>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Texto de Copyright</label>
-                <input
-                    type="text"
-                    :value="localContent.copyrightText"
-                    @input="updateField('copyrightText', $event.target.value)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    placeholder="Ex: Todos os direitos reservados"
-                />
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Ano</label>
-                <input
-                    type="number"
-                    :value="localContent.copyrightYear"
-                    @input="updateField('copyrightYear', $event.target.value ? parseInt($event.target.value) : null)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    placeholder="Deixe vazio para usar o ano atual"
-                    min="2000"
-                    max="2100"
-                />
-                <p class="mt-1 text-xs text-gray-500">Deixe vazio para preencher automaticamente com o ano atual</p>
-            </div>
-        </div>
-
-        <!-- Privacy Policy -->
-        <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="footer-section-title">Política de Privacidade</h3>
-            
-            <div class="flex items-center">
-                <input
-                    type="checkbox"
-                    :checked="localContent.showPrivacyPolicy"
-                    @change="updateField('showPrivacyPolicy', $event.target.checked)"
-                    class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
-                />
-                <label class="ml-2 text-sm text-gray-700">Exibir link de política de privacidade</label>
-            </div>
-
-            <div v-if="localContent.showPrivacyPolicy">
-                <label class="block text-sm font-medium text-gray-700 mb-1">URL da Política de Privacidade</label>
-                <input
-                    type="text"
-                    :value="localContent.privacyPolicyUrl"
-                    @input="updateField('privacyPolicyUrl', $event.target.value)"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    placeholder="https://exemplo.com/privacidade"
-                />
             </div>
         </div>
 

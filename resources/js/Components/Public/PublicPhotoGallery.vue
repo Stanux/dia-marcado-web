@@ -53,9 +53,9 @@ const DEFAULT_TABS_STYLE = {
     activeBorderColor: '#d87a8d',
 };
 
-const DEFAULT_DISPLAY = {
-    showBefore: true,
-    showAfter: true,
+const LEGACY_ALBUM_TITLES = {
+    before: 'Nossa História',
+    after: 'O Grande Dia',
 };
 
 const style = computed(() => props.content.style || {});
@@ -140,34 +140,42 @@ const normalizeGalleryItem = (item, index = 0) => {
     };
 };
 
-const normalizeAlbum = (album, fallbackTitle) => {
-    const items = Array.isArray(album?.items) ? album.items : [];
-    const legacyPhotos = Array.isArray(album?.photos) ? album.photos : [];
-
-    const baseItems = items.length > 0 ? items : legacyPhotos;
+const normalizeAlbumEntry = (album, index = 0, legacyKey = '') => {
+    const baseAlbum = album && typeof album === 'object' ? album : {};
+    const items = Array.isArray(baseAlbum.items) ? baseAlbum.items : [];
+    const legacyPhotos = Array.isArray(baseAlbum.photos) ? baseAlbum.photos : [];
+    const sourceItems = items.length > 0 ? items : legacyPhotos;
+    const fallbackTitle = LEGACY_ALBUM_TITLES[legacyKey] || `Álbum ${index + 1}`;
 
     return {
-        title: album?.title || fallbackTitle,
-        items: baseItems
-            .map((item, index) => normalizeGalleryItem(item, index))
+        id: typeof baseAlbum.id === 'string' && baseAlbum.id.trim()
+            ? baseAlbum.id
+            : `${legacyKey || 'album'}-${index + 1}`,
+        title: baseAlbum.title || fallbackTitle,
+        items: sourceItems
+            .map((item, itemIndex) => normalizeGalleryItem(item, itemIndex))
             .filter(Boolean)
             .sort((a, b) => a.sortOrder - b.sortOrder),
     };
 };
 
-const albums = computed(() => {
-    const source = props.content.albums || {};
+const normalizeAlbumsCollection = (source) => {
+    if (Array.isArray(source)) {
+        return source
+            .map((album, index) => normalizeAlbumEntry(album, index))
+            .filter(Boolean);
+    }
 
-    return {
-        before: normalizeAlbum(source.before, 'Nossa História'),
-        after: normalizeAlbum(source.after, 'O Grande Dia'),
-    };
-});
+    if (source && typeof source === 'object') {
+        return Object.entries(source)
+            .map(([legacyKey, album], index) => normalizeAlbumEntry(album, index, legacyKey))
+            .filter(Boolean);
+    }
 
-const display = computed(() => ({
-    ...DEFAULT_DISPLAY,
-    ...(props.content?.display || {}),
-}));
+    return [];
+};
+
+const albums = computed(() => normalizeAlbumsCollection(props.content.albums || []));
 
 const titleTypography = computed(() => ({
     ...DEFAULT_TITLE_TYPOGRAPHY,
@@ -216,37 +224,11 @@ const tabActiveTextStyle = computed(() => ({
     textDecoration: tabsActiveTypography.value.fontUnderline ? 'underline' : 'none',
 }));
 
-const availableAlbumKeys = computed(() => {
-    const keys = [];
+const hasVisibleAlbums = computed(() => albums.value.length > 0);
 
-    if (display.value.showBefore) {
-        keys.push('before');
-    }
-
-    if (display.value.showAfter) {
-        keys.push('after');
-    }
-
-    return keys;
-});
-
-const visibleAlbums = computed(() => availableAlbumKeys.value.map((key) => ({
-    key,
-    title: albums.value[key]?.title || (key === 'before' ? 'Nossa História' : 'O Grande Dia'),
-})));
-
-const hasVisibleAlbums = computed(() => visibleAlbums.value.length > 0);
-
-const activeAlbum = ref('before');
-const visibleCountByAlbum = ref({
-    before: perPage.value,
-    after: perPage.value,
-});
-const loadingMoreByAlbum = ref({
-    before: false,
-    after: false,
-});
-
+const activeAlbumId = ref('');
+const visibleCountByAlbum = ref({});
+const loadingMoreByAlbum = ref({});
 const lightboxOpen = ref(false);
 const lightboxIndex = ref(0);
 const slideshowIndex = ref(0);
@@ -265,18 +247,40 @@ let observer = null;
 let slideshowInterval = null;
 const videoHoverTimeouts = new Map();
 
-const getCurrentAlbumItems = (albumKey) => {
-    if (!availableAlbumKeys.value.includes(albumKey)) {
-        return [];
-    }
+const syncAlbumStateMaps = () => {
+    const nextVisibleCount = {};
+    const nextLoadingState = {};
 
-    return albums.value[albumKey]?.items || [];
+    albums.value.forEach((album) => {
+        const currentVisibleCount = Number(visibleCountByAlbum.value[album.id]);
+        nextVisibleCount[album.id] = currentVisibleCount > 0 ? currentVisibleCount : perPage.value;
+        nextLoadingState[album.id] = loadingMoreByAlbum.value[album.id] === true;
+    });
+
+    visibleCountByAlbum.value = nextVisibleCount;
+    loadingMoreByAlbum.value = nextLoadingState;
 };
 
-const currentItems = computed(() => getCurrentAlbumItems(activeAlbum.value));
+const ensureActiveAlbumVisible = () => {
+    if (!albums.value.some((album) => album.id === activeAlbumId.value)) {
+        activeAlbumId.value = albums.value[0]?.id || '';
+    }
+};
+
+const getCurrentAlbumItems = (albumId) => {
+    const album = albums.value.find((entry) => entry.id === albumId);
+    return album?.items || [];
+};
+
+const currentAlbum = computed(() => albums.value.find((album) => album.id === activeAlbumId.value) || albums.value[0] || null);
+const currentItems = computed(() => currentAlbum.value?.items || []);
 
 const currentVisibleCount = computed(() => {
-    const count = visibleCountByAlbum.value[activeAlbum.value] ?? perPage.value;
+    if (!currentAlbum.value) {
+        return perPage.value;
+    }
+
+    const count = visibleCountByAlbum.value[currentAlbum.value.id] ?? perPage.value;
     return Math.max(perPage.value, count);
 });
 
@@ -296,7 +300,13 @@ const hasMoreItems = computed(() => {
     return currentVisibleCount.value < currentItems.value.length;
 });
 
-const isLoadingMore = computed(() => loadingMoreByAlbum.value[activeAlbum.value] === true);
+const isLoadingMore = computed(() => {
+    if (!currentAlbum.value) {
+        return false;
+    }
+
+    return loadingMoreByAlbum.value[currentAlbum.value.id] === true;
+});
 
 const gridColumnsClass = computed(() => {
     switch (columns.value) {
@@ -314,9 +324,7 @@ const placeholderImage = (index) => {
     return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='${color}' width='400' height='400'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EMídia ${index + 1}%3C/text%3E%3C/svg%3E`;
 };
 
-const resolveOriginalSource = (item, index) => {
-    return item?.originalUrl || item?.url || placeholderImage(index);
-};
+const resolveOriginalSource = (item, index) => item?.originalUrl || item?.url || placeholderImage(index);
 
 const resolveDisplaySource = (item, index) => {
     if (item?.type === 'video') {
@@ -326,9 +334,7 @@ const resolveDisplaySource = (item, index) => {
     return item?.displayUrl || item?.thumbnailUrl || resolveOriginalSource(item, index);
 };
 
-const getMediaCacheKey = (item, index) => {
-    return `${item?.mediaId || 'no-id'}|${item?.displayUrl || item?.thumbnailUrl || item?.url || 'no-url'}|${index}`;
-};
+const getMediaCacheKey = (item, index) => `${item?.mediaId || 'no-id'}|${item?.displayUrl || item?.thumbnailUrl || item?.url || 'no-url'}|${index}`;
 
 const resolvePreviewSource = (item, index) => {
     const cacheKey = getMediaCacheKey(item, index);
@@ -397,54 +403,45 @@ const persistGalleryCache = () => {
         sessionStorage.setItem(
             cacheKey,
             JSON.stringify({
-                activeAlbum: activeAlbum.value,
+                activeAlbumId: activeAlbumId.value,
                 visibleCountByAlbum: visibleCountByAlbum.value,
             }),
         );
     } catch (_error) {
-        // noop: cache is best effort
+        // noop
     }
-};
-
-const ensureActiveAlbumVisible = () => {
-    if (availableAlbumKeys.value.includes(activeAlbum.value)) {
-        return;
-    }
-
-    activeAlbum.value = availableAlbumKeys.value[0] || 'before';
 };
 
 const restoreGalleryCache = () => {
     const cacheKey = getCacheStorageKey();
     if (!cacheKey) {
+        ensureActiveAlbumVisible();
         return;
     }
 
     try {
         const raw = sessionStorage.getItem(cacheKey);
         if (!raw) {
+            ensureActiveAlbumVisible();
             return;
         }
 
         const parsed = JSON.parse(raw);
         const cachedCounts = parsed?.visibleCountByAlbum;
-        const cachedActiveAlbum = parsed?.activeAlbum;
+        const nextVisibleCount = {};
 
-        if (cachedCounts && typeof cachedCounts === 'object') {
-            visibleCountByAlbum.value = {
-                before: Number(cachedCounts.before) > 0 ? Number(cachedCounts.before) : perPage.value,
-                after: Number(cachedCounts.after) > 0 ? Number(cachedCounts.after) : perPage.value,
-            };
-        }
+        albums.value.forEach((album) => {
+            const candidate = Number(cachedCounts?.[album.id]);
+            nextVisibleCount[album.id] = candidate > 0 ? candidate : perPage.value;
+        });
 
-        if (
-            (cachedActiveAlbum === 'before' || cachedActiveAlbum === 'after')
-            && availableAlbumKeys.value.includes(cachedActiveAlbum)
-        ) {
-            activeAlbum.value = cachedActiveAlbum;
+        visibleCountByAlbum.value = nextVisibleCount;
+
+        if (albums.value.some((album) => album.id === parsed?.activeAlbumId)) {
+            activeAlbumId.value = parsed.activeAlbumId;
         }
     } catch (_error) {
-        // noop: cache is best effort
+        // noop
     }
 
     ensureActiveAlbumVisible();
@@ -452,47 +449,59 @@ const restoreGalleryCache = () => {
 
 const currentSlideshowItem = computed(() => currentItems.value[slideshowIndex.value] || null);
 
-const syncVisibleCountForAlbum = (albumKey) => {
-    const total = getCurrentAlbumItems(albumKey).length;
-    const current = visibleCountByAlbum.value[albumKey] ?? perPage.value;
+const syncVisibleCountForAlbum = (albumId) => {
+    const total = getCurrentAlbumItems(albumId).length;
+    const currentCount = visibleCountByAlbum.value[albumId] ?? perPage.value;
 
     if (total === 0) {
-        visibleCountByAlbum.value[albumKey] = perPage.value;
+        visibleCountByAlbum.value = {
+            ...visibleCountByAlbum.value,
+            [albumId]: perPage.value,
+        };
         return;
     }
 
-    if (current < perPage.value) {
-        visibleCountByAlbum.value[albumKey] = perPage.value;
+    if (currentCount < perPage.value) {
+        visibleCountByAlbum.value = {
+            ...visibleCountByAlbum.value,
+            [albumId]: perPage.value,
+        };
         return;
     }
 
-    if (current > total) {
-        visibleCountByAlbum.value[albumKey] = total;
+    if (currentCount > total) {
+        visibleCountByAlbum.value = {
+            ...visibleCountByAlbum.value,
+            [albumId]: total,
+        };
     }
 };
 
 const loadMore = () => {
-    if (!hasMoreItems.value || isLoadingMore.value) {
+    if (!hasMoreItems.value || isLoadingMore.value || !currentAlbum.value) {
         return;
     }
 
+    const albumId = currentAlbum.value.id;
     loadingMoreByAlbum.value = {
         ...loadingMoreByAlbum.value,
-        [activeAlbum.value]: true,
+        [albumId]: true,
     };
 
     window.setTimeout(() => {
-        const total = currentItems.value.length;
-        const nextCount = Math.min(total, currentVisibleCount.value + perPage.value);
+        const albumItems = getCurrentAlbumItems(albumId);
+        const total = albumItems.length;
+        const visibleCount = visibleCountByAlbum.value[albumId] ?? perPage.value;
+        const nextCount = Math.min(total, visibleCount + perPage.value);
 
         visibleCountByAlbum.value = {
             ...visibleCountByAlbum.value,
-            [activeAlbum.value]: nextCount,
+            [albumId]: nextCount,
         };
 
         loadingMoreByAlbum.value = {
             ...loadingMoreByAlbum.value,
-            [activeAlbum.value]: false,
+            [albumId]: false,
         };
 
         observeSentinel();
@@ -611,16 +620,16 @@ const onVideoHoverLeave = (item, event) => {
     }
 };
 
-watch(perPage, (value) => {
-    visibleCountByAlbum.value = {
-        before: value,
-        after: value,
-    };
+watch(perPage, () => {
+    syncAlbumStateMaps();
+    albums.value.forEach((album) => syncVisibleCountForAlbum(album.id));
 });
 
-watch(activeAlbum, () => {
+watch(activeAlbumId, () => {
     ensureActiveAlbumVisible();
-    syncVisibleCountForAlbum(activeAlbum.value);
+    if (currentAlbum.value) {
+        syncVisibleCountForAlbum(currentAlbum.value.id);
+    }
     slideshowIndex.value = 0;
     observeSentinel();
     persistGalleryCache();
@@ -628,31 +637,18 @@ watch(activeAlbum, () => {
 });
 
 watch(
-    availableAlbumKeys,
-    (keys) => {
-        if (!keys.includes(activeAlbum.value)) {
-            activeAlbum.value = keys[0] || 'before';
-            return;
-        }
-
-        syncVisibleCountForAlbum(activeAlbum.value);
-        observeSentinel();
-    },
-    { immediate: true },
-);
-
-watch(
-    () => albums.value,
+    albums,
     () => {
-        syncVisibleCountForAlbum('before');
-        syncVisibleCountForAlbum('after');
+        syncAlbumStateMaps();
+        ensureActiveAlbumVisible();
+        albums.value.forEach((album) => syncVisibleCountForAlbum(album.id));
         if (slideshowIndex.value >= currentItems.value.length) {
             slideshowIndex.value = 0;
         }
         observeSentinel();
         prefetchUpcomingMedia();
     },
-    { deep: true },
+    { deep: true, immediate: true },
 );
 
 watch(layout, (value) => {
@@ -673,8 +669,8 @@ watch(currentVisibleCount, () => {
 });
 
 onMounted(() => {
-    restoreGalleryCache();
     ensureActiveAlbumVisible();
+    restoreGalleryCache();
 
     observer = new IntersectionObserver(
         (entries) => {
@@ -689,8 +685,7 @@ onMounted(() => {
         },
     );
 
-    syncVisibleCountForAlbum('before');
-    syncVisibleCountForAlbum('after');
+    albums.value.forEach((album) => syncVisibleCountForAlbum(album.id));
     observeSentinel();
     prefetchUpcomingMedia();
     startSlideshow();
@@ -725,17 +720,17 @@ onUnmounted(() => {
                 </h2>
             </div>
 
-            <div v-if="visibleAlbums.length > 1" class="flex justify-center mb-10">
+            <div v-if="albums.length > 1" class="flex justify-center mb-10">
                 <div
                     class="flex w-full max-w-md sm:max-w-none sm:w-auto flex-col sm:flex-row rounded-xl p-1.5 gap-1"
                     :style="{ backgroundColor: tabsStyle.backgroundColor, border: `1px solid ${tabsStyle.borderColor}` }"
                 >
                     <button
-                        v-for="album in visibleAlbums"
-                        :key="album.key"
+                        v-for="album in albums"
+                        :key="album.id"
                         type="button"
                         class="w-full sm:w-auto px-4 sm:px-6 py-2.5 rounded-lg transition-all duration-200 break-words"
-                        :style="activeAlbum === album.key
+                        :style="activeAlbumId === album.id
                             ? {
                                 ...tabActiveTextStyle,
                                 backgroundColor: tabsStyle.activeBackgroundColor,
@@ -747,13 +742,13 @@ onUnmounted(() => {
                                 backgroundColor: 'transparent',
                                 border: '1px solid transparent'
                             }"
-                        @click="activeAlbum = album.key"
+                        @click="activeAlbumId = album.id"
                     >
                         {{ album.title }}
                     </button>
                 </div>
             </div>
-            <div v-else-if="visibleAlbums.length === 1" class="flex justify-center mb-10">
+            <div v-else-if="albums.length === 1" class="flex justify-center mb-10">
                 <div
                     class="px-4 sm:px-6 py-2.5 rounded-lg break-words text-center max-w-full"
                     :style="{
@@ -763,7 +758,7 @@ onUnmounted(() => {
                         boxShadow: '0 3px 10px rgba(0, 0, 0, 0.08)'
                     }"
                 >
-                    {{ visibleAlbums[0].title }}
+                    {{ albums[0].title }}
                 </div>
             </div>
 
@@ -828,7 +823,7 @@ onUnmounted(() => {
                 <template v-if="isLoadingMore">
                     <div
                         v-for="n in 4"
-                        :key="`skeleton-${activeAlbum}-${n}`"
+                        :key="`skeleton-${activeAlbumId}-${n}`"
                         class="rounded-xl bg-gray-100 animate-pulse aspect-square"
                         aria-hidden="true"
                     ></div>

@@ -15,13 +15,33 @@ use App\Models\SiteLayout;
 use App\Models\SiteTemplate;
 use App\Services\Site\SiteContentSchema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
 });
+
+Route::get('/politica-de-privacidade', function () {
+    $documentPath = base_path('documents/politica-de-privacidade.md');
+
+    abort_unless(File::exists($documentPath), 404);
+
+    return Inertia::render('PrivacyPolicy', [
+        'html' => Str::markdown(
+            File::get($documentPath),
+            [
+                'html_input' => 'strip',
+                'allow_unsafe_links' => false,
+            ],
+        ),
+    ]);
+})->name('privacy.policy');
+
+Route::redirect('/privacy', '/politica-de-privacidade', 301);
 
 Route::get('/health', function () {
     return response()->json([

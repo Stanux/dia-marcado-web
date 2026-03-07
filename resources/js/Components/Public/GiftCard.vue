@@ -28,10 +28,26 @@ interface GiftItem {
 
 interface Props {
   gift: GiftItem;
+  cardBackgroundColor?: string;
+  cardBorderColor?: string;
+  buttonBackgroundColor?: string;
+  titleStyle?: Record<string, string | number>;
+  descriptionStyle?: Record<string, string | number>;
+  priceStyle?: Record<string, string | number>;
+  buttonTypographyStyle?: Record<string, string | number>;
+  viewMode?: 'grid' | 'list';
   isPreview?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  cardBackgroundColor: '#ffffff',
+  cardBorderColor: '#e5e7eb',
+  buttonBackgroundColor: '#3b82f6',
+  titleStyle: () => ({}),
+  descriptionStyle: () => ({}),
+  priceStyle: () => ({}),
+  buttonTypographyStyle: () => ({}),
+  viewMode: 'grid',
   isPreview: false
 });
 
@@ -55,7 +71,7 @@ const buttonText = computed(() => {
 });
 
 const buttonDisabled = computed(() => {
-  return isSoldOut.value || props.isPreview;
+  return isSoldOut.value;
 });
 
 const showQuotaProgress = computed(() => {
@@ -80,14 +96,18 @@ function formatPrice(priceInCents: number): string {
 }
 
 function handlePurchaseClick() {
-  if (!buttonDisabled.value) {
+  if (!buttonDisabled.value && !props.isPreview) {
     emit('purchase', props.gift);
   }
 }
 </script>
 
 <template>
-  <div class="gift-card">
+  <div
+    class="gift-card"
+    :class="{ 'gift-card-list': props.viewMode === 'list' }"
+    :style="{ backgroundColor: props.cardBackgroundColor, borderColor: props.cardBorderColor }"
+  >
     <!-- Gift Image -->
     <div class="gift-image-container">
       <img 
@@ -120,13 +140,13 @@ function handlePurchaseClick() {
 
     <!-- Gift Info -->
     <div class="gift-info">
-      <h3 class="gift-name">{{ gift.name }}</h3>
+      <h3 class="gift-name" :style="props.titleStyle">{{ gift.name }}</h3>
       
-      <p class="gift-description">{{ gift.description }}</p>
+      <p class="gift-description" :style="props.descriptionStyle">{{ gift.description }}</p>
       
       <div class="gift-footer">
         <div class="gift-price-row">
-          <div class="gift-price">
+          <div class="gift-price" :style="props.priceStyle">
             <span v-if="gift.is_fallback_donation" class="gift-price-prefix">A partir de</span>
             R$ {{ formatPrice(gift.display_price) }}
           </div>
@@ -141,6 +161,10 @@ function handlePurchaseClick() {
               { 'sold-out': isSoldOut },
               { 'preview': isPreview }
             ]"
+            :style="{
+              ...props.buttonTypographyStyle,
+              backgroundColor: isSoldOut ? undefined : props.buttonBackgroundColor
+            }"
           >
             {{ buttonText }}
           </button>
@@ -154,7 +178,7 @@ function handlePurchaseClick() {
 .gift-card {
   display: flex;
   flex-direction: column;
-  background-color: white;
+  border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   overflow: hidden;
@@ -179,6 +203,25 @@ function handlePurchaseClick() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.gift-card-list {
+  flex-direction: row;
+}
+
+.gift-card-list .gift-image-container {
+  flex: 0 0 240px;
+  width: 240px;
+  min-height: 100%;
+  aspect-ratio: auto;
+}
+
+.gift-card-list .gift-info {
+  padding: 1.5rem;
+}
+
+.gift-card-list .gift-footer {
+  align-content: start;
 }
 
 .gift-image-placeholder {
@@ -301,7 +344,6 @@ function handlePurchaseClick() {
 /* Purchase Button */
 .purchase-button {
   padding: 0.75rem 1.5rem;
-  background-color: #3b82f6;
   color: white;
   border: none;
   border-radius: 0.5rem;
@@ -314,7 +356,7 @@ function handlePurchaseClick() {
 }
 
 .purchase-button:hover:not(:disabled) {
-  background-color: #2563eb;
+  filter: brightness(0.96);
   transform: scale(1.02);
 }
 
@@ -336,17 +378,23 @@ function handlePurchaseClick() {
   transform: none;
 }
 
-.purchase-button.preview {
-  background-color: #6b7280;
-}
-
 .purchase-button.preview:hover {
-  background-color: #6b7280;
   transform: none;
+  filter: none;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
+  .gift-card-list {
+    flex-direction: column;
+  }
+
+  .gift-card-list .gift-image-container {
+    width: 100%;
+    flex-basis: auto;
+    aspect-ratio: 1 / 1;
+  }
+
   .gift-info {
     padding: 1rem;
   }

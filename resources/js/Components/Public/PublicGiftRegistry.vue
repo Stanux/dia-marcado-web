@@ -46,6 +46,86 @@ const resolveBaseBackgroundColor = (value) => {
 };
 
 const sectionBackgroundColor = computed(() => resolveBaseBackgroundColor(style.value.backgroundColor));
+const cardBackgroundColor = computed(() => {
+    const value = style.value.cardBackgroundColor;
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return '#ffffff';
+    }
+
+    return value.trim();
+});
+
+const DEFAULT_CARD_TITLE_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#1f2937',
+    fontSize: 18,
+    fontWeight: 600,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_CARD_DESCRIPTION_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#6b7280',
+    fontSize: 14,
+    fontWeight: 400,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_CARD_PRICE_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#059669',
+    fontSize: 24,
+    fontWeight: 700,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const DEFAULT_BUTTON_TYPOGRAPHY = {
+    fontFamily: 'Montserrat',
+    fontColor: '#ffffff',
+    fontSize: 14,
+    fontWeight: 600,
+    fontItalic: false,
+    fontUnderline: false,
+};
+
+const resolveTypography = (value, defaults) => ({
+    ...defaults,
+    ...(value && typeof value === 'object' && !Array.isArray(value) ? value : {}),
+});
+
+const cardBorderColor = computed(() => {
+    const value = style.value.cardBorderColor;
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return '#e5e7eb';
+    }
+
+    return value.trim();
+});
+
+const buttonBackgroundColor = computed(() => {
+    const value = style.value.buttonBackgroundColor;
+
+    if (typeof value !== 'string' || !value.trim()) {
+        return '#3b82f6';
+    }
+
+    return value.trim();
+});
+
+const giftAppearance = computed(() => ({
+    cardBackgroundColor: cardBackgroundColor.value,
+    cardBorderColor: cardBorderColor.value,
+    buttonBackgroundColor: buttonBackgroundColor.value,
+    cardTitleTypography: resolveTypography(props.content?.cardTitleTypography, DEFAULT_CARD_TITLE_TYPOGRAPHY),
+    cardDescriptionTypography: resolveTypography(props.content?.cardDescriptionTypography, DEFAULT_CARD_DESCRIPTION_TYPOGRAPHY),
+    cardPriceTypography: resolveTypography(props.content?.cardPriceTypography, DEFAULT_CARD_PRICE_TYPOGRAPHY),
+    buttonTypography: resolveTypography(props.content?.buttonTypography, DEFAULT_BUTTON_TYPOGRAPHY),
+}));
 
 const resolveConfigObject = (value) => (
     value && typeof value === 'object' && !Array.isArray(value) ? value : {}
@@ -126,6 +206,7 @@ const giftConfig = computed(() => {
             <GiftCatalogGrid
                 :event-id="eventId"
                 :config="giftConfig"
+                :appearance="giftAppearance"
                 :is-preview="isPreview"
             />
         </div>

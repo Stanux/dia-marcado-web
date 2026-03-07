@@ -301,7 +301,7 @@ const currentYear = new Date().getFullYear();
                     <span>© {{ currentYear }} Dia Marcado</span>
                     <div class="flex gap-4">
                         <a class="hover:text-black" href="/terms">Termos</a>
-                        <a class="hover:text-black" href="/privacy">Privacidade</a>
+                        <a class="hover:text-black" href="/politica-de-privacidade">Privacidade</a>
                         <a class="hover:text-black" href="/admin">Contato</a>
                     </div>
                 </footer>

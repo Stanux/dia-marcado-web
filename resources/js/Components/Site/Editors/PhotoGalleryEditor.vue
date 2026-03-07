@@ -2,7 +2,7 @@
 /**
  * PhotoGalleryEditor Component
  *
- * Editor para a seção Galeria de Fotos com curadoria manual.
+ * Editor para a seção Galeria de Fotos com álbuns públicos configuráveis.
  * Suporta seleção de mídia mista (foto + vídeo), ordem manual e
  * configuração de layout/estilo da seção.
  */
@@ -22,23 +22,41 @@ const emit = defineEmits(['change']);
 const attrs = useAttrs();
 const { isEyeDropperSupported, normalizeHexColor, pickColorFromScreen } = useColorField();
 
-const getDefaultAlbums = () => ({
-    before: {
-        title: 'Nossa História',
-        items: [],
-        photos: [],
-    },
-    after: {
-        title: 'O Grande Dia',
-        items: [],
-        photos: [],
-    },
+const LEGACY_ALBUM_TITLES = {
+    before: 'Nossa História',
+    after: 'O Grande Dia',
+};
+
+const buildAlbumId = (seed = '') => {
+    const normalizedSeed = String(seed)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    const suffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    return `gallery-album-${normalizedSeed ? `${normalizedSeed}-` : ''}${suffix}`;
+};
+
+const getDefaultAlbumTitle = (index = 0, legacyKey = '') => {
+    if (legacyKey && LEGACY_ALBUM_TITLES[legacyKey]) {
+        return LEGACY_ALBUM_TITLES[legacyKey];
+    }
+
+    return `Álbum ${index + 1}`;
+};
+
+const createAlbum = (index = 0, title = '', legacyKey = '') => ({
+    id: buildAlbumId(legacyKey || `${index + 1}`),
+    title: title || getDefaultAlbumTitle(index, legacyKey),
+    items: [],
+    photos: [],
 });
 
-const getDefaultDisplay = () => ({
-    showBefore: true,
-    showAfter: true,
-});
+const getDefaultAlbums = () => [createAlbum(0)];
 
 const getDefaultTitleTypography = () => ({
     fontFamily: 'Playfair Display',
@@ -73,18 +91,6 @@ const getDefaultTabsStyle = () => ({
     borderColor: '#e5e7eb',
     activeBorderColor: '#d87a8d',
 });
-
-const localContent = ref(JSON.parse(JSON.stringify(props.content || {})));
-const activeAlbum = ref('before');
-const showMediaGallery = ref(false);
-
-watch(
-    () => props.content,
-    (newContent) => {
-        localContent.value = JSON.parse(JSON.stringify(newContent || {}));
-        ensureStructure();
-    },
-);
 
 const normalizeGalleryItem = (item, index = 0) => {
     if (!item) {
@@ -138,44 +144,102 @@ const normalizeGalleryItem = (item, index = 0) => {
     };
 };
 
+const normalizeAlbumEntry = (album, index = 0, legacyKey = '') => {
+    const baseAlbum = album && typeof album === 'object' ? album : {};
+    const items = Array.isArray(baseAlbum.items) ? baseAlbum.items : [];
+    const legacyPhotos = Array.isArray(baseAlbum.photos) ? baseAlbum.photos : [];
+    const sourceItems = items.length > 0 ? items : legacyPhotos;
+
+    const normalizedItems = sourceItems
+        .map((item, itemIndex) => normalizeGalleryItem(item, itemIndex))
+        .filter(Boolean)
+        .map((item, itemIndex) => ({
+            ...item,
+            sortOrder: itemIndex,
+        }));
+
+    const title = typeof baseAlbum.title === 'string' && baseAlbum.title.trim()
+        ? baseAlbum.title
+        : getDefaultAlbumTitle(index, legacyKey);
+
+    return {
+        ...baseAlbum,
+        id: typeof baseAlbum.id === 'string' && baseAlbum.id.trim()
+            ? baseAlbum.id
+            : buildAlbumId(legacyKey || `${index + 1}`),
+        title,
+        items: normalizedItems,
+        photos: Array.isArray(baseAlbum.photos) ? baseAlbum.photos : [],
+    };
+};
+
+const normalizeAlbumsCollection = (source) => {
+    if (Array.isArray(source)) {
+        const normalizedList = source
+            .map((album, index) => normalizeAlbumEntry(album, index))
+            .filter(Boolean);
+
+        return normalizedList.length > 0 ? normalizedList : getDefaultAlbums();
+    }
+
+    if (source && typeof source === 'object') {
+        const normalizedList = Object.entries(source)
+            .map(([legacyKey, album], index) => normalizeAlbumEntry(album, index, legacyKey))
+            .filter(Boolean);
+
+        return normalizedList.length > 0 ? normalizedList : getDefaultAlbums();
+    }
+
+    return getDefaultAlbums();
+};
+
+const localContent = ref(JSON.parse(JSON.stringify(props.content || {})));
+const activeAlbumId = ref(null);
+const showMediaGallery = ref(false);
+
+const ensureActiveAlbum = () => {
+    const albums = Array.isArray(localContent.value.albums) ? localContent.value.albums : [];
+
+    if (albums.length === 0) {
+        localContent.value.albums = getDefaultAlbums();
+        activeAlbumId.value = localContent.value.albums[0].id;
+        return;
+    }
+
+    if (!albums.some((album) => album.id === activeAlbumId.value)) {
+        activeAlbumId.value = albums[0].id;
+    }
+};
+
 const ensureStructure = () => {
     if (!localContent.value.title || typeof localContent.value.title !== 'string') {
         localContent.value.title = 'Galeria de Fotos';
     }
 
-    if (!localContent.value.albums) {
-        localContent.value.albums = getDefaultAlbums();
+    localContent.value.albums = normalizeAlbumsCollection(localContent.value.albums);
+    ensureActiveAlbum();
+
+    if (!localContent.value.layout || typeof localContent.value.layout !== 'string') {
+        localContent.value.layout = 'masonry';
     }
 
-    if (!localContent.value.albums.before) {
-        localContent.value.albums.before = getDefaultAlbums().before;
+    if (typeof localContent.value.showLightbox !== 'boolean') {
+        localContent.value.showLightbox = true;
     }
 
-    if (!localContent.value.albums.after) {
-        localContent.value.albums.after = getDefaultAlbums().after;
+    if (typeof localContent.value.allowDownload !== 'boolean') {
+        localContent.value.allowDownload = true;
     }
 
-    for (const key of ['before', 'after']) {
-        const album = localContent.value.albums[key];
+    if (!localContent.value.style || typeof localContent.value.style !== 'object') {
+        localContent.value.style = {
+            backgroundColor: '#ffffff',
+            columns: 3,
+        };
+    }
 
-        if (!Array.isArray(album.items)) {
-            const legacyPhotos = Array.isArray(album.photos) ? album.photos : [];
-            album.items = legacyPhotos
-                .map((photo, index) => normalizeGalleryItem(photo, index))
-                .filter(Boolean);
-        }
-
-        album.items = album.items
-            .map((item, index) => normalizeGalleryItem(item, index))
-            .filter(Boolean)
-            .map((item, index) => ({
-                ...item,
-                sortOrder: index,
-            }));
-
-        if (!Array.isArray(album.photos)) {
-            album.photos = [];
-        }
+    if (!Number.isFinite(localContent.value.style.columns) || localContent.value.style.columns <= 0) {
+        localContent.value.style.columns = 3;
     }
 
     if (!localContent.value.pagination || typeof localContent.value.pagination !== 'object') {
@@ -191,18 +255,6 @@ const ensureStructure = () => {
             hoverPreview: true,
             hoverDelayMs: 1000,
         };
-    }
-
-    if (!localContent.value.display || typeof localContent.value.display !== 'object') {
-        localContent.value.display = getDefaultDisplay();
-    }
-
-    if (typeof localContent.value.display.showBefore !== 'boolean') {
-        localContent.value.display.showBefore = true;
-    }
-
-    if (typeof localContent.value.display.showAfter !== 'boolean') {
-        localContent.value.display.showAfter = true;
     }
 
     if (!localContent.value.titleTypography || typeof localContent.value.titleTypography !== 'object') {
@@ -222,11 +274,18 @@ const ensureStructure = () => {
     }
 };
 
+watch(
+    () => props.content,
+    (newContent) => {
+        localContent.value = JSON.parse(JSON.stringify(newContent || {}));
+        ensureStructure();
+    },
+);
+
 ensureStructure();
 
 const syncLegacyPhotosFromItems = () => {
-    for (const key of ['before', 'after']) {
-        const album = localContent.value.albums[key];
+    for (const album of localContent.value.albums) {
         album.photos = (album.items || [])
             .filter((item) => item.type === 'image')
             .map((item) => ({
@@ -239,6 +298,7 @@ const syncLegacyPhotosFromItems = () => {
 };
 
 const emitChange = () => {
+    ensureStructure();
     syncLegacyPhotosFromItems();
     emit('change', JSON.parse(JSON.stringify(localContent.value)));
 };
@@ -262,16 +322,6 @@ const updateVideoConfig = (field, value) => {
     emitChange();
 };
 
-const updateDisplay = (field, value) => {
-    if (!localContent.value.display || typeof localContent.value.display !== 'object') {
-        localContent.value.display = getDefaultDisplay();
-    }
-
-    localContent.value.display[field] = value;
-    syncSectionEnabledByDisplay();
-    emitChange();
-};
-
 const updateTypography = (typographyKey, field, value) => {
     if (!localContent.value[typographyKey] || typeof localContent.value[typographyKey] !== 'object') {
         localContent.value[typographyKey] = {};
@@ -290,17 +340,66 @@ const updateTabsStyle = (field, value) => {
     emitChange();
 };
 
-const updateAlbumTitle = (albumKey, title) => {
-    localContent.value.albums[albumKey].title = title;
+const getAlbumIndex = (albumId) => localContent.value.albums.findIndex((album) => album.id === albumId);
+const getAlbumById = (albumId) => localContent.value.albums.find((album) => album.id === albumId) || null;
+
+const addAlbum = () => {
+    const nextIndex = localContent.value.albums.length;
+    const album = createAlbum(nextIndex);
+
+    localContent.value.albums.push(album);
+    activeAlbumId.value = album.id;
     emitChange();
 };
 
-const getAlbumItems = (albumKey) => {
-    return localContent.value.albums?.[albumKey]?.items || [];
+const updateAlbumTitle = (albumId, title) => {
+    const album = getAlbumById(albumId);
+    if (!album) {
+        return;
+    }
+
+    album.title = title;
+    emitChange();
 };
 
-const updateMediaItemField = (albumKey, index, field, value) => {
-    const items = getAlbumItems(albumKey);
+const removeAlbum = (albumId) => {
+    if (localContent.value.albums.length <= 1) {
+        return;
+    }
+
+    const index = getAlbumIndex(albumId);
+    if (index < 0) {
+        return;
+    }
+
+    localContent.value.albums.splice(index, 1);
+
+    const nextAlbum = localContent.value.albums[index] || localContent.value.albums[index - 1] || localContent.value.albums[0];
+    activeAlbumId.value = nextAlbum?.id ?? null;
+    emitChange();
+};
+
+const moveAlbum = (albumId, direction) => {
+    const index = getAlbumIndex(albumId);
+    if (index < 0) {
+        return;
+    }
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= localContent.value.albums.length) {
+        return;
+    }
+
+    const [album] = localContent.value.albums.splice(index, 1);
+    localContent.value.albums.splice(targetIndex, 0, album);
+    activeAlbumId.value = album.id;
+    emitChange();
+};
+
+const getAlbumItems = (albumId) => getAlbumById(albumId)?.items || [];
+
+const updateMediaItemField = (albumId, index, field, value) => {
+    const items = getAlbumItems(albumId);
     if (!items[index]) {
         return;
     }
@@ -309,8 +408,8 @@ const updateMediaItemField = (albumKey, index, field, value) => {
     emitChange();
 };
 
-const removeMediaItem = (albumKey, index) => {
-    const items = getAlbumItems(albumKey);
+const removeMediaItem = (albumId, index) => {
+    const items = getAlbumItems(albumId);
     if (!items[index]) {
         return;
     }
@@ -319,8 +418,8 @@ const removeMediaItem = (albumKey, index) => {
     emitChange();
 };
 
-const moveMediaItemUp = (albumKey, index) => {
-    const items = getAlbumItems(albumKey);
+const moveMediaItemUp = (albumId, index) => {
+    const items = getAlbumItems(albumId);
     if (index <= 0 || !items[index]) {
         return;
     }
@@ -330,8 +429,8 @@ const moveMediaItemUp = (albumKey, index) => {
     emitChange();
 };
 
-const moveMediaItemDown = (albumKey, index) => {
-    const items = getAlbumItems(albumKey);
+const moveMediaItemDown = (albumId, index) => {
+    const items = getAlbumItems(albumId);
     if (index >= items.length - 1 || !items[index]) {
         return;
     }
@@ -341,14 +440,20 @@ const moveMediaItemDown = (albumKey, index) => {
     emitChange();
 };
 
-const showAlbumSelector = (albumKey) => {
-    activeAlbum.value = albumKey;
+const showAlbumSelector = (albumId) => {
+    activeAlbumId.value = albumId;
     showMediaGallery.value = true;
 };
 
 const onMediaSelected = (payload) => {
+    const album = getAlbumById(activeAlbumId.value);
+    if (!album) {
+        showMediaGallery.value = false;
+        return;
+    }
+
     const selectedItems = Array.isArray(payload) ? payload : [payload];
-    const existingItems = getAlbumItems(activeAlbum.value);
+    const existingItems = album.items || [];
     const existingKeys = new Set(
         existingItems.map((item) => `id:${item.mediaId ?? 'none'}|url:${item.url ?? ''}`),
     );
@@ -371,7 +476,7 @@ const onMediaSelected = (payload) => {
         return;
     }
 
-    localContent.value.albums[activeAlbum.value].items = [
+    album.items = [
         ...existingItems,
         ...normalized,
     ].map((item, index) => ({
@@ -387,37 +492,22 @@ const style = computed(() => localContent.value.style || {});
 const pagination = computed(() => localContent.value.pagination || { perPage: 20 });
 const videoConfig = computed(() => localContent.value.video || { hoverPreview: true, hoverDelayMs: 1000 });
 const albums = computed(() => localContent.value.albums || getDefaultAlbums());
-const currentAlbumItems = computed(() => getAlbumItems(activeAlbum.value));
-const albumTypeFilter = computed(() => (activeAlbum.value === 'before' ? 'pre_casamento' : 'pos_casamento'));
-const selectorTitle = computed(() => (
-    activeAlbum.value === 'before'
-        ? 'Selecionar Mídias - Álbum Antes'
-        : 'Selecionar Mídias - Álbum Depois'
-));
+const currentAlbum = computed(() => getAlbumById(activeAlbumId.value) || albums.value[0] || null);
+const currentAlbumIndex = computed(() => albums.value.findIndex((album) => album.id === currentAlbum.value?.id));
+const currentAlbumItems = computed(() => currentAlbum.value?.items || []);
+const selectorTitle = computed(() => currentAlbum.value?.title
+    ? `Selecionar mídias - ${currentAlbum.value.title}`
+    : 'Selecionar mídias do acervo');
 const photoGalleryBackgroundColorHex = computed(() => normalizeHexColor(style.value.backgroundColor, '#ffffff'));
 
 const pickPhotoGalleryBackgroundColor = () => {
     pickColorFromScreen((hex) => updateStyle('backgroundColor', hex));
 };
 
-const display = computed(() => localContent.value.display || getDefaultDisplay());
 const titleTypography = computed(() => localContent.value.titleTypography || getDefaultTitleTypography());
 const tabsTypography = computed(() => localContent.value.tabsTypography || getDefaultTabsTypography());
 const tabsActiveTypography = computed(() => localContent.value.tabsActiveTypography || getDefaultTabsActiveTypography());
 const tabsStyle = computed(() => localContent.value.tabsStyle || getDefaultTabsStyle());
-
-const syncSectionEnabledByDisplay = () => {
-    const hasVisibleAlbum = Boolean(display.value.showBefore) || Boolean(display.value.showAfter);
-
-    if (!hasVisibleAlbum) {
-        localContent.value.enabled = false;
-        return;
-    }
-
-    if (localContent.value.enabled === false) {
-        localContent.value.enabled = true;
-    }
-};
 </script>
 
 <template>
@@ -452,35 +542,6 @@ const syncSectionEnabledByDisplay = () => {
                 @update:font-italic="updateTypography('titleTypography', 'fontItalic', $event)"
                 @update:font-underline="updateTypography('titleTypography', 'fontUnderline', $event)"
             />
-        </div>
-
-        <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Exibição de Grupos</h3>
-            <p class="text-xs text-gray-500">
-                Controle quais grupos aparecem no site. Se ambos ficarem desativados, a seção será desativada automaticamente.
-            </p>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label class="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                        type="checkbox"
-                        class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
-                        :checked="display.showBefore"
-                        @change="updateDisplay('showBefore', $event.target.checked)"
-                    />
-                    Exibir grupo "Antes"
-                </label>
-
-                <label class="flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                        type="checkbox"
-                        class="h-4 w-4 text-wedding-600 focus:ring-wedding-500 border-gray-300 rounded"
-                        :checked="display.showAfter"
-                        @change="updateDisplay('showAfter', $event.target.checked)"
-                    />
-                    Exibir grupo "Depois"
-                </label>
-            </div>
         </div>
 
         <div class="space-y-4">
@@ -569,156 +630,194 @@ const syncSectionEnabledByDisplay = () => {
         </div>
 
         <div class="space-y-4 pt-6 border-t border-gray-200">
-            <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Álbuns</h3>
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Organização da Galeria</h3>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Crie álbuns públicos e monte cada um com as mídias selecionadas de qualquer álbum do acervo.
+                    </p>
+                </div>
 
-            <div class="album-tabs" role="tablist" aria-label="Seleção de álbum">
                 <button
+                    type="button"
+                    class="inline-flex items-center justify-center px-3 py-2 rounded-md bg-wedding-600 text-white text-sm font-medium hover:bg-wedding-700"
+                    @click="addAlbum"
+                >
+                    + Novo álbum público
+                </button>
+            </div>
+
+            <div class="album-tabs" role="tablist" aria-label="Seleção de álbum público">
+                <button
+                    v-for="(album, index) in albums"
+                    :key="album.id"
                     type="button"
                     role="tab"
                     class="album-tab"
-                    :class="{ 'album-tab-active': activeAlbum === 'before' }"
-                    :aria-selected="activeAlbum === 'before'"
-                    @click="activeAlbum = 'before'"
+                    :class="{ 'album-tab-active': currentAlbum?.id === album.id }"
+                    :aria-selected="currentAlbum?.id === album.id"
+                    @click="activeAlbumId = album.id"
                 >
-                    Álbum "Antes"
-                </button>
-                <button
-                    type="button"
-                    role="tab"
-                    class="album-tab"
-                    :class="{ 'album-tab-active': activeAlbum === 'after' }"
-                    :aria-selected="activeAlbum === 'after'"
-                    @click="activeAlbum = 'after'"
-                >
-                    Álbum "Depois"
+                    <span class="truncate">{{ album.title || `Álbum ${index + 1}` }}</span>
                 </button>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Título do Álbum</label>
-                <input
-                    type="text"
-                    :value="albums[activeAlbum]?.title"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                    :placeholder="activeAlbum === 'before' ? 'Nossa História' : 'O Grande Dia'"
-                    @input="updateAlbumTitle(activeAlbum, $event.target.value)"
-                />
-            </div>
-
-            <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700">
-                    Itens selecionados ({{ currentAlbumItems.length }})
-                </span>
-                <button
-                    type="button"
-                    class="text-sm text-wedding-600 hover:text-wedding-700 font-medium"
-                    @click="showAlbumSelector(activeAlbum)"
-                >
-                    + Selecionar fotos e vídeos
-                </button>
-            </div>
-
-            <div v-if="currentAlbumItems.length === 0" class="p-4 bg-gray-50 rounded-lg text-center text-sm text-gray-500">
-                Nenhum item selecionado para este álbum.
-            </div>
-
-            <div v-else class="space-y-3 max-h-96 overflow-y-auto pr-1">
-                <div
-                    v-for="(item, index) in currentAlbumItems"
-                    :key="`${item.mediaId || item.url}-${index}`"
-                    class="p-4 bg-gray-50 rounded-lg space-y-3"
-                >
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium text-gray-700">
-                            {{ item.type === 'video' ? 'Vídeo' : 'Imagem' }} {{ index + 1 }}
-                        </span>
-                        <div class="flex items-center space-x-2">
-                            <button
-                                type="button"
-                                class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                                :disabled="index === 0"
-                                title="Mover para cima"
-                                @click="moveMediaItemUp(activeAlbum, index)"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                </svg>
-                            </button>
-                            <button
-                                type="button"
-                                class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                                :disabled="index === currentAlbumItems.length - 1"
-                                title="Mover para baixo"
-                                @click="moveMediaItemDown(activeAlbum, index)"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-                            <button
-                                type="button"
-                                class="p-1 text-red-400 hover:text-red-600"
-                                title="Remover"
-                                @click="removeMediaItem(activeAlbum, index)"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
-                        </div>
+            <div v-if="currentAlbum" class="space-y-4">
+                <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Título do Álbum Público</label>
+                        <input
+                            type="text"
+                            :value="currentAlbum.title"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                            :placeholder="`Álbum ${currentAlbumIndex + 1}`"
+                            @input="updateAlbumTitle(currentAlbum.id, $event.target.value)"
+                        />
                     </div>
 
-                    <div class="grid grid-cols-1 xl:grid-cols-[90px_minmax(180px,1fr)_minmax(180px,1fr)_minmax(220px,1.2fr)] gap-3 items-start">
-                        <div class="w-[90px] h-[90px] rounded-lg overflow-hidden border border-gray-200 bg-white">
-                            <video
-                                v-if="item.type === 'video'"
-                                :src="item.url"
-                                :poster="item.thumbnailUrl || undefined"
-                                class="w-full h-full object-cover"
-                                muted
-                                playsinline
-                                preload="metadata"
-                            ></video>
-                            <img
-                                v-else
-                                :src="item.thumbnailUrl || item.url"
-                                :alt="item.alt || item.title || 'Imagem'"
-                                class="w-full h-full object-cover"
-                                loading="lazy"
-                            />
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            class="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+                            :disabled="currentAlbumIndex <= 0"
+                            @click="moveAlbum(currentAlbum.id, 'up')"
+                        >
+                            Mover para cima
+                        </button>
+                        <button
+                            type="button"
+                            class="px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+                            :disabled="currentAlbumIndex >= albums.length - 1"
+                            @click="moveAlbum(currentAlbum.id, 'down')"
+                        >
+                            Mover para baixo
+                        </button>
+                        <button
+                            type="button"
+                            class="px-3 py-2 text-sm border border-red-200 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-40"
+                            :disabled="albums.length <= 1"
+                            @click="removeAlbum(currentAlbum.id)"
+                        >
+                            Remover álbum
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-sm font-medium text-gray-700">
+                        Itens selecionados ({{ currentAlbumItems.length }})
+                    </span>
+                    <button
+                        type="button"
+                        class="text-sm text-wedding-600 hover:text-wedding-700 font-medium"
+                        @click="showAlbumSelector(currentAlbum.id)"
+                    >
+                        + Selecionar fotos e vídeos
+                    </button>
+                </div>
+
+                <div v-if="currentAlbumItems.length === 0" class="p-4 bg-gray-50 rounded-lg text-center text-sm text-gray-500">
+                    Nenhuma mídia selecionada para este álbum público.
+                </div>
+
+                <div v-else class="space-y-3 max-h-96 overflow-y-auto pr-1">
+                    <div
+                        v-for="(item, index) in currentAlbumItems"
+                        :key="`${item.mediaId || item.url}-${index}`"
+                        class="p-4 bg-gray-50 rounded-lg space-y-3"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium text-gray-700">
+                                {{ item.type === 'video' ? 'Vídeo' : 'Imagem' }} {{ index + 1 }}
+                            </span>
+                            <div class="flex items-center space-x-2">
+                                <button
+                                    type="button"
+                                    class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                                    :disabled="index === 0"
+                                    title="Mover para cima"
+                                    @click="moveMediaItemUp(currentAlbum.id, index)"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                                    </svg>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                                    :disabled="index === currentAlbumItems.length - 1"
+                                    title="Mover para baixo"
+                                    @click="moveMediaItemDown(currentAlbum.id, index)"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="p-1 text-red-400 hover:text-red-600"
+                                    title="Remover"
+                                    @click="removeMediaItem(currentAlbum.id, index)"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
 
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Título</label>
-                            <input
-                                type="text"
-                                :value="item.title"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                                placeholder="Título opcional"
-                                @input="updateMediaItemField(activeAlbum, index, 'title', $event.target.value)"
-                            />
-                        </div>
+                        <div class="grid grid-cols-1 xl:grid-cols-[90px_minmax(180px,1fr)_minmax(180px,1fr)_minmax(220px,1.2fr)] gap-3 items-start">
+                            <div class="w-[90px] h-[90px] rounded-lg overflow-hidden border border-gray-200 bg-white">
+                                <video
+                                    v-if="item.type === 'video'"
+                                    :src="item.url"
+                                    :poster="item.thumbnailUrl || undefined"
+                                    class="w-full h-full object-cover"
+                                    muted
+                                    playsinline
+                                    preload="metadata"
+                                ></video>
+                                <img
+                                    v-else
+                                    :src="item.thumbnailUrl || item.url"
+                                    :alt="item.alt || item.title || 'Imagem'"
+                                    class="w-full h-full object-cover"
+                                    loading="lazy"
+                                />
+                            </div>
 
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Legenda</label>
-                            <input
-                                type="text"
-                                :value="item.caption"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                                placeholder="Legenda opcional"
-                                @input="updateMediaItemField(activeAlbum, index, 'caption', $event.target.value)"
-                            />
-                        </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Título</label>
+                                <input
+                                    type="text"
+                                    :value="item.title"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                    placeholder="Título opcional"
+                                    @input="updateMediaItemField(currentAlbum.id, index, 'title', $event.target.value)"
+                                />
+                            </div>
 
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Texto alternativo (acessibilidade)</label>
-                            <input
-                                type="text"
-                                :value="item.alt"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
-                                placeholder="Descreva a imagem"
-                                @input="updateMediaItemField(activeAlbum, index, 'alt', $event.target.value)"
-                            />
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Legenda</label>
+                                <input
+                                    type="text"
+                                    :value="item.caption"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                    placeholder="Legenda opcional"
+                                    @input="updateMediaItemField(currentAlbum.id, index, 'caption', $event.target.value)"
+                                />
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Texto alternativo (acessibilidade)</label>
+                                <input
+                                    type="text"
+                                    :value="item.alt"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-wedding-500 focus:border-wedding-500"
+                                    placeholder="Descreva a imagem"
+                                    @input="updateMediaItemField(currentAlbum.id, index, 'alt', $event.target.value)"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -773,7 +872,7 @@ const syncSectionEnabledByDisplay = () => {
             </div>
 
             <div class="pt-4 border-t border-gray-200 space-y-4">
-                <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Estilo das Abas (Antes/Depois)</h4>
+                <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">Estilo das Abas dos Álbuns</h4>
 
                 <TypographyControl
                     :font-family="tabsTypography.fontFamily || 'Montserrat'"
@@ -864,8 +963,6 @@ const syncSectionEnabledByDisplay = () => {
         media-type="all"
         :allow-crop="false"
         :multiple="true"
-        :allowed-album-types="[albumTypeFilter]"
-        :default-album-type="albumTypeFilter"
         @close="showMediaGallery = false"
         @select="onMediaSelected"
     />
@@ -884,16 +981,22 @@ const syncSectionEnabledByDisplay = () => {
 .text-wedding-700 {
     color: #b9163a;
 }
+.bg-wedding-600 {
+    background-color: #c45a6f;
+}
+.bg-wedding-700 {
+    background-color: #b9163a;
+}
 .border-wedding-600 {
     border-color: #c45a6f;
 }
 
 .album-tabs {
-    @apply grid w-full grid-cols-2 items-end gap-2 border-b border-gray-300;
+    @apply flex flex-wrap items-end gap-2 border-b border-gray-300;
 }
 
 .album-tab {
-    @apply px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150;
+    @apply inline-flex max-w-full items-center px-4 py-2 text-sm font-semibold text-gray-500 transition-all duration-150;
     border: 1px solid transparent;
     border-bottom: none;
     border-radius: 0.65rem 0.65rem 0 0;
